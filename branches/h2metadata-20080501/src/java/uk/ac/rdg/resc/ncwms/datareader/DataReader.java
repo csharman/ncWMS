@@ -59,9 +59,7 @@ public abstract class DataReader
     /**
      * This class can only be instantiated through getDataReader()
      */
-    protected DataReader()
-    {
-    }
+    protected DataReader() {}
     
     /**
      * Gets a DataReader object.  <b>Only one</b> object of each class will be

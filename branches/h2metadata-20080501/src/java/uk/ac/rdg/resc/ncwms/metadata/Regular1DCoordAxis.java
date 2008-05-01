@@ -31,8 +31,6 @@ package uk.ac.rdg.resc.ncwms.metadata;
 import com.sleepycat.persist.model.Persistent;
 import org.apache.log4j.Logger;
 import ucar.nc2.dataset.AxisType;
-import ucar.unidata.geoloc.LatLonPoint;
-import uk.ac.rdg.resc.ncwms.metadata.projection.HorizontalProjection;
 
 /**
  * A regular, one-dimensional coordinate axis, whose values obey the rule
@@ -59,9 +57,10 @@ public class Regular1DCoordAxis extends OneDCoordAxis
     /**
      * Creates a Regular1DCoordAxis 
      */
-    public Regular1DCoordAxis(double start, double stride, int count, AxisType axisType)
+    public Regular1DCoordAxis(double start, double stride, int count,
+        AxisType axisType, String units)
     {
-        super(axisType, count);
+        super(axisType, units, count);
         this.start = start;
         this.stride = stride;
         
@@ -142,5 +141,15 @@ public class Regular1DCoordAxis extends OneDCoordAxis
                this.stride == otherAxis.stride &&
                this.size == otherAxis.size &&
                this.getAxisType() == otherAxis.getAxisType();
+    }
+
+    public double getStart()
+    {
+        return start;
+    }
+
+    public double getStride()
+    {
+        return stride;
     }
 }

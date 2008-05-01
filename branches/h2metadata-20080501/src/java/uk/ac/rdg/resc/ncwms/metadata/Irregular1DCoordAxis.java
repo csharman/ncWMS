@@ -34,8 +34,6 @@ import java.util.Collections;
 import java.util.List;
 import org.apache.log4j.Logger;
 import ucar.nc2.dataset.AxisType;
-import ucar.unidata.geoloc.LatLonPoint;
-import uk.ac.rdg.resc.ncwms.metadata.projection.HorizontalProjection;
 
 /**
  * A one-dimensional coordinate axis, whose values are not equally spaced.
@@ -50,6 +48,11 @@ public class Irregular1DCoordAxis extends OneDCoordAxis
 {
     private static final Logger logger = Logger.getLogger(Irregular1DCoordAxis.class);
     
+    /** 
+     * The axis values as they are stored in the source files
+     */
+    private double[] coordValues;
+    
     /**
      * Maps axis values to their indices along the axis, sorted in ascending order
      * of value.  This level of
@@ -58,6 +61,11 @@ public class Irregular1DCoordAxis extends OneDCoordAxis
      * These NaNs are not stored here.
      */
     private List<AxisValue> axisVals;
+
+    public double[] getCoordValues()
+    {
+        return coordValues;
+    }
     
     /**
      * Simple class mapping axis values to indices.
@@ -81,6 +89,7 @@ public class Irregular1DCoordAxis extends OneDCoordAxis
             return Double.compare(this.value, otherVal.value);
         }
         
+        @Override
         public boolean equals(Object obj)
         {
             if (this == obj) return true;
@@ -94,11 +103,13 @@ public class Irregular1DCoordAxis extends OneDCoordAxis
     /**
      * Creates a new instance of Irregular1DCoordAxis
      */
-    public Irregular1DCoordAxis(double[] coordValues, AxisType axisType)
+    public Irregular1DCoordAxis(double[] coordValues, AxisType axisType,
+        String units, PositiveDirection positiveDirection)
     {
-        super(axisType, coordValues.length);
+        super(axisType, units, coordValues.length, positiveDirection);
         
         // Store the axis values and their indices
+        this.coordValues = coordValues;
         this.axisVals = new ArrayList<AxisValue>(coordValues.length);
         for (int i = 0; i < coordValues.length; i++)
         {
@@ -112,8 +123,7 @@ public class Irregular1DCoordAxis extends OneDCoordAxis
                 this.axisVals.add(new AxisValue(coordValues[i], i));
             }
         }
-        // Now sort the axis values in ascending order
-        // TODO: is this always OK?
+        // Now sort the axis values in *ascending* order
         Collections.sort(this.axisVals);
         
         // Check for wrapping in the longitude direction
@@ -180,7 +190,6 @@ public class Irregular1DCoordAxis extends OneDCoordAxis
     private int findNearest(double target)
     {
         // Check that the point is within range
-        // TODO: careful of longitude axis wrapping
         if (target < this.axisVals.get(0).value || 
             target > this.axisVals.get(this.axisVals.size() - 1).value)
         {
@@ -206,6 +215,7 @@ public class Irregular1DCoordAxis extends OneDCoordAxis
                 Math.abs(target - highVal.value)) ? lowVal.index : highVal.index;
     }
     
+    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) return true;

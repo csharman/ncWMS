@@ -71,7 +71,7 @@ public class LayerImpl implements Layer
     protected transient Dataset dataset; // Not stored in the metadata database
     // Sorted in ascending order of time
     protected List<TimestepInfo> timesteps = new ArrayList<TimestepInfo>();
-    // Stores the keys of the styles that this variable supports
+    // Stores the styles that this variable supports
     protected List<Style> supportedStyles = new ArrayList<Style>();
     
     /**

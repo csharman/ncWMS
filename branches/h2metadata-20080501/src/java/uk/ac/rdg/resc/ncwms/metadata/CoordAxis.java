@@ -34,13 +34,8 @@ import ucar.nc2.dataset.CoordinateAxis;
 import ucar.nc2.dataset.CoordinateAxis1D;
 
 /**
- * A CoordAxis converts lat-lon points to an integer index in the data
- * structure.  Implementations should ensure that the getIndex() method
- * is as efficient as possible as this will be called very many times
- * during the generation of an image (this happens in the
- * {@link uk.ac.rdg.resc.ncwms.datareader.PixelMap PixelMap} class).
+ * An abstract superclass for all coordinate axes.
  *
- * @see uk.ac.rdg.resc.ncwms.datareader.PixelMap PixelMap
  * @author Jon Blower
  * $Revision$
  * $Date$
@@ -50,13 +45,15 @@ import ucar.nc2.dataset.CoordinateAxis1D;
 public abstract class CoordAxis
 {
     private AxisType axisType;
+    private String units;
     
     /**
-     * Method for creating an CoordAxis.
+     * Static factory method for creating a CoordAxis from a CoordinateAxis
+     * object that is obtained from the Java NetCDF libraries.
      * 
-     * @param axis The {@link CoordinateAxis} to wrap, which must be a 
-     * one-dimensional axis (in the current implementation).
-     * @return an CoordAxis
+     * @param axis The {@link ucar.nc2.dataset.CoordinateAxis} to wrap, which
+     * must be a one-dimensional axis (in the current implementation).
+     * @return a CoordAxis
      * @throws IllegalArgumentException if the provided axis cannot be turned into
      * an CoordAxis
      */
@@ -73,14 +70,20 @@ public abstract class CoordAxis
         }
     }
     
-    protected CoordAxis(AxisType type)
+    protected CoordAxis(AxisType type, String units)
     {
         this.axisType = type;
+        this.units = units;
     }    
 
     public AxisType getAxisType()
     {
         return axisType;
+    }
+
+    public String getUnits()
+    {
+        return units;
     }
     
 }

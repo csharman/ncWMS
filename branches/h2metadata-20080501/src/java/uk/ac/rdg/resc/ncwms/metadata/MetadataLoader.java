@@ -175,7 +175,6 @@ public class MetadataLoader
             this.metadataStore.setLayersInDataset(ds.getId(), layers);
             ds.setState(State.READY);
             Date lastUpdate = new Date();
-            // TODO: set this when reading from database too.
             this.config.setLastUpdateTime(lastUpdate);
             return true;
         }

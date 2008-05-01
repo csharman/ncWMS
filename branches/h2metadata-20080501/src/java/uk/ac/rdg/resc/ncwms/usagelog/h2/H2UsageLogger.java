@@ -34,7 +34,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
-import java.io.Writer;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -206,10 +205,9 @@ public class H2UsageLogger implements UsageLogger
      */
     public void writeCsv(OutputStream out) throws Exception
     {
-        Writer writer = new OutputStreamWriter(out);
         Statement stmt = this.conn.createStatement();
         ResultSet results = stmt.executeQuery("SELECT * from usage_log");
-        Csv.getInstance().write(writer, results);
+        Csv.getInstance().write(new OutputStreamWriter(out), results);
     }
 
     /**

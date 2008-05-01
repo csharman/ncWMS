@@ -43,9 +43,9 @@ public abstract class TwoDCoordAxis extends CoordAxis
 {
     
     /** Creates a new instance of TwoDCoordAxis */
-    public TwoDCoordAxis(AxisType type)
+    public TwoDCoordAxis(AxisType type, String units)
     {
-        super(type);
+        super(type, units);
     }
     
     /**

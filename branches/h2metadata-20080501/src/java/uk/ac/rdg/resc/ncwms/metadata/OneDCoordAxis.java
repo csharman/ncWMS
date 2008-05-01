@@ -38,6 +38,7 @@ import ucar.nc2.dataset.CoordinateAxis1D;
  * in the current version of the Java NetCDF libraries (2.2.22) is inefficient and
  * profiling reveals that it is a major bottleneck in data extraction.
  *
+ * @see uk.ac.rdg.resc.ncwms.datareader.PixelMap PixelMap
  * @author Jon Blower
  * $Revision$
  * $Date$
@@ -48,6 +49,7 @@ public abstract class OneDCoordAxis extends CoordAxis
 {
     protected int size; // Number of points on this axis
     
+    private PositiveDirection positiveDirection = null; // only relevant for vertical axes
     /**
      * Static factory convenience method for creating a 1-D coordinate axis
      * from classes that are returned from the Java NetCDF libraries.
@@ -61,15 +63,18 @@ public abstract class OneDCoordAxis extends CoordAxis
         if (axisType == AxisType.Lon || axisType == AxisType.Lat ||
             axisType == AxisType.GeoX || axisType == AxisType.GeoY)
         {
-            OneDCoordAxis theAxis = null;
+            OneDCoordAxis theAxis;
             if (axis1D.isRegular())
             {
                 theAxis = new Regular1DCoordAxis(axis1D.getStart(),
-                    axis1D.getIncrement(), (int)axis1D.getSize(), axisType);
+                    axis1D.getIncrement(), (int)axis1D.getSize(),
+                    axisType, axis1D.getUnitsString());
             }
             else
             {
-                theAxis = new Irregular1DCoordAxis(axis1D.getCoordValues(), axisType);
+                theAxis = new Irregular1DCoordAxis(axis1D.getCoordValues(),
+                    axisType, axis1D.getUnitsString(),
+                    PositiveDirection.getPositiveDirection(axis1D));
             }
             return theAxis;
         }
@@ -79,10 +84,17 @@ public abstract class OneDCoordAxis extends CoordAxis
         }
     }
     
-    protected OneDCoordAxis(AxisType type, int size)
+    protected OneDCoordAxis(AxisType type, String units, int size,
+        PositiveDirection positiveDirection)
     {
-        super(type);
+        super(type, units);
         this.size = size;
+        this.positiveDirection = positiveDirection;
+    }
+    
+    protected OneDCoordAxis(AxisType type, String units, int size)
+    {
+        this(type, units, size, null);
     }
     
     /**
@@ -100,7 +112,7 @@ public abstract class OneDCoordAxis extends CoordAxis
 
     public int getSize()
     {
-        return size;
+        return this.size;
     }
     
     /**
@@ -109,5 +121,10 @@ public abstract class OneDCoordAxis extends CoordAxis
     public boolean isLongitude()
     {
         return this.getAxisType() == AxisType.Lon;
+    }
+
+    public PositiveDirection getPositiveDirection()
+    {
+        return this.positiveDirection;
     }
 }

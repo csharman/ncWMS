@@ -103,6 +103,7 @@ public class LUTCoordAxis extends TwoDCoordAxis
         {
             if (!lutAxes.containsKey(filename))
             {
+                logger.debug("Loading LUT from {}", filename);
                 InputStream in = null;
                 File file = new File(filename);
                 File parentFile = file.getParentFile();
@@ -138,6 +139,7 @@ public class LUTCoordAxis extends TwoDCoordAxis
                         .getResourceAsStream(filename);
                 }
                 lutAxes.put(filename, createAxis(in, filename, type, lutIsLatLon));
+                logger.debug("Loaded LUT from {}", filename);
             }
         }
         return lutAxes.get(filename);
@@ -250,15 +252,15 @@ public class LUTCoordAxis extends TwoDCoordAxis
         double minX, double maxX, double minY, double maxY, int nx, int ny,
         boolean lutIsLatLon)
     {
-        super(type);
+        super(type, ""); // Units string is blank: does this matter?
         this.filename = filename;
         this.indices = indices;
         double xStride = (maxX - minX) / (nx - 1);
         double yStride = (maxY - minY) / (ny - 1);
         this.xAxis = new Regular1DCoordAxis(minX, xStride, nx,
-            lutIsLatLon ? AxisType.Lon : AxisType.GeoX);
+            lutIsLatLon ? AxisType.Lon : AxisType.GeoX, "");
         this.yAxis = new Regular1DCoordAxis(minY, yStride, ny,
-            lutIsLatLon ? AxisType.Lat : AxisType.GeoY);
+            lutIsLatLon ? AxisType.Lat : AxisType.GeoY, "");
     }
     
     public int getIndex(double x, double y)
@@ -275,6 +277,7 @@ public class LUTCoordAxis extends TwoDCoordAxis
         }
     }
     
+    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) return true;
@@ -283,6 +286,22 @@ public class LUTCoordAxis extends TwoDCoordAxis
         // Simply compare the filenames: if the axes use the same filename
         // then they contain the same information
         return this.filename.equals(otherAxis.filename);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int hash = 7;
+        hash = 23 * hash + (this.filename != null ? this.filename.hashCode() : 0);
+        return hash;
+    }
+
+    /**
+     * Gets the name of the file that contains the LUT data for this axis.
+     */
+    public String getFilename()
+    {
+        return this.filename;
     }
     
 }

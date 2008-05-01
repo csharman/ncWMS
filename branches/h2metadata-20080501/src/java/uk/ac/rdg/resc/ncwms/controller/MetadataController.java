@@ -228,31 +228,34 @@ public class MetadataController
         // showVariableDetails.jsp.  This is used to provide a list of days for
         // which we have data.  Also calculates the nearest value on the time axis
         // to the time we're currently displaying on the web interface.
-        for (long ms : layer.getTvalues())
+        if (layer.isTaxisPresent())
         {
-            if (Math.abs(ms - targetTimeMs) < Math.abs(nearestTimeMs - targetTimeMs))
+            for (long ms : layer.getTvalues())
             {
-                nearestTimeMs = ms;
-            }
-            Calendar cal = getGMTCalendar(ms);
-            int year = cal.get(Calendar.YEAR);
-            Map<Integer, List<Integer>> months = datesWithData.get(year);
-            if (months == null)
-            {
-                months = new HashMap<Integer, List<Integer>>();
-                datesWithData.put(year, months);
-            }
-            int month = cal.get(Calendar.MONTH); // zero-based
-            List<Integer> days = months.get(month);
-            if (days == null)
-            {
-                days = new ArrayList<Integer>();
-                months.put(month, days);
-            }
-            int day = cal.get(Calendar.DAY_OF_MONTH); // one-based
-            if (!days.contains(day))
-            {
-                days.add(day);
+                if (Math.abs(ms - targetTimeMs) < Math.abs(nearestTimeMs - targetTimeMs))
+                {
+                    nearestTimeMs = ms;
+                }
+                Calendar cal = getGMTCalendar(ms);
+                int year = cal.get(Calendar.YEAR);
+                Map<Integer, List<Integer>> months = datesWithData.get(year);
+                if (months == null)
+                {
+                    months = new HashMap<Integer, List<Integer>>();
+                    datesWithData.put(year, months);
+                }
+                int month = cal.get(Calendar.MONTH); // zero-based
+                List<Integer> days = months.get(month);
+                if (days == null)
+                {
+                    days = new ArrayList<Integer>();
+                    months.put(month, days);
+                }
+                int day = cal.get(Calendar.DAY_OF_MONTH); // one-based
+                if (!days.contains(day))
+                {
+                    days.add(day);
+                }
             }
         }
         

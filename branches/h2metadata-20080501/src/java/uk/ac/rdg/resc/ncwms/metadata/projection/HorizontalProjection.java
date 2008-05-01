@@ -28,6 +28,7 @@
 
 package uk.ac.rdg.resc.ncwms.metadata.projection;
 
+import java.io.Serializable;
 import ucar.unidata.geoloc.LatLonPoint;
 import ucar.unidata.geoloc.ProjectionImpl;
 import ucar.unidata.geoloc.ProjectionPoint;
@@ -43,23 +44,23 @@ import ucar.unidata.geoloc.ProjectionPointImpl;
  * $Date$
  * $Log$
  */
-public abstract class HorizontalProjection
+public abstract class HorizontalProjection implements Serializable
 {
     /**
      * Singleton object representing the longitude-latitude projection
      */
     public static HorizontalProjection LON_LAT_PROJECTION = new HorizontalProjection()
+    {
+        public ProjectionPoint latLonToProj(LatLonPoint point)
         {
-            public ProjectionPoint latLonToProj(LatLonPoint point)
-            {
-                return new ProjectionPointImpl(point.getLongitude(), point.getLatitude());
-            }
-            
-            public boolean isLatLon()
-            {
-                return true;
-            }
-        };
+            return new ProjectionPointImpl(point.getLongitude(), point.getLatitude());
+        }
+
+        public boolean isLatLon()
+        {
+            return true;
+        }
+    };
     
     /**
      * Convenience static factory method to create a HorizontalProjection
