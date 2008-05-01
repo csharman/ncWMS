@@ -751,7 +751,7 @@ public class H2MetadataStore extends MetadataStore
         final String FIND_TIMESTEPS =
             "select timesteps.timestep, data_files.filepath, timesteps.index_in_file " +
             "from data_files, timesteps, variables_timesteps " +
-            "where variables_timesteps.variable_id = ?" + 
+            "where variables_timesteps.variable_id = ? " + 
             "and variables_timesteps.timestep_id = timesteps.id " +
             "and timesteps.data_file_id = data_files.id";
         try
@@ -781,7 +781,7 @@ public class H2MetadataStore extends MetadataStore
     }
     
     /**
-     * Called by Spring to clean up the database
+     * Called by Spring to close the database
      */
     @Override
     public void close()

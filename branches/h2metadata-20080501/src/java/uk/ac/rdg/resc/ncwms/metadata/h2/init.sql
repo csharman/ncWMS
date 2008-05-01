@@ -25,8 +25,9 @@ create table if not exists axes
     dataset_id varchar not null,      /* FK reference to datasets.id */
     axis_type varchar not null,       /* Lat, Lon, GeoX, GeoY etc */
     units varchar,                    /* Units of this axis (often ignored) */
-    positive_up boolean,              /* Used only for z axes: true if values
-                                         increase upwards */
+
+    /* For vertical axes (null otherwise) */
+    positive_up boolean,              /* true if values increase upwards */
 
     /* For regular axes (null otherwise) */
     axis_start double,                /* First value on this axis */
@@ -34,8 +35,10 @@ create table if not exists axes
     axis_count int,                   /* Number of points in this axis */
 
     /* For irregular axes (null otherwise) */
-    axis_values other,                /* Array of values (usually doubles) on this axis */
-                                      /* Note that the SQL array type doesn't seem to work in H2 */
+    axis_values other,                /* Array of values (usually doubles) on this axis.
+                                         Stored as an object (e.g. double[]) rather than
+                                         a SQL array: see email exchange on h2-database@googlegroups.com
+                                         entitled "SQL Arrays in H2", starting on 29 March 2008 */
 
     /* For look-up table axes (null otherwise) */
     lut_filename varchar,             /* The full path of the file containing the LUT data */
