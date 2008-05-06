@@ -28,17 +28,14 @@
 
 package uk.ac.rdg.resc.ncwms.datareader;
 
-import java.io.File;
-import java.io.FilenameFilter;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.oro.io.GlobFilenameFilter;
 import uk.ac.rdg.resc.ncwms.config.Dataset;
 import uk.ac.rdg.resc.ncwms.metadata.Layer;
 import uk.ac.rdg.resc.ncwms.metadata.LayerImpl;
+import uk.ac.rdg.resc.ncwms.metadata.TimestepInfo;
 import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
 
 /**
@@ -67,9 +64,10 @@ public abstract class DataReader
      * 
      * @param className Name of the class to generate
      * @param location the location of the dataset: used to detect OPeNDAP URLs
-     * @return a DataReader object of the given class, or {@link DefaultDataReader}
-     * or {@link BoundingBoxDataReader} (depending on whether the location starts with
-     * "http://" or "dods://") if <code>className</code> is null or the empty string
+     * @return If className is empty, this returns a {@link DefaultDataReader}, unless
+     * the location is an OPeNDAP location, in which case this returns a
+     * {@link BoundingBoxDataReader}.  If className is not empty, this will
+     * return an instance of the corresponding class.
      * @throws an Exception if the DataReader could not be created
      */
     public static DataReader getDataReader(String className, String location)
@@ -122,40 +120,7 @@ public abstract class DataReader
     public Map<String, LayerImpl> getAllLayers(Dataset ds)
         throws IOException
     {
-        // A list of names of files resulting from glob expansion
-        List<String> filenames = new ArrayList<String>();
-        if (WmsUtils.isOpendapLocation(ds.getLocation()))
-        {
-            // We don't do the glob expansion
-            filenames.add(ds.getLocation());
-        }
-        else
-        {
-            // The location might be a glob expression, in which case the last part
-            // of the location path will be the filter expression
-            File locFile = new File(ds.getLocation());
-            FilenameFilter filter = new GlobFilenameFilter(locFile.getName());
-            File parentDir = locFile.getParentFile();
-            if (parentDir == null)
-            {
-                throw new IOException(locFile.getPath() + " is not a valid path");
-            }
-            if (!parentDir.isDirectory())
-            {
-                throw new IOException(parentDir.getPath() + " is not a valid directory");
-            }
-            // Find the files that match the glob pattern
-            File[] files = parentDir.listFiles(filter);
-            if (files == null || files.length == 0)
-            {
-                throw new IOException(ds.getLocation() + " does not match any files");
-            }
-            // Add all the matching filenamse
-            for (File f : files)
-            {
-                filenames.add(f.getPath());
-            }
-        }
+        List<String> filenames = ds.getFilenames();
         // Now extract the data for each individual file
         Map<String, LayerImpl> layers = new HashMap<String, LayerImpl>();
         for (String filename : filenames)
@@ -169,6 +134,26 @@ public abstract class DataReader
     }
     
     /**
+     * Looks through all the data files in the provided dataset, finding the
+     * relationship between variables, timesteps and filenames.
+     * @return A Map of internal variable IDs to TimestepInfo objects that
+     * define which file contains which timesteps for that variable.
+     */
+    public abstract Map<String, List<TimestepInfo>> getTimestepInfoForAllLayers(Dataset ds);
+    
+    /**
+     * Gets the metadata for a particular layer/variable, not including time
+     * axis information.
+     * @param location The file/OPeNDAP url/NcML aggregation that contains the 
+     * layer
+     * @param layerId The unique ID of the layer within the file
+     * @return a LayerImpl object.  The TimestepInfo part of this object does
+     * not need to be completed.
+     * @todo should not return a LayerImpl object!
+     */
+    public abstract LayerImpl getLayerMetadata(String location, String layerId);
+    
+    /**
      * Reads the metadata for all the variables in the dataset
      * at the given location, which is the location of a NetCDF file, NcML
      * aggregation, or OPeNDAP location (i.e. one element resulting from the
@@ -177,6 +162,7 @@ public abstract class DataReader
      * @param layers Map of Layer Ids to Layer objects to populate or update
      * @throws IOException if there was an error reading from the data source
      */
+    @Deprecated
     protected abstract void findAndUpdateLayers(String location, Map<String, LayerImpl> layers)
         throws IOException;
     

@@ -28,13 +28,20 @@
 
 package uk.ac.rdg.resc.ncwms.config;
 
+import java.io.File;
+import java.io.FilenameFilter;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 import org.apache.log4j.Logger;
+import org.apache.oro.io.GlobFilenameFilter;
 import org.simpleframework.xml.Attribute;
 import org.simpleframework.xml.Root;
 import uk.ac.rdg.resc.ncwms.metadata.Layer;
+import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
 
 /**
  * A dataset Java bean: contains a number of Layer objects.
@@ -272,6 +279,54 @@ public class Dataset
     public Collection<? extends Layer> getLayers() throws Exception
     {
         return this.config.getMetadataStore().getLayersInDataset(this.id);
+    }
+    
+    /**
+     * Gets the names of all the files that make up this dataset.  In the case
+     * of an OPeNDAP endpoint, this simply returns a
+     * single-element list with the location of the dataset.  In the case of a
+     * glob aggregation this finds all files in the local filesystem that match
+     * the glob expression.
+     * @throws IOException if there was an error reading from the local
+     * filesystem, or if the location of this dataset is not valid.
+     */
+    public List<String> getFilenames() throws IOException
+    {
+        // A list of names of files resulting from glob expansion
+        List<String> filenames = new ArrayList<String>();
+        if (WmsUtils.isOpendapLocation(this.location))
+        {
+            // We don't do the glob expansion
+            filenames.add(this.location);
+        }
+        else
+        {
+            // The location might be a glob expression, in which case the last part
+            // of the location path will be the filter expression
+            File locFile = new File(this.location);
+            FilenameFilter filter = new GlobFilenameFilter(locFile.getName());
+            File parentDir = locFile.getParentFile();
+            if (parentDir == null)
+            {
+                throw new IOException(locFile.getPath() + " is not a valid path");
+            }
+            if (!parentDir.isDirectory())
+            {
+                throw new IOException(parentDir.getPath() + " is not a valid directory");
+            }
+            // Find the files that match the glob pattern
+            File[] files = parentDir.listFiles(filter);
+            if (files == null || files.length == 0)
+            {
+                throw new IOException(this.location + " does not match any files");
+            }
+            // Add all the matching filenamse
+            for (File f : files)
+            {
+                filenames.add(f.getPath());
+            }
+        }
+        return filenames;
     }
 
     public boolean isDisabled()
