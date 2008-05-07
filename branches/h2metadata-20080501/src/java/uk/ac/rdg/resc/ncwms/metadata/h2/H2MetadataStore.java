@@ -48,10 +48,12 @@ import org.apache.log4j.Logger;
 import org.h2.tools.RunScript;
 import ucar.nc2.dataset.AxisType;
 import uk.ac.rdg.resc.ncwms.config.Dataset;
+import uk.ac.rdg.resc.ncwms.datareader.DataReader;
 import uk.ac.rdg.resc.ncwms.metadata.CoordAxis;
 import uk.ac.rdg.resc.ncwms.metadata.Irregular1DCoordAxis;
 import uk.ac.rdg.resc.ncwms.metadata.LUTCoordAxis;
 import uk.ac.rdg.resc.ncwms.metadata.Layer;
+import uk.ac.rdg.resc.ncwms.metadata.LayerImpl;
 import uk.ac.rdg.resc.ncwms.metadata.MetadataStore;
 import uk.ac.rdg.resc.ncwms.metadata.PositiveDirection;
 import uk.ac.rdg.resc.ncwms.metadata.Regular1DCoordAxis;
@@ -228,6 +230,117 @@ public class H2MetadataStore extends MetadataStore
             }
         }
         return layer;
+    }
+    
+    /**
+     * Synchronizes the metadata of all variables in the given dataset with
+     * the database.
+     * @param ds The Dataset from which to read metadata
+     * @param forceReloadAllMetadata If this is false then only the time axes will be
+     * updated for each variable: the rest of the variable metadata will be
+     * assumed to be unchanged.  If this is true then all metadata for each
+     * variable will be reloaded.
+     * @throws Exception if the metadata could not be read
+     */
+    public void synchronizeMetadata(Dataset ds, boolean forceReloadAllMetadata) throws Exception
+    {
+        try
+        {
+            // Create an entry in the database for this dataset, if not already
+            // present
+            this.insertDataset(ds.getId());
+
+            // Get the DataReader that we'll use to read metadata
+            DataReader dr = ds.getDataReader();
+            // Get the timestep details for all the data files in the dataset.
+            // This also discovers all the variable IDs in the dataset (the keys
+            // in the Map).
+            Map<String, List<TimestepInfo>> varTimesteps = dr.getTimestepInfoForAllLayers(ds);
+            
+            // Cycle through each variable
+            for (String varId : varTimesteps.keySet())
+            {
+                List<TimestepInfo> timesteps = varTimesteps.get(varId);
+                
+                // See if we already have this variable in the database
+                boolean varExists = this.containsVariable(ds.getId(), varId);
+                if (!varExists || forceReloadAllMetadata)
+                {
+                    // We need to reload all the metadata for this variable.
+                    // We load metadata from the most recent file in the
+                    // aggregation
+                    String lastFile = timesteps.get(timesteps.size() - 1).getFilename();
+                    LayerImpl layer = dr.getLayerMetadata(lastFile, varId);
+                    // Now we insert this into the database
+                    this.insertVariable(ds.getId(), layer, varExists);
+                }
+                
+                // Now we can update the time axis information
+                // TODO: deal with orphans
+                
+            }
+            
+            // TODO: what about variables that are in the database that are not
+            // present in the data files?  Need to clean them up.
+
+            // Set the last update time of the dataset
+        
+            // If we've got this far everything is OK and we can commit the changes
+            this.conn.commit();
+        }
+        catch(SQLException sqle)
+        {
+            this.conn.rollback();
+            logger.error("Error synchronizing metadata for dataset " + ds.getId(), sqle);
+            throw sqle;
+        }
+    }
+    
+    /**
+     * Checks to see if a dataset with the given ID exists already in the 
+     * database, creating a new entry if not
+     * @param datasetId The unique ID of the dataset
+     */
+    private void insertDataset(String datasetId) throws SQLException
+    {
+        // First we see if the 
+        final String FIND_DATASET = "select from datasets where id = ?";
+        PreparedStatement findDataset = this.conn.prepareStatement(FIND_DATASET);
+        findDataset.setString(1, datasetId);
+        ResultSet rs = findDataset.executeQuery();
+        if (!rs.first())
+        {
+            // This dataset is not present in the database so we must insert it
+            final String INSERT_DATASET = "insert into datasets(id) values (?)";
+            PreparedStatement insertDataset = this.conn.prepareStatement(INSERT_DATASET);
+            insertDataset.setString(1, datasetId);
+            insertDataset.executeUpdate();
+        }
+    }
+    
+    /**
+     * Checks to see if a given variable exists in the database.  This does not
+     * alter the database contents.
+     * @param datasetId The ID of the dataset to which the variable belongs
+     * @param variableId The unique ID of the variable within the dataset
+     * @return true if the variable exists in the database, false otherwise.
+     */
+    private boolean containsVariable(String datasetId, String variableId)
+    {
+        return true; // TODO
+    }
+    
+    /**
+     * Inserts a variable into the database.  Does not insert time axis
+     * information
+     * @param datasetId The ID of the dataset to which the variable belongs
+     * @param layer The object containing the variable's metadaat
+     * @param exists True if the variable already exists in the database
+     * (meaning that the variable must be deleted 
+     */
+    private void insertVariable(String datasetId, LayerImpl layer, boolean exists)
+    {
+        // TODO
     }
 
     /**

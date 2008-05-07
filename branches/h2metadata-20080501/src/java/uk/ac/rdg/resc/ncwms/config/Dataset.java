@@ -40,6 +40,7 @@ import org.apache.log4j.Logger;
 import org.apache.oro.io.GlobFilenameFilter;
 import org.simpleframework.xml.Attribute;
 import org.simpleframework.xml.Root;
+import uk.ac.rdg.resc.ncwms.datareader.DataReader;
 import uk.ac.rdg.resc.ncwms.metadata.Layer;
 import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
 
@@ -327,6 +328,16 @@ public class Dataset
             }
         }
         return filenames;
+    }
+    
+    /**
+     * Returns a DataReader object for reading data and metadata from this
+     * Dataset.
+     * @throws Exception if the DataReader object could not be retrieved
+     */
+    public DataReader getDataReader() throws Exception
+    {
+        return DataReader.getDataReader(this.dataReaderClass, this.location);
     }
 
     public boolean isDisabled()
