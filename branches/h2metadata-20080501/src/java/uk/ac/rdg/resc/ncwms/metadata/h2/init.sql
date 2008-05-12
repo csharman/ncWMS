@@ -77,7 +77,9 @@ create table if not exists timesteps
     data_file_id bigint not null,     /* FK reference to data_files.id */
     index_in_file int not null,       /* The index of this timestep in the file (starts at zero) */
     timestep timestamp not null,      /* The timestep as a date-time (millisecond accuracy) */
-    constraint timesteps_fk1 foreign key (data_file_id) references data_files(id) on delete cascade
+    constraint timesteps_fk1 foreign key (data_file_id) references data_files(id) on delete cascade,
+    /* Entries in this table will be unique */
+    unique index timesteps_idx1(data_file_id, index_in_file, timestep)
 );
 /* We will often be searching based on the timestep so we create an index */
 /* We also search on data_file_id but this is a FK and already indexed by H2 */

@@ -93,10 +93,21 @@ public class TimestepInfo implements Comparable<TimestepInfo>
     {
         return this.timestep.compareTo(otherInfo.timestep);
     }
+
+    @Override
+    public int hashCode()
+    {
+        int hash = 7;
+        hash = 29 * hash + (this.timestep != null ? this.timestep.hashCode() : 0);
+        hash = 29 * hash + (this.filename != null ? this.filename.hashCode() : 0);
+        hash = 29 * hash + this.indexInFile;
+        return hash;
+    }
     
     /**
      * Compares all fields for equality
      */
+    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) return true;

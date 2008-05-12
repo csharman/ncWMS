@@ -42,8 +42,10 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.log4j.Logger;
 import org.h2.tools.RunScript;
 import ucar.nc2.dataset.AxisType;
@@ -234,7 +236,10 @@ public class H2MetadataStore extends MetadataStore
     
     /**
      * Synchronizes the metadata of all variables in the given dataset with
-     * the database.
+     * the database.  This method is synchronized so that it can only be called
+     * by one thread at a time.  As well as helping to ensure the integrity of
+     * the database, this also prevents a large number of threads reading metadata
+     * from disk at the same time, smoothing out CPU and disk load.
      * @param ds The Dataset from which to read metadata
      * @param forceReloadAllMetadata If this is false then only the time axes will be
      * updated for each variable: the rest of the variable metadata will be
@@ -242,7 +247,8 @@ public class H2MetadataStore extends MetadataStore
      * variable will be reloaded.
      * @throws Exception if the metadata could not be read
      */
-    public void synchronizeMetadata(Dataset ds, boolean forceReloadAllMetadata) throws Exception
+    public synchronized void synchronizeMetadata(Dataset ds,
+        boolean forceReloadAllMetadata) throws Exception
     {
         try
         {
@@ -258,32 +264,39 @@ public class H2MetadataStore extends MetadataStore
             Map<String, List<TimestepInfo>> varTimesteps = dr.getTimestepInfoForAllLayers(ds);
             
             // Cycle through each variable
-            for (String varId : varTimesteps.keySet())
+            for (String internalName : varTimesteps.keySet())
             {
-                List<TimestepInfo> timesteps = varTimesteps.get(varId);
+                List<TimestepInfo> timesteps = varTimesteps.get(internalName);
                 
                 // See if we already have this variable in the database
-                boolean varExists = this.containsVariable(ds.getId(), varId);
-                if (!varExists || forceReloadAllMetadata)
+                Long varId = this.containsVariable(ds.getId(), internalName);
+                if (varId == null || forceReloadAllMetadata)
                 {
                     // We need to reload all the metadata for this variable.
                     // We load metadata from the most recent file in the
                     // aggregation
                     String lastFile = timesteps.get(timesteps.size() - 1).getFilename();
-                    LayerImpl layer = dr.getLayerMetadata(lastFile, varId);
-                    // Now we insert this into the database
-                    this.insertVariable(ds.getId(), layer, varExists);
+                    LayerImpl layer = dr.getLayerMetadata(lastFile, internalName);
+                    // Now we update the database
+                    varId = this.insertOrUpdateVariable(ds.getId(), layer, varId);
                 }
                 
                 // Now we can update the time axis information
+                // TODO: what if a variable has no time axis?
                 // TODO: deal with orphans
                 
             }
             
-            // TODO: what about variables that are in the database that are not
-            // present in the data files?  Need to clean them up.
+            // Clean up any variables that are in the database but are not
+            // represented in the latest metadata. FK "on delete cascade"
+            // relationships ensure that all variable_timesteps are also
+            // deleted
+            this.deleteOrphanVariables(ds.getId(), varTimesteps.keySet());
 
             // Set the last update time of the dataset
+            this.setLastUpdateTime(ds.getId());
+            
+            // TODO: what to do about vector layers?
         
             // If we've got this far everything is OK and we can commit the changes
             this.conn.commit();
@@ -303,7 +316,7 @@ public class H2MetadataStore extends MetadataStore
      */
     private void insertDataset(String datasetId) throws SQLException
     {
-        // First we see if the 
+        // First we see if the dataset exists already
         final String FIND_DATASET = "select from datasets where id = ?";
         PreparedStatement findDataset = this.conn.prepareStatement(FIND_DATASET);
         findDataset.setString(1, datasetId);
@@ -322,25 +335,128 @@ public class H2MetadataStore extends MetadataStore
      * Checks to see if a given variable exists in the database.  This does not
      * alter the database contents.
      * @param datasetId The ID of the dataset to which the variable belongs
-     * @param variableId The unique ID of the variable within the dataset
-     * @return true if the variable exists in the database, false otherwise.
+     * @param internalName The unique ID of the variable within the <b>dataset</b>
+     * @return the unique ID of the variable within the <b>whole database</b>
+     * if the variable exists in the database, null otherwise.
      */
-    private boolean containsVariable(String datasetId, String variableId)
+    private Long containsVariable(String datasetId, String internalName)
+        throws SQLException
     {
-        return true; // TODO
+        final String FIND_VARIABLE = "select id from variables " +
+            "where internal_name=? and dataset_id=?";
+        PreparedStatement findVariable = this.conn.prepareStatement(FIND_VARIABLE);
+        findVariable.setString(1, internalName);
+        findVariable.setString(2, datasetId);
+        ResultSet rs = findVariable.executeQuery();
+        return rs.first() ? rs.getLong(1) : null;
     }
     
     /**
      * Inserts a variable into the database.  Does not insert time axis
      * information
      * @param datasetId The ID of the dataset to which the variable belongs
-     * @param layer The object containing the variable's metadaat
-     * @param exists True if the variable already exists in the database
-     * (meaning that the variable must be deleted 
+     * @param layer The object containing the variable's metadata
+     * @param varId If the variable already exists within the database, this is
+     * the unique ID of the variable in the database, otherwise null
+     * @return the unique ID of the variable in the database, which might be null
+     * if the layer is a 
      */
-    private void insertVariable(String datasetId, LayerImpl layer, boolean exists)
+    private long insertOrUpdateVariable(String datasetId, LayerImpl layer, Long varId)
+        throws SQLException
     {
-        // TODO
+        // Find or insert the axis and projection IDs
+        long xAxisId = this.findOrInsertXYAxis(datasetId, layer.getXaxis());
+        long yAxisId = this.findOrInsertXYAxis(datasetId, layer.getYaxis());
+        // This will be null if there is no z axis present in the layer
+        Long zAxisId = this.findOrInsertZAxis(datasetId, layer);
+         // Will be null if the projection is lat-lon
+        Long projectionId = this.findOrInsertProjection(datasetId,
+            layer.getHorizontalProjection());
+        
+        // Use an UPDATE if the variable exists in the database, an INSERT
+        // if not.  Note that both of these statements use the same columns
+        // in the same order, allowing us to share the same code later on
+        final String SQL = varId == null
+            ? "insert into variables" +
+            "(display_name, description, units, " +
+            "bbox_west, bbox_south, bbox_east, bbox_north, color_scale_min, " +
+            "color_scale_max, x_axis_id, y_axis_id, z_axis_id, projection_id, " +
+            "internal_name, dataset_id)" +
+            "values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+            : "update variables set " +
+            "display_name=?, description=?, units=?, " +
+            "bbox_west=?, bbox_south=?, bbox_east=?, bbox_north=?, " +
+            "color_scale_min=?, color_scale_max=?, x_axis_id=?, y_axis_id=?, " +
+            "z_axis_id=?, projection_id=? " +
+            "where internal_name=? and dataset_id = ?";
+        
+        // The RETURN_GENERATED_KEYS clause will hopefully be ignored if this
+        // is an update statement.
+        PreparedStatement ps = this.conn.prepareStatement(SQL, Statement.RETURN_GENERATED_KEYS);
+        ps.setString(1, layer.getTitle());
+        ps.setString(2, layer.getAbstract());
+        ps.setString(3, layer.getUnits());
+        double[] bbox = layer.getBbox();
+        ps.setDouble(4, bbox[0]);
+        ps.setDouble(5, bbox[1]);
+        ps.setDouble(6, bbox[2]);
+        ps.setDouble(7, bbox[3]);
+        ps.setDouble(8, layer.getScaleMin());
+        ps.setDouble(9, layer.getScaleMax());
+        ps.setLong(10, xAxisId);
+        ps.setLong(11, yAxisId);
+        ps.setObject(12, zAxisId); // can be null
+        ps.setObject(13, projectionId); // can be null
+        ps.setString(14, layer.getId());
+        ps.setString(15, datasetId);
+        
+        ps.executeUpdate();
+        if (varId == null)
+        {
+            // We have inserted a new variable so we must find its ID
+            ResultSet keys = ps.getGeneratedKeys();
+            keys.first();
+            return keys.getLong(1);
+        }
+        return varId;
+    }
+    
+    /**
+     * Deletes any variables that are <b>not</b> included in the given list
+     * of variable IDs from the database.
+     * @param datasetId The ID of the dataset to which the variables belong
+     * @param variableIds The unique IDs of the variables we want to <b>keep</b>
+     * as a Set of Strings
+     */
+    private void deleteOrphanVariables(String datasetId, Set<String> variableIds)
+        throws SQLException
+    {
+        final String DELETE_ORPHAN_VARIABLES = "delete from variables " +
+            "where dataset_id=? and internal_name not in(?)";
+        // Make a list of variable IDs in the form "'foo', 'bar', 'baz'"
+        StringBuffer buf = new StringBuffer();
+        for (Iterator<String> it = variableIds.iterator(); it.hasNext(); )
+        {
+            buf.append("'" + it.next() + "'");
+            if (it.hasNext()) buf.append(",");
+        }
+        PreparedStatement deleteOrphanVariables = this.conn.prepareStatement(DELETE_ORPHAN_VARIABLES);
+        deleteOrphanVariables.setString(1, datasetId);
+        deleteOrphanVariables.setString(2, buf.toString());
+        deleteOrphanVariables.executeUpdate();
+    }
+    
+    /**
+     * Updates the last update time of the dataset with the given ID to the
+     * current time.
+     */
+    private void setLastUpdateTime(String datasetId) throws SQLException
+    {
+        final String SET_LAST_UPDATE = "update datasets set last_updated = ? where id = ?";
+        PreparedStatement setLastUpdate = this.conn.prepareStatement(SET_LAST_UPDATE);
+        setLastUpdate.setTimestamp(1, new Timestamp(new Date().getTime()));
+        setLastUpdate.setString(2, datasetId);
+        setLastUpdate.executeUpdate();
     }
 
     /**
