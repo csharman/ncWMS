@@ -53,7 +53,7 @@ public class NemoDataReaderTwoDegree extends NemoDataReader
 {
     private static final Logger logger = Logger.getLogger(NemoDataReaderTwoDegree.class);
     
-    @Override
+   /* @Override
     protected void findAndUpdateLayers(String location, Map<String, LayerImpl> layers)
         throws IOException
     {
@@ -148,7 +148,7 @@ public class NemoDataReaderTwoDegree extends NemoDataReader
                 }
             }
         }
-    }
+    }*/
     
     /**
      * Gets the location of the x axis' LUT

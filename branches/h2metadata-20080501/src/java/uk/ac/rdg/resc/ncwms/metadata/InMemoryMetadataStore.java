@@ -38,11 +38,12 @@ import java.util.Map;
  * but will use a large amount of memory for large datasets.
  *
  * @author Jon Blower
+ * @todo relink to MetadataStore
  * $Revision$
  * $Date$
  * $Log$
  */
-public class InMemoryMetadataStore extends MetadataStore
+public class InMemoryMetadataStore //extends MetadataStore
 {
     /**
      * Maps dataset IDs to maps of variable IDs to Layer objects

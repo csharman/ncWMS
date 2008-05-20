@@ -35,10 +35,6 @@
                     <path-in-war>WEB-INF/lib</path-in-war>
                 </library>
                 <library files="1">
-                    <file>${file.reference.je-3.2.23.jar}</file>
-                    <path-in-war>WEB-INF/lib</path-in-war>
-                </library>
-                <library files="1">
                     <file>${file.reference.jstl.jar}</file>
                     <path-in-war>WEB-INF/lib</path-in-war>
                 </library>
@@ -144,5 +140,9 @@
             </test-roots>
         </data>
         <references xmlns="http://www.netbeans.org/ns/ant-project-references/1"/>
+        <spring-data xmlns="http://www.netbeans.org/ns/spring-data/1">
+            <config-files/>
+            <config-file-groups/>
+        </spring-data>
     </configuration>
 </project>

@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.log4j.Logger;
@@ -40,6 +41,7 @@ import ucar.ma2.Range;
 import ucar.nc2.Attribute;
 import ucar.nc2.dataset.CoordSysBuilder;
 import ucar.nc2.dataset.CoordinateAxis1D;
+import ucar.nc2.dataset.CoordinateAxis1DTime;
 import ucar.nc2.dataset.NetcdfDataset;
 import ucar.nc2.dataset.NetcdfDatasetCache;
 import ucar.nc2.dataset.NetcdfDatasetFactory;
@@ -47,7 +49,6 @@ import ucar.nc2.dataset.VariableDS;
 import ucar.nc2.dataset.VariableEnhanced;
 import ucar.nc2.dt.GridCoordSystem;
 import ucar.nc2.dt.GridDataset;
-import ucar.nc2.dt.GridDataset.Gridset;
 import ucar.nc2.dt.GridDatatype;
 import ucar.nc2.dt.TypedDatasetFactory;
 import ucar.nc2.util.CancelTask;
@@ -255,19 +256,80 @@ public class DefaultDataReader extends DataReader
     }
     
     /**
-     * Reads the metadata for all the variables in the dataset
-     * at the given location, which is the location of a NetCDF file, NcML
-     * aggregation, or OPeNDAP location (i.e. one element resulting from the
-     * expansion of a glob aggregation).
-     * @param location Full path to the dataset. This will be passed to 
-     * {@link NetcdfDataset#openDataset}.
-     * @param layers Map of Layer Ids to LayerImpl objects to populate or update
-     * @throws IOException if there was an error reading from the data source
+     * Finds time axis information for each variable in the dataset at the given
+     * location.
+     * @return A Map of internal variable IDs to TimestepInfo objects that
+     * define which file contains which timesteps for that variable.
      */
-    protected void findAndUpdateLayers(String location, Map<String, LayerImpl> layers)
+    public Map<String, List<TimestepInfo>> getTimestepInfo(String location)
         throws IOException
     {
-        logger.debug("Finding layers in {}", location);
+        logger.debug("Reading timestep info from {}", location);
+        
+        NetcdfDataset nc = null;
+        final List<TimestepInfo> EMPTY_LIST = new ArrayList<TimestepInfo>();
+        try
+        {
+            // Get the dataset from the cache
+            nc = getDataset(location);
+            GridDataset gd = (GridDataset)TypedDatasetFactory.open(DataType.GRID, nc, null, null);
+            Map<String, List<TimestepInfo>> tInfos = new HashMap<String, List<TimestepInfo>>();
+            Map<CoordinateAxis1DTime, List<TimestepInfo>> timeAxes =
+                new HashMap<CoordinateAxis1DTime, List<TimestepInfo>>();
+            // Cycle through all the variables
+            for (GridDatatype grid : gd.getGrids())
+            {
+                if (grid.getCoordinateSystem().hasTimeAxis1D())
+                {
+                    CoordinateAxis1DTime timeAxis = grid.getCoordinateSystem().getTimeAxis1D();
+                    List<TimestepInfo> tInfo = timeAxes.get(timeAxis);
+                    if (tInfo == null)
+                    {
+                        tInfo = getTimesteps(location, timeAxis);
+                        timeAxes.put(timeAxis, tInfo);
+                    }
+                    tInfos.put(grid.getName(), tInfo);
+                }
+                else
+                {
+                    tInfos.put(grid.getName(), EMPTY_LIST);
+                }
+            }
+            return tInfos;
+        }
+        finally
+        {
+            logger.debug("In finally clause");
+            if (nc != null)
+            {
+                try
+                {
+                    logger.debug("Closing NetCDF file");
+                    nc.close();
+                    logger.debug("NetCDF file closed");
+                }
+                catch (IOException ex)
+                {
+                    logger.error("IOException closing " + nc.getLocation(), ex);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Gets the metadata for a particular layer/variable, not including time
+     * axis information.
+     * @param location The file/OPeNDAP url/NcML aggregation that contains the 
+     * layer
+     * @param layerId The unique ID of the layer within the file
+     * @return a LayerImpl object.  The TimestepInfo part of this object does
+     * not need to be completed.
+     * @todo should not return a LayerImpl object!
+     */
+    public LayerImpl getLayerMetadata(String location, String layerId)
+        throws IOException
+    {
+        logger.debug("Reading metadata for layer {} in {}", layerId, location);
         
         NetcdfDataset nc = null;
         try
@@ -276,93 +338,67 @@ public class DefaultDataReader extends DataReader
             nc = getDataset(location);
             GridDataset gd = (GridDataset)TypedDatasetFactory.open(DataType.GRID, nc, null, null);
             
-            // Search through all coordinate systems, creating appropriate metadata
-            // for each.  This allows metadata objects to be shared among Layer objects,
-            // saving memory.
-            for (Gridset gridset : gd.getGridsets())
+            // Find the variable within the dataset
+            // TODO: what if this doesn't exist?
+            GridDatatype grid = gd.findGridDatatype(layerId);
+            
+            // Read the metadata
+            GridCoordSystem coordSys = grid.getCoordinateSystem();
+            CoordAxis xAxis = this.getXAxis(coordSys);
+            CoordAxis yAxis = this.getYAxis(coordSys);
+            HorizontalProjection proj = HorizontalProjection.create(coordSys.getProjection());
+
+            boolean zPositive = this.isZPositive(coordSys);
+            CoordinateAxis1D zAxis = coordSys.getVerticalAxis();
+            double[] zValues = this.getZValues(zAxis, zPositive);
+
+            // Set the bounding box
+            // TODO: should take into account the cell bounds
+            LatLonRect latLonRect = coordSys.getLatLonBoundingBox();
+            LatLonPoint lowerLeft = latLonRect.getLowerLeftPoint();
+            LatLonPoint upperRight = latLonRect.getUpperRightPoint();
+            double minLon = lowerLeft.getLongitude();
+            double maxLon = upperRight.getLongitude();
+            double minLat = lowerLeft.getLatitude();
+            double maxLat = upperRight.getLatitude();
+            // Correct the bounding box in case of mistakes or in case it 
+            // crosses the date line
+            if (latLonRect.crossDateline() || minLon >= maxLon)
             {
-                GridCoordSystem coordSys = gridset.getGeoCoordSystem();
-                
-                // Compute TimestepInfo objects for this file
-                List<TimestepInfo> timesteps = getTimesteps(location, coordSys);
-                
-                // Look for new variables in this coordinate system.
-                List<GridDatatype> grids = gridset.getGrids();
-                List<GridDatatype> newGrids = new ArrayList<GridDatatype>();
-                for (GridDatatype grid : grids)
-                {
-                    if (!layers.containsKey(grid.getName()) &&
-                        this.includeGrid(grid))
-                    {
-                        // We haven't seen this variable before so we must create
-                        // a Layer object later
-                        newGrids.add(grid);
-                    }
-                }
-                
-                // We only create all the coordsys-related objects if we have
-                // new Layers to create
-                if (newGrids.size() > 0)
-                {
-                    CoordAxis xAxis = this.getXAxis(coordSys);
-                    CoordAxis yAxis = this.getYAxis(coordSys);
-                    HorizontalProjection proj = HorizontalProjection.create(coordSys.getProjection());
-                    
-                    boolean zPositive = this.isZPositive(coordSys);
-                    CoordinateAxis1D zAxis = coordSys.getVerticalAxis();
-                    double[] zValues = this.getZValues(zAxis, zPositive);
+                minLon = -180.0;
+                maxLon = 180.0;
+            }
+            if (minLat >= maxLat)
+            {
+                minLat = -90.0;
+                maxLat = 90.0;
+            }
+            double[] bbox = new double[]{minLon, minLat, maxLon, maxLat};
+            
+            // Now create the LayerImpl object
+            logger.debug("Creating new Layer object for {}", grid.getName());
+            LayerImpl layer = new LayerImpl();
+            layer.setId(grid.getName());
+            layer.setTitle(getStandardName(grid.getVariable()));
+            layer.setAbstract(grid.getDescription());
+            layer.setUnits(grid.getUnitsString());
+            layer.setXaxis(xAxis);
+            layer.setYaxis(yAxis);
+            layer.setHorizontalProjection(proj);
+            layer.setBbox(bbox);
 
-                    // Set the bounding box
-                    // TODO: should take into account the cell bounds
-                    LatLonRect latLonRect = coordSys.getLatLonBoundingBox();
-                    LatLonPoint lowerLeft = latLonRect.getLowerLeftPoint();
-                    LatLonPoint upperRight = latLonRect.getUpperRightPoint();
-                    double minLon = lowerLeft.getLongitude();
-                    double maxLon = upperRight.getLongitude();
-                    double minLat = lowerLeft.getLatitude();
-                    double maxLat = upperRight.getLatitude();
-                    // Correct the bounding box in case of mistakes or in case it 
-                    // crosses the date line
-                    if (latLonRect.crossDateline() || minLon >= maxLon)
-                    {
-                        minLon = -180.0;
-                        maxLon = 180.0;
-                    }
-                    if (minLat >= maxLat)
-                    {
-                        minLat = -90.0;
-                        maxLat = 90.0;
-                    }
-                    double[] bbox = new double[]{minLon, minLat, maxLon, maxLat};
-
-                    // Now add every variable that has this coordinate system
-                    for (GridDatatype grid : newGrids)
-                    {
-                        logger.debug("Creating new Layer object for {}", grid.getName());
-                        LayerImpl layer = new LayerImpl();
-                        layer.setId(grid.getName());
-                        layer.setTitle(getStandardName(grid.getVariable()));
-                        layer.setAbstract(grid.getDescription());
-                        layer.setUnits(grid.getUnitsString());
-                        layer.setXaxis(xAxis);
-                        layer.setYaxis(yAxis);
-                        layer.setHorizontalProjection(proj);
-                        layer.setBbox(bbox);
-
-                        if (zAxis != null)
-                        {
-                            layer.setZunits(zAxis.getUnitsString());
-                            layer.setZpositive(zPositive);
-                            layer.setZvalues(zValues);
-                        }
-
-                        // Add this layer to the Map
-                        layers.put(layer.getId(), layer);
-                    }
-                }
+            if (zAxis != null)
+            {
+                layer.setZunits(zAxis.getUnitsString());
+                layer.setZpositive(zPositive);
+                layer.setZvalues(zValues);
+            }
+            
+            return layer;
+            
                 // Now we add the new timestep information for all grids
                 // in this Gridset
-                for (GridDatatype grid : grids)
+                /*for (GridDatatype grid : grids)
                 {
                     if (this.includeGrid(grid))
                     {
@@ -372,8 +408,7 @@ public class DefaultDataReader extends DataReader
                             layer.addTimestepInfo(timestep);
                         }
                     }
-                }
-            }
+                }*/
         }
         finally
         {
@@ -452,24 +487,22 @@ public class DefaultDataReader extends DataReader
     }
     
     /**
-     * Gets array of Dates representing the timesteps of the given coordinate system.
+     * Gets a List of TimestepInfo objects representing the timesteps of the given
+     * time axis.
      * @param filename The name of the file/dataset to which the coord sys belongs
-     * @param coordSys The coordinate system containing the time information
+     * @param tAxis the time axis
      * @return List of TimestepInfo objects
      * @throws IOException if there was an error reading the timesteps data
      */
-    protected static List<TimestepInfo> getTimesteps(String filename, GridCoordSystem coordSys)
-        throws IOException
+    protected static List<TimestepInfo> getTimesteps(String filename,
+        CoordinateAxis1DTime tAxis) throws IOException
     {
         List<TimestepInfo> timesteps = new ArrayList<TimestepInfo>();
-        if (coordSys.hasTimeAxis1D())
+        Date[] dates = tAxis.getTimeDates();
+        for (int i = 0; i < dates.length; i++)
         {
-            Date[] dates = coordSys.getTimeAxis1D().getTimeDates();
-            for (int i = 0; i < dates.length; i++)
-            {
-                TimestepInfo tInfo = new TimestepInfo(dates[i], filename, i);
-                timesteps.add(tInfo);
-            }
+            TimestepInfo tInfo = new TimestepInfo(dates[i], filename, i);
+            timesteps.add(tInfo);
         }
         return timesteps;
     }

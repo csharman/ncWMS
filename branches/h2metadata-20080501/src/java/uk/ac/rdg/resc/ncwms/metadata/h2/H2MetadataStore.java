@@ -42,10 +42,9 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
-import java.util.Iterator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.apache.log4j.Logger;
 import org.h2.tools.RunScript;
 import ucar.nc2.dataset.AxisType;
@@ -60,7 +59,6 @@ import uk.ac.rdg.resc.ncwms.metadata.MetadataStore;
 import uk.ac.rdg.resc.ncwms.metadata.PositiveDirection;
 import uk.ac.rdg.resc.ncwms.metadata.Regular1DCoordAxis;
 import uk.ac.rdg.resc.ncwms.metadata.TimestepInfo;
-import uk.ac.rdg.resc.ncwms.metadata.VectorLayer;
 import uk.ac.rdg.resc.ncwms.metadata.projection.HorizontalProjection;
 import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
 
@@ -168,6 +166,7 @@ public class H2MetadataStore extends MetadataStore
     @Override
     public Collection<? extends Layer> getLayersInDataset(String datasetId) throws Exception
     {
+        logger.debug("Getting all layers in dataset {}", datasetId);
         final String FIND_VARIABLES = "select * from variables where dataset_id = ?";
         Dataset ds = this.config.getDatasets().get(datasetId);
         try
@@ -247,51 +246,74 @@ public class H2MetadataStore extends MetadataStore
      * variable will be reloaded.
      * @throws Exception if the metadata could not be read
      */
+    @Override
     public synchronized void synchronizeMetadata(Dataset ds,
         boolean forceReloadAllMetadata) throws Exception
     {
+        logger.debug("Synchronizing metadata for dataset {}", ds.getId());
+        // Get the DataReader that we'll use to read metadata from this dataset
+        DataReader dr = ds.getDataReader();
         try
         {
+            if (forceReloadAllMetadata)
+            {
+                // We delete all the metadata for this dataset so that it will
+                // all get reloaded
+                this.deleteDataset(ds.getId());
+            }
+            
             // Create an entry in the database for this dataset, if not already
             // present
             this.insertDataset(ds.getId());
-
-            // Get the DataReader that we'll use to read metadata
-            DataReader dr = ds.getDataReader();
-            // Get the timestep details for all the data files in the dataset.
-            // This also discovers all the variable IDs in the dataset (the keys
-            // in the Map).
-            Map<String, List<TimestepInfo>> varTimesteps = dr.getTimestepInfoForAllLayers(ds);
             
-            // Cycle through each variable
-            for (String internalName : varTimesteps.keySet())
+            // Find the variables in the database.  This returns a Map of 
+            // variable internal names to unique IDs in the database.
+            Map<String, Long> internalVarNames = this.findVariables(ds.getId());
+            
+            // Cycle through the files that make up this dataset
+            for (String filename : ds.getFilenames())
             {
-                List<TimestepInfo> timesteps = varTimesteps.get(internalName);
-                
-                // See if we already have this variable in the database
-                Long varId = this.containsVariable(ds.getId(), internalName);
-                if (varId == null || forceReloadAllMetadata)
+                // See if this file has changed or is new since the last resync
+                // (this will always return true for an NcML aggregation or
+                // OPeNDAP location since we can't tell if these have changed)
+                if (this.fileNeedsUpdate(ds.getId(), filename))
                 {
-                    // We need to reload all the metadata for this variable.
-                    // We load metadata from the most recent file in the
-                    // aggregation
-                    String lastFile = timesteps.get(timesteps.size() - 1).getFilename();
-                    LayerImpl layer = dr.getLayerMetadata(lastFile, internalName);
-                    // Now we update the database
-                    varId = this.insertOrUpdateVariable(ds.getId(), layer, varId);
+                    logger.debug("File {} in dataset {} needs update",
+                        filename, ds.getId());
+                    // Delete it from the database (foreign keys will ensure that
+                    // all associated timesteps will be deleted)
+                    this.deleteFile(ds.getId(), filename);
+                    // Reload timestep info for all variables in this file.
+                    // This maps internal variable names to timestep information
+                    Map<String, List<TimestepInfo>> varTimesteps =
+                        dr.getTimestepInfo(filename);
+                    // Cycle through each variable we find in the file
+                    for (String internalName : varTimesteps.keySet())
+                    {
+                        // Create a new entry in the variables table if one
+                        // doesn't exist
+                        Long varId = internalVarNames.get(internalName);
+                        if (varId == null)
+                        {
+                            // This variable doesn't exist in the database so we
+                            // load its metadata from the data file
+                            LayerImpl layer = dr.getLayerMetadata(filename, internalName);
+                            varId = this.insertVariable(ds.getId(), layer);
+                            // Now add the variable to the map so we don't try
+                            // to insert this variable again
+                            internalVarNames.put(internalName, varId);
+                        }
+                        // Insert all timesteps for this variable from this file
+                        this.insertTimesteps(ds.getId(), filename, varId,
+                            varTimesteps.get(internalName));
+                    }
                 }
-                
-                // Now we can update the time axis information
-                // TODO: what if a variable has no time axis?
-                // TODO: deal with orphans
-                
             }
             
-            // Clean up any variables that are in the database but are not
-            // represented in the latest metadata. FK "on delete cascade"
-            // relationships ensure that all variable_timesteps are also
-            // deleted
-            this.deleteOrphanVariables(ds.getId(), varTimesteps.keySet());
+            // We may not have read all the files in this dataset so we don't
+            // know if there are any variables in the database that are not in
+            // the data files.  These "orphan" variables will just have to sit
+            // around until all the metadata are reloaded.
 
             // Set the last update time of the dataset
             this.setLastUpdateTime(ds.getId());
@@ -310,14 +332,31 @@ public class H2MetadataStore extends MetadataStore
     }
     
     /**
+     * Deletes all the metadata associated with the given dataset from the 
+     * database
+     * @param datasetId The unique ID of the dataset
+     */
+    private void deleteDataset(String datasetId) throws SQLException
+    {
+        logger.debug("Deleting dataset {}", datasetId);
+        // Foreign key relationships ensure that all metadata is deleted with a
+        // single command (see init.sql).
+        final String DELETE_DATASET = "delete from datasets where id = ?";
+        PreparedStatement deleteDataset = this.conn.prepareStatement(DELETE_DATASET);
+        deleteDataset.setString(1, datasetId);
+        deleteDataset.executeUpdate();
+    }
+    
+    /**
      * Checks to see if a dataset with the given ID exists already in the 
-     * database, creating a new entry if not
+     * database, creating a new entry if not.
      * @param datasetId The unique ID of the dataset
      */
     private void insertDataset(String datasetId) throws SQLException
     {
+        logger.debug("Inserting entry for dataset {}", datasetId);
         // First we see if the dataset exists already
-        final String FIND_DATASET = "select from datasets where id = ?";
+        final String FIND_DATASET = "select * from datasets where id = ?";
         PreparedStatement findDataset = this.conn.prepareStatement(FIND_DATASET);
         findDataset.setString(1, datasetId);
         ResultSet rs = findDataset.executeQuery();
@@ -332,23 +371,88 @@ public class H2MetadataStore extends MetadataStore
     }
     
     /**
-     * Checks to see if a given variable exists in the database.  This does not
-     * alter the database contents.
-     * @param datasetId The ID of the dataset to which the variable belongs
-     * @param internalName The unique ID of the variable within the <b>dataset</b>
-     * @return the unique ID of the variable within the <b>whole database</b>
-     * if the variable exists in the database, null otherwise.
+     * Finds the all the variables in the database in the dataset with the given
+     * ID.
+     * @return Map of variable internal names to unique IDs
      */
-    private Long containsVariable(String datasetId, String internalName)
+    private Map<String, Long> findVariables(String datasetId)
         throws SQLException
     {
-        final String FIND_VARIABLE = "select id from variables " +
-            "where internal_name=? and dataset_id=?";
-        PreparedStatement findVariable = this.conn.prepareStatement(FIND_VARIABLE);
-        findVariable.setString(1, internalName);
-        findVariable.setString(2, datasetId);
-        ResultSet rs = findVariable.executeQuery();
-        return rs.first() ? rs.getLong(1) : null;
+        logger.debug("Finding variables in dataset {}", datasetId);
+        final String FIND_VARIABLES = "select internal_name, id from variables " +
+            "where dataset_id = ?";
+        PreparedStatement ps = this.conn.prepareStatement(FIND_VARIABLES);
+        ps.setString(1, datasetId);
+        ResultSet rs = ps.executeQuery();
+        Map<String, Long> variables = new HashMap<String, Long>();
+        while(rs.next())
+        {
+            variables.put(rs.getString(1), rs.getLong(2));
+        }
+        logger.debug("Found {} variables in dataset {}", variables.size(), datasetId);
+        return variables;
+    }
+    
+    /**
+     * Searches for the given file in the given dataset and returns true if
+     * we need to reload data for this file, either because the file is not
+     * in the database or because the file has changed since the last update.
+     * @todo implement properly!
+     */
+    private boolean fileNeedsUpdate(String datasetId, String filename)
+        throws SQLException
+    {
+        if (WmsUtils.isNcmlAggregation(filename) ||
+            WmsUtils.isOpendapLocation(filename))
+        {
+            // We have no way of knowing when the data underlying an OPeNDAP
+            // location or NcML aggregation have been updated so we always
+            // assume it needs updating.
+            return true;
+        }
+        // We now know that this is a regular file in the local filesystem
+        final String SELECT_FILE = "select last_modified, file_size " +
+            "from data_files where dataset_id = ? and filepath = ?";
+        PreparedStatement ps = this.conn.prepareStatement(SELECT_FILE);
+        ps.setString(1, datasetId);
+        ps.setString(2, filename);
+        ResultSet rs = ps.executeQuery();
+        if (rs.first())
+        {
+            // We've found the data file
+            long lastModified = rs.getTimestamp(1).getTime();
+            long fileSize = rs.getLong(2);
+            File f = new File(filename);
+            if (f.lastModified() > lastModified || f.length() != fileSize)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        else
+        {
+            // There is no matching data file so we must load it
+            return true;
+        }
+    }
+    
+    /**
+     * Deletes a file from the database.  Foreign key relationships ensure that
+     * all timesteps in this file will be deleted.
+     */
+    private void deleteFile(String datasetId, String filename)
+        throws SQLException
+    {
+        logger.debug("Deleting file {} from dataset {}", filename, datasetId);
+        final String DELETE_FILE = "delete from data_files " +
+            "where dataset_id = ? and filepath = ?";
+        PreparedStatement ps = this.conn.prepareStatement(DELETE_FILE);
+        ps.setString(1, datasetId);
+        ps.setString(2, filename);
+        ps.executeUpdate();
     }
     
     /**
@@ -356,14 +460,13 @@ public class H2MetadataStore extends MetadataStore
      * information
      * @param datasetId The ID of the dataset to which the variable belongs
      * @param layer The object containing the variable's metadata
-     * @param varId If the variable already exists within the database, this is
-     * the unique ID of the variable in the database, otherwise null
-     * @return the unique ID of the variable in the database, which might be null
-     * if the layer is a 
+     * @return the unique ID of the variable in the database
      */
-    private long insertOrUpdateVariable(String datasetId, LayerImpl layer, Long varId)
+    private long insertVariable(String datasetId, LayerImpl layer)
         throws SQLException
     {
+        logger.debug("Inserting variable {} into dataset {}", layer.getId(),
+            datasetId);
         // Find or insert the axis and projection IDs
         long xAxisId = this.findOrInsertXYAxis(datasetId, layer.getXaxis());
         long yAxisId = this.findOrInsertXYAxis(datasetId, layer.getYaxis());
@@ -373,26 +476,15 @@ public class H2MetadataStore extends MetadataStore
         Long projectionId = this.findOrInsertProjection(datasetId,
             layer.getHorizontalProjection());
         
-        // Use an UPDATE if the variable exists in the database, an INSERT
-        // if not.  Note that both of these statements use the same columns
-        // in the same order, allowing us to share the same code later on
-        final String SQL = varId == null
-            ? "insert into variables" +
+        final String INSERT_VARIABLE = "insert into variables" +
             "(display_name, description, units, " +
             "bbox_west, bbox_south, bbox_east, bbox_north, color_scale_min, " +
             "color_scale_max, x_axis_id, y_axis_id, z_axis_id, projection_id, " +
             "internal_name, dataset_id)" +
-            "values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-            : "update variables set " +
-            "display_name=?, description=?, units=?, " +
-            "bbox_west=?, bbox_south=?, bbox_east=?, bbox_north=?, " +
-            "color_scale_min=?, color_scale_max=?, x_axis_id=?, y_axis_id=?, " +
-            "z_axis_id=?, projection_id=? " +
-            "where internal_name=? and dataset_id = ?";
+            "values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         
-        // The RETURN_GENERATED_KEYS clause will hopefully be ignored if this
-        // is an update statement.
-        PreparedStatement ps = this.conn.prepareStatement(SQL, Statement.RETURN_GENERATED_KEYS);
+        PreparedStatement ps = this.conn.prepareStatement(INSERT_VARIABLE,
+            Statement.RETURN_GENERATED_KEYS);
         ps.setString(1, layer.getTitle());
         ps.setString(2, layer.getAbstract());
         ps.setString(3, layer.getUnits());
@@ -411,39 +503,10 @@ public class H2MetadataStore extends MetadataStore
         ps.setString(15, datasetId);
         
         ps.executeUpdate();
-        if (varId == null)
-        {
-            // We have inserted a new variable so we must find its ID
-            ResultSet keys = ps.getGeneratedKeys();
-            keys.first();
-            return keys.getLong(1);
-        }
-        return varId;
-    }
-    
-    /**
-     * Deletes any variables that are <b>not</b> included in the given list
-     * of variable IDs from the database.
-     * @param datasetId The ID of the dataset to which the variables belong
-     * @param variableIds The unique IDs of the variables we want to <b>keep</b>
-     * as a Set of Strings
-     */
-    private void deleteOrphanVariables(String datasetId, Set<String> variableIds)
-        throws SQLException
-    {
-        final String DELETE_ORPHAN_VARIABLES = "delete from variables " +
-            "where dataset_id=? and internal_name not in(?)";
-        // Make a list of variable IDs in the form "'foo', 'bar', 'baz'"
-        StringBuffer buf = new StringBuffer();
-        for (Iterator<String> it = variableIds.iterator(); it.hasNext(); )
-        {
-            buf.append("'" + it.next() + "'");
-            if (it.hasNext()) buf.append(",");
-        }
-        PreparedStatement deleteOrphanVariables = this.conn.prepareStatement(DELETE_ORPHAN_VARIABLES);
-        deleteOrphanVariables.setString(1, datasetId);
-        deleteOrphanVariables.setString(2, buf.toString());
-        deleteOrphanVariables.executeUpdate();
+        // We have inserted a new variable so we must find its ID
+        ResultSet keys = ps.getGeneratedKeys();
+        keys.first();
+        return keys.getLong(1);
     }
     
     /**
@@ -452,121 +515,12 @@ public class H2MetadataStore extends MetadataStore
      */
     private void setLastUpdateTime(String datasetId) throws SQLException
     {
+        logger.debug("Setting last update time of dataset {}", datasetId);
         final String SET_LAST_UPDATE = "update datasets set last_updated = ? where id = ?";
         PreparedStatement setLastUpdate = this.conn.prepareStatement(SET_LAST_UPDATE);
         setLastUpdate.setTimestamp(1, new Timestamp(new Date().getTime()));
         setLastUpdate.setString(2, datasetId);
         setLastUpdate.executeUpdate();
-    }
-
-    /**
-     * This is the only method that can update data in the database
-     * @param datasetId
-     * @param layers
-     * @throws java.lang.Exception
-     */
-    @Override
-    public void setLayersInDataset(String datasetId, Map<String, ? extends Layer> layers) throws Exception
-    {
-        final String DELETE_DATASET = "delete from datasets where id = ?";
-        final String INSERT_DATASET = "insert into datasets(id) values (?)";
-        final String INSERT_VARIABLE = "insert into variables" +
-            "(internal_name, dataset_id, display_name, description, units, " +
-            "bbox_west, bbox_south, bbox_east, bbox_north, color_scale_min, " +
-            "color_scale_max, x_axis_id, y_axis_id, z_axis_id, projection_id) " +
-            "values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
-        final String SET_LAST_UPDATE = "update datasets set last_updated = ? where id = ?";
-        
-        try
-        {
-            // First we delete all the metadata for this dataset.  Foreign key
-            // relationships ensure that all metadata is deleted with a single
-            // command (see init.sql).
-            PreparedStatement deleteDataset = this.conn.prepareStatement(DELETE_DATASET);
-            deleteDataset.setString(1, datasetId);
-            deleteDataset.executeUpdate();
-            
-            // Now we create a new dataset
-            PreparedStatement insertDataset = this.conn.prepareStatement(INSERT_DATASET);
-            insertDataset.setString(1, datasetId);
-            insertDataset.executeUpdate();
-            
-            // Now we create variables, axes and projections
-            PreparedStatement insertVariable = this.conn.prepareStatement(INSERT_VARIABLE,
-                Statement.RETURN_GENERATED_KEYS);
-            insertVariable.setString(2, datasetId);
-            for (Layer layer : layers.values())
-            {
-                // We skip vector layers for the moment
-                // TODO: how best to handle these?  We don't want to store
-                // redundant metadata but we need to make sure these layers
-                // are re-created when a request for layers comes in.  Perhaps
-                // we need a separate table for vector layers?
-                if (layer instanceof VectorLayer) continue;
-                
-                long xAxisId = this.findOrInsertXYAxis(datasetId, layer.getXaxis());
-                long yAxisId = this.findOrInsertXYAxis(datasetId, layer.getYaxis());
-                // This will be null if there is no z axis present in the layer
-                Long zAxisId = this.findOrInsertZAxis(datasetId, layer);
-                 // Will be null if the projection is lat-lon
-                Long projectionId = this.findOrInsertProjection(datasetId,
-                    layer.getHorizontalProjection());
-                
-                insertVariable.setString(1, layer.getId());
-                insertVariable.setString(3, layer.getTitle());
-                insertVariable.setString(4, layer.getAbstract());
-                insertVariable.setString(5, layer.getUnits());
-                
-                double[] bbox = layer.getBbox();
-                insertVariable.setDouble(6, bbox[0]);
-                insertVariable.setDouble(7, bbox[1]);
-                insertVariable.setDouble(8, bbox[2]);
-                insertVariable.setDouble(9, bbox[3]);
-                
-                insertVariable.setDouble(10, layer.getScaleMin());
-                insertVariable.setDouble(11, layer.getScaleMax());
-                
-                insertVariable.setLong(12, xAxisId);
-                insertVariable.setLong(13, yAxisId);
-                insertVariable.setObject(14, zAxisId); // can be null
-                
-                insertVariable.setObject(15, projectionId);
-                
-                // Insert the new variable and find its primary key
-                insertVariable.executeUpdate();
-                logger.debug("Inserted variable with id {} in dataset {}",
-                    layer.getId(), datasetId);
-                ResultSet generatedKeys = insertVariable.getGeneratedKeys();
-                if (!generatedKeys.first())
-                {
-                    // Shouldn't happen
-                    throw new IllegalStateException("Generated key not found");
-                }
-                long varId = generatedKeys.getLong(1);
-                logger.debug("Created new variable with primary key {}", varId);
-                
-                // Now add the timesteps for this variable
-                if (layer.isTaxisPresent())
-                {
-                    this.addTimesteps(varId, datasetId, layer.getTimesteps());
-                }
-            }
-            
-            // Finally we set the last-update time for this dataset
-            PreparedStatement setLastUpdate = this.conn.prepareStatement(SET_LAST_UPDATE);
-            setLastUpdate.setTimestamp(1, new Timestamp(new Date().getTime()));
-            setLastUpdate.setString(2, datasetId);
-            setLastUpdate.executeUpdate();
-            
-            // If we've got this far all is well: we can commit the changes
-            this.conn.commit();
-        }
-        catch(SQLException sqle)
-        {
-            this.conn.rollback();
-            logger.error("Error setting layers in dataset " + datasetId, sqle);
-            throw sqle;
-        }
     }
     
     /**
@@ -779,22 +733,50 @@ public class H2MetadataStore extends MetadataStore
     }
 
     /**
-     * Adds the timesteps for a particular variable to the database
-     * @param varId The primary key of the variable in question
-     * @param timesteps List of TimestepInfo object representing the time
-     * axis for the variable
+     * Adds the timesteps for a particular variable from a particular file
+     * to the database.
+     * @param datasetId The ID of the dataset to which this information belongs
+     * @param filename The full path to the file from which this information
+     * comes
+     * @param varId The primary key of the variable in the database
+     * @param timesteps List of TimestepInfo object representing the timesteps
+     * for this variable in this file
      * @todo The whole time axis thing needs more thought and refactoring...
      * The List of TimestepInfo objects may not contain all the timesteps for
      * some files (if there are duplicate Dates due to different forecast
      * periods)
      */
-    private void addTimesteps(long varId, String datasetId, List<TimestepInfo> timesteps)
-        throws SQLException
+    private void insertTimesteps(String datasetId, String filename, long varId,
+        List<TimestepInfo> timesteps) throws SQLException
     {
-        final String FIND_DATA_FILE = "select id from data_files " +
-            "where filepath = ?";
-        final String INSERT_DATA_FILE = "insert into data_files" +
-            "(dataset_id, filepath) values (?,?)";
+        final String INSERT_DATA_FILE = "insert into data_files " +
+            "(dataset_id, filepath, last_modified, file_size) values (?,?,?,?)";
+        PreparedStatement insertDataFile = this.conn.prepareStatement(INSERT_DATA_FILE,
+            Statement.RETURN_GENERATED_KEYS);
+        
+        Long lastModified = null;
+        Long fileSize = null;
+        if (!WmsUtils.isNcmlAggregation(filename) &&
+            !WmsUtils.isOpendapLocation(filename))
+        {
+            // We know this is a local file
+            File f = new File(filename);
+            lastModified = f.lastModified();
+            fileSize = f.length();
+        }
+        
+        // First we make an entry in the data_files table and get the file's
+        // unique ID
+        insertDataFile.setString(1, datasetId);
+        insertDataFile.setString(2, filename);
+        insertDataFile.setTimestamp(3, new Timestamp(lastModified));
+        insertDataFile.setLong(4, fileSize);
+        insertDataFile.executeUpdate();
+        
+        // If we don't have a time axis there's no point in going further.
+        // N.B. timesteps should not be null: this is defensive programming.
+        if (timesteps == null || timesteps.size() < 1) return;
+        
         final String FIND_TIMESTEP = "select id from timesteps " +
             "where data_file_id=? and index_in_file=? and timestep=?";
         final String INSERT_TIMESTEP = "insert into timesteps" +
@@ -802,40 +784,23 @@ public class H2MetadataStore extends MetadataStore
         final String INSERT_VARIABLE_TIMESTEP = "insert into variables_timesteps" +
             "(variable_id, timestep_id) values (?,?)";
         
-        PreparedStatement findDataFile = this.conn.prepareStatement(FIND_DATA_FILE);
-        PreparedStatement insertDataFile = this.conn.prepareStatement(INSERT_DATA_FILE,
-            Statement.RETURN_GENERATED_KEYS);
-        insertDataFile.setString(1, datasetId);
         PreparedStatement findTimestep = this.conn.prepareStatement(FIND_TIMESTEP);
         PreparedStatement insertTimestep = this.conn.prepareStatement(INSERT_TIMESTEP,
             Statement.RETURN_GENERATED_KEYS);
         PreparedStatement insertVariableTimestep =
             this.conn.prepareStatement(INSERT_VARIABLE_TIMESTEP);
         
+        ResultSet dfKeys = insertDataFile.getGeneratedKeys();
+        dfKeys.first();
+        long dataFileId = dfKeys.getLong(1);
+        findTimestep.setLong(1, dataFileId);
+        insertTimestep.setLong(1, dataFileId);
+        
         for (TimestepInfo tInfo : timesteps)
         {
-            // Look to see if we already have an entry for this data file
-            long dataFileId;
-            findDataFile.setString(1, tInfo.getFilename());
-            ResultSet dataFiles = findDataFile.executeQuery();
-            if (dataFiles.first())
-            {
-                // We've found a matching data file
-                dataFileId = dataFiles.getLong("id");
-            }
-            else
-            {
-                // We need to insert a new data file
-                insertDataFile.setString(2, tInfo.getFilename());
-                insertDataFile.executeUpdate();
-                ResultSet keys = insertDataFile.getGeneratedKeys();
-                keys.first(); // Should always succeed
-                dataFileId = keys.getLong(1);
-            }
-            
-            // Now look for a matching timestep
+            // Look to see if an equivalent timestep already exists in the
+            // database (will happen if variables share the same time axis)
             long timestepId;
-            findTimestep.setLong(1, dataFileId);
             findTimestep.setInt(2, tInfo.getIndexInFile());
             findTimestep.setTimestamp(3, new Timestamp(tInfo.getDate().getTime()));
             ResultSet tsteps = findTimestep.executeQuery();
@@ -864,9 +829,7 @@ public class H2MetadataStore extends MetadataStore
         }
         
         // Free resources: TODO: do this in a finally clause?
-        findDataFile.close();
         insertDataFile.close();
-        findTimestep.close();
         insertTimestep.close();
         insertVariableTimestep.close();
     }

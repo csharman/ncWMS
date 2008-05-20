@@ -50,11 +50,12 @@ import uk.ac.rdg.resc.ncwms.metadata.TimestepInfo;
  * Description of NemoDataReader
  *
  * @author Jon Blower
+ * @todo relink to DefaultDataReader
  * $Revision$
  * $Date$
  * $Log$
  */
-public class NemoDataReader extends DefaultDataReader
+public class NemoDataReader //extends DefaultDataReader
 {
     private static final Logger logger = Logger.getLogger(NemoDataReader.class);
     
@@ -72,7 +73,7 @@ public class NemoDataReader extends DefaultDataReader
      * @param grid The grid onto which the data are to be read
      * @throws Exception if an error occurs
      */
-    @Override
+    /*@Override
     public float[] read(String filename, Layer layer, int tIndex, int zIndex, HorizontalGrid grid)
         throws Exception
     {
@@ -204,7 +205,7 @@ public class NemoDataReader extends DefaultDataReader
                 }
             }
         }
-    }
+    }*/
     
     /**
      * Reads and returns the metadata for all the variables in the dataset
@@ -214,8 +215,7 @@ public class NemoDataReader extends DefaultDataReader
      * @param location Full path to the dataset (N.B. not an aggregation)
      * @throws IOException if there was an error reading from the data source
      */
-    @Override
-    protected void findAndUpdateLayers(String location, Map<String, LayerImpl> layers)
+    /*protected void findAndUpdateLayers(String location, Map<String, LayerImpl> layers)
         throws IOException
     {
         NetcdfDataset nc = null;
@@ -326,6 +326,6 @@ public class NemoDataReader extends DefaultDataReader
                 }
             }
         }
-    }
+    }*/
 }
 

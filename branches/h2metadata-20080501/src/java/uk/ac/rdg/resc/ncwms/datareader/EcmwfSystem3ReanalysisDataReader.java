@@ -45,11 +45,12 @@ import uk.ac.rdg.resc.ncwms.metadata.LayerImpl;
  * DefaultDataReader, with some fixes for problems within the metadata.
  *
  * @author Jon Blower
+ * @todo relink to DefaultDataReader
  * $Revision$
  * $Date$
  * $Log$
  */
-public class EcmwfSystem3ReanalysisDataReader extends DefaultDataReader
+public class EcmwfSystem3ReanalysisDataReader //extends DefaultDataReader
 {
     private static final Logger logger = Logger.getLogger(EcmwfSystem3ReanalysisDataReader.class);
     
@@ -57,7 +58,7 @@ public class EcmwfSystem3ReanalysisDataReader extends DefaultDataReader
      * Corrects problem with reading bounding box in source data (use of latitude
      * values > +/- 90 degrees causes latitude portion of BBOX to be NaN)
      */
-    @Override
+    /*@Override
     protected void findAndUpdateLayers(String location, Map<String, LayerImpl> layers)
         throws IOException
     {
@@ -66,7 +67,7 @@ public class EcmwfSystem3ReanalysisDataReader extends DefaultDataReader
         {
             layer.setBbox(new double[]{-180.0, -90.0, 180.0, 90.0});
         }
-    }
+    }*/
     
     /**
      * Gets array of Dates representing the timesteps of the given variable.

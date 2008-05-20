@@ -32,7 +32,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import uk.ac.rdg.resc.ncwms.config.Dataset;
 import uk.ac.rdg.resc.ncwms.metadata.Layer;
 import uk.ac.rdg.resc.ncwms.metadata.LayerImpl;
 import uk.ac.rdg.resc.ncwms.metadata.TimestepInfo;
@@ -111,35 +110,13 @@ public abstract class DataReader
         throws Exception;
     
     /**
-     * Reads and returns the metadata for all the layers (i.e. variables) in the
-     * given {@link Dataset}.
-     * @param ds Object describing the Dataset to which the layer belongs
-     * @return Map of layer IDs mapped to {@link LayerImpl} objects
-     * @throws IOException if there was an error reading from the data source
-     */
-    public Map<String, LayerImpl> getAllLayers(Dataset ds)
-        throws IOException
-    {
-        List<String> filenames = ds.getFilenames();
-        // Now extract the data for each individual file
-        Map<String, LayerImpl> layers = new HashMap<String, LayerImpl>();
-        for (String filename : filenames)
-        {
-            // Read the metadata from the file and update the Map.
-            // TODO: only do this if the file's last modified date has changed?
-            // This would require us to keep the previous metadata...
-            this.findAndUpdateLayers(filename, layers);
-        }
-        return layers;
-    }
-    
-    /**
-     * Looks through all the data files in the provided dataset, finding the
-     * relationship between variables, timesteps and filenames.
+     * Finds time axis information for each variable in the dataset at the given
+     * location.
      * @return A Map of internal variable IDs to TimestepInfo objects that
      * define which file contains which timesteps for that variable.
      */
-    public abstract Map<String, List<TimestepInfo>> getTimestepInfoForAllLayers(Dataset ds);
+    public abstract Map<String, List<TimestepInfo>> getTimestepInfo(String location)
+        throws IOException;
     
     /**
      * Gets the metadata for a particular layer/variable, not including time
@@ -151,19 +128,7 @@ public abstract class DataReader
      * not need to be completed.
      * @todo should not return a LayerImpl object!
      */
-    public abstract LayerImpl getLayerMetadata(String location, String layerId);
-    
-    /**
-     * Reads the metadata for all the variables in the dataset
-     * at the given location, which is the location of a NetCDF file, NcML
-     * aggregation, or OPeNDAP location (i.e. one element resulting from the
-     * expansion of a glob aggregation).
-     * @param location Full path to the dataset
-     * @param layers Map of Layer Ids to Layer objects to populate or update
-     * @throws IOException if there was an error reading from the data source
-     */
-    @Deprecated
-    protected abstract void findAndUpdateLayers(String location, Map<String, LayerImpl> layers)
+    public abstract LayerImpl getLayerMetadata(String location, String layerId)
         throws IOException;
     
 }

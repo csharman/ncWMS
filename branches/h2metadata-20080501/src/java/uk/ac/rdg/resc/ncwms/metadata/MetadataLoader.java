@@ -43,7 +43,6 @@ import uk.ac.rdg.resc.ncwms.config.Config;
 import uk.ac.rdg.resc.ncwms.config.Dataset;
 import uk.ac.rdg.resc.ncwms.config.Dataset.State;
 import uk.ac.rdg.resc.ncwms.controller.MetadataController;
-import uk.ac.rdg.resc.ncwms.datareader.DataReader;
 import uk.ac.rdg.resc.ncwms.datareader.NcwmsCredentialsProvider;
 import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
@@ -157,22 +156,20 @@ public class MetadataLoader
         }
         try
         {
-            // Get a DataReader object of the correct type
-            logger.debug("Getting data reader of type {}", ds.getDataReaderClass());
-            DataReader dr = DataReader.getDataReader(ds.getDataReaderClass(), ds.getLocation());
             // Look for OPeNDAP datasets and update the credentials provider accordingly
             this.updateCredentialsProvider(ds);
-            // Read the metadata
-            Map<String, LayerImpl> layers = dr.getAllLayers(ds);
-            logger.debug("loaded layers");
+            // Synchronize the metadata with the store
+            // TODO: how set forceReloadAllMetadata?
+            this.metadataStore.synchronizeMetadata(ds, false);
+            logger.debug("Synchronized metadata for dataset {} with store", ds.getId());
             // Search for vector quantities (e.g. northward/eastward_sea_water_velocity)
-            findVectorQuantities(ds, layers);
-            logger.debug("found vector quantities");
+            //findVectorQuantities(ds, layers);
+            //logger.debug("found vector quantities");
             // Find the min and max of each layer
-            findMinMax(ds, layers);
-            logger.debug("found min-max range for each layer");
+            //findMinMax(ds, layers);
+            //logger.debug("found min-max range for each layer");
             // Update the metadata store
-            this.metadataStore.setLayersInDataset(ds.getId(), layers);
+            //this.metadataStore.setLayersInDataset(ds.getId(), layers);
             ds.setState(State.READY);
             Date lastUpdate = new Date();
             this.config.setLastUpdateTime(lastUpdate);

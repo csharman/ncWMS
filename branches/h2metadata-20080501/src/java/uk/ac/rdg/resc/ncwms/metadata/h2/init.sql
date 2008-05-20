@@ -64,7 +64,8 @@ create table if not exists data_files
     id identity not null primary key, /* auto-generated unique ID */
     dataset_id varchar not null,      /* FK reference to datasets.id */
     filepath varchar not null,        /* full path to the file (or NcML file or OPeNDAP location) */
-    /* TODO: use last_modified and file size to check for changes to the file */
+    last_modified timestamp,          /* Time at which file was last modified (null if NcML or OPeNDAP) */
+    file_size bigint,                 /* Size of file in bytes (null if NcML or OPeNDAP) */
     constraint data_files_fk1 foreign key (dataset_id) references datasets(id) on delete cascade,
     /* A particular file path will be unique within a dataset */
     unique index data_files_idx1(dataset_id, filepath) 

@@ -49,11 +49,12 @@ import uk.ac.rdg.resc.ncwms.metadata.TimestepInfo;
  * DataReader for NSIDC snow/water data
  *
  * @author Jon Blower
+ * @todo relink to DataReader
  * $Revision$
  * $Date$
  * $Log$
  */
-public class NSIDCSnowWaterDataReader extends DataReader
+public class NSIDCSnowWaterDataReader //extends DataReader
 {
     private static final Logger logger = Logger.getLogger(NSIDCSnowWaterDataReader.class);
     
@@ -91,7 +92,7 @@ public class NSIDCSnowWaterDataReader extends DataReader
      * @param location Full path to the individual file
      * @throws IOException if there was an error reading from the data source
      */
-    @Override
+    //@Override
     protected void findAndUpdateLayers(String location, Map<String, LayerImpl> layers)
         throws IOException
     {

@@ -28,7 +28,6 @@
 
 package uk.ac.rdg.resc.ncwms.metadata;
 
-import com.sleepycat.persist.model.Persistent;
 import ucar.nc2.dataset.AxisType;
 import ucar.nc2.dataset.CoordinateAxis;
 import ucar.nc2.dataset.CoordinateAxis1D;
@@ -41,7 +40,6 @@ import ucar.nc2.dataset.CoordinateAxis1D;
  * $Date$
  * $Log$
  */
-@Persistent
 public abstract class CoordAxis
 {
     private AxisType axisType;
