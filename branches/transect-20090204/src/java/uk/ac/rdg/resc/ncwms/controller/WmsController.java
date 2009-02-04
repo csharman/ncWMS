@@ -79,6 +79,7 @@ import uk.ac.rdg.resc.ncwms.styles.ImageProducer;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry;
 import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
 
+
 /**
  * <p>This Controller is the entry point for all standard WMS operations
  * (GetMap, GetCapabilities, GetFeatureInfo).  Only one WmsController object 
@@ -226,6 +227,10 @@ public class WmsController extends AbstractController
                 // This is a request for a particular sub-region from Google Earth.
                 logUsage = false; // We don't log usage for this operation
                 return getKMLRegion(params, httpServletRequest);
+            }
+            else if (request.equals("GetTransect"))
+            {
+                return getTransect(params, httpServletRequest, httpServletResponse);
             }
             else
             {
@@ -916,6 +921,16 @@ public class WmsController extends AbstractController
         models.put("wmsBaseUrl", httpServletRequest.getRequestURL().toString());
         return new ModelAndView("regionBasedOverlay", models);
     }
+
+    private ModelAndView getTransect(RequestParams params,
+            HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
+        // You will need to populate this Map with the information that needs
+        // to go into the XML template
+        Map<String, Object> models = new HashMap<String, Object>();
+        models.put("name", "Fred");
+        // This displays WEB-INF/jsp/transect_xml.jsp, passing in the data
+        return new ModelAndView("transect_xml", models);
+    }
     
     /**
      * @return the index on the z axis of the requested Z value.  Returns 0 (the
@@ -1037,7 +1052,6 @@ public class WmsController extends AbstractController
         this.tileCache = tileCache;
     }
 }
-
 /**
  * Represents a WMS version number.  Not used in the current code, but preserved
  * for future use in version negotiation.
