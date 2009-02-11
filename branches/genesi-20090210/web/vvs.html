@@ -1,0 +1,85 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>GlobModel Visualization and Validation Service</title>
+
+        <!-- Resets the browser's CSS definitions. This should reduce the
+             problem of fonts appearing differently in different browsers. -->
+        <link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.5.2/build/reset-fonts-grids/reset-fonts-grids.css">
+
+        <link rel="stylesheet" type="text/css" href="css/vvs.css">
+
+        <script type="text/javascript" src="js/OpenLayers-2.7.js"></script>
+        <script type="text/javascript" src="js/LoadingPanel.js"></script>
+        <script type="text/javascript" src="js/WMS1_1_1.js"></script>
+        <script type="text/javascript" src="js/WMS1_3.js"></script>
+
+        <!-- For the pop-up panel (used in the palette selector) -->
+        <link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.5.2/build/container/assets/skins/sam/container.css">
+        <script type="text/javascript" src="http://yui.yahooapis.com/2.5.2/build/yahoo-dom-event/yahoo-dom-event.js"></script>
+        <script type="text/javascript" src="http://yui.yahooapis.com/2.5.2/build/dragdrop/dragdrop-min.js"></script>
+        <script type="text/javascript" src="http://yui.yahooapis.com/2.5.2/build/container/container-min.js"></script>
+
+        <!-- Prototype is used only for Ajax requests in server.js - can we refactor
+             to remove this dependency? -->
+        <script type="text/javascript" src="js/prototype-1.5.1.1.js"></script>
+        <script type="text/javascript" src="js/server.js"></script>
+        <script type="text/javascript" src="js/vvs.js"></script>
+    </head>
+
+    <body class="yui-skin-sam">
+
+    <div id="mainPanel" class="mainPanel">
+        <div id="panelHeader">
+            GlobModel: <input type="checkbox" checked="checked"/><br />
+            Sciamachy: <input type="checkbox"/><br />
+        </div>
+
+        <div id="mapPanel" class="imagePanel">
+            <div id="map" class="map"></div>
+            <img id="scaleBar" class="scaleBar" width="40" height="398" src="wms?REQUEST=GetLegendGraphic&COLORBARONLY=true&WIDTH=1&HEIGHT=398" alt="scale bar" title="Click to change the colour palette" onclick="javascript:showPaletteSelector();"/>
+            <div class="scaleMarkers">
+                <input id="scaleMax" class="scaleMax" type="text" size="11" onblur="javascript:validateScale()"/>
+                <span id="scaleTwoThirds"></span>
+                <div id="scaleControls">
+                    <span id="autoScale"><a href="#" title="Automatically stretch the colour scale range for maximum contrast" onclick="javascript:autoScale(false)">auto</a></span><br />
+                    <a href="#" title="Locks/Unlocks the colour scale range" onclick="javascript:toggleLockScale()"><span id="lockScale">lock</span></a>
+                </div>
+                <span id="scaleOneThird"></span>
+                <input id="scaleMin" class="scaleMin" type="text" size="11" onblur="javascript:validateScale()"/>
+            </div>
+            <div id="copyright"></div>
+            <div class="underMap"><span id="testImage"></span>&nbsp;&nbsp;<span id="googleEarth"></span></div>
+            <span id="opacityControl">Overlay opacity:
+                <select id="opacityValue" onchange="javascript:setDataOpacity(this.value)">
+                    <option value="1" selected>100%</option>
+                    <option value="0.66">66%</option>
+                    <option value="0.33">33%</option>
+                </select>
+            </span>
+            <span id="poweredBy">Powered by <a href="http://www.openlayers.org" target="_blank">OpenLayers</a> and <a href="http://www.opengeospatial.org" target="_blank">OGC</a> standards</span>
+            <span id="permalink"></span>
+        </div>
+    </div>
+
+    <!-- The palette selection pop-up window.  Initially invisible. -->
+    <div id="paletteSelector" style="visibility: hidden">
+        <div class="hd">Click to choose a colour palette</div>
+        <div class="bd">
+            <p>Number of colour bands:&nbsp;
+                <select id="numColorBands" onchange="javascript:updatePaletteSelector()">
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="254" selected>254</option>
+                </select>
+            </p>
+            <!-- This is where the table of palette images will go -->
+            <div id="paletteDiv"></div>
+        </div>
+    </div>
+
+    </body>
+</html>

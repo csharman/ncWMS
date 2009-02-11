@@ -45,7 +45,7 @@ class SciamachyGetMap {
     
     private static final Logger logger = LoggerFactory.getLogger(SciamachyGetMap.class);
 
-    private static File DATA_DIR = new File("C:\\Documents and Settings\\Jon\\Desktop\\NILU");
+    private static File DATA_DIR = new File("C:\\Documents and Settings\\Jon\\Desktop\\ESA");
 
     private static class DataFile {
         private Interval timeRange;
@@ -61,7 +61,7 @@ class SciamachyGetMap {
         // Look for all the .txt files
         FilenameFilter filter = new FilenameFilter() {
             public boolean accept(File dir, String name) {
-                return name.endsWith(".dat");
+                return name.endsWith(".txt");
             }
         };
         for (File f : DATA_DIR.listFiles(filter)) {
@@ -239,7 +239,8 @@ class SciamachyGetMap {
         GetMapStyleRequest styleRequest)
     {
         int numColourBands = styleRequest.getNumColourBands();
-        boolean logarithmic = styleRequest.isScaleLogarithmic();
+        boolean logarithmic = styleRequest.isScaleLogarithmic() == null ?
+            false : styleRequest.isScaleLogarithmic().booleanValue();
         if (Float.isNaN(value))
         {
             return numColourBands; // represents a background pixel
@@ -298,7 +299,7 @@ class SciamachyGetMap {
         double fracLat = (latitude  - minLat) / dLat;
         return new Point(
             (int)Math.round(fracLon * width),
-            (int)Math.round(fracLat * height)
+            height - 1 - (int)Math.round(fracLat * height) // y-axis is flipped
         );
     }
 
@@ -314,19 +315,19 @@ class SciamachyGetMap {
     private static void writeImage(BufferedImage im, String mimeType, HttpServletResponse response)
         throws InvalidFormatException, IOException {
         Iterator<ImageWriter> writers = ImageIO.getImageWritersByMIMEType(mimeType);
-        if (writers.hasNext()) {
-            // Use the first writer in the iterator
-            ImageWriter writer = writers.next();
-            ImageOutputStream ios = ImageIO.createImageOutputStream(response.getOutputStream());
-            writer.setOutput(ios);
-            writer.write(im);
-            // TODO: how can we make sure these are always called correctly
-            // even in event of failure?
-            writer.dispose();
-            ios.close();
+        if (!writers.hasNext()) {
+            // Should check this earlier really
+            throw new InvalidFormatException(mimeType);
         }
-        // Should check this earlier really
-        throw new InvalidFormatException(mimeType);
+        // Use the first writer in the iterator
+        ImageWriter writer = writers.next();
+        ImageOutputStream ios = ImageIO.createImageOutputStream(response.getOutputStream());
+        writer.setOutput(ios);
+        writer.write(im);
+        // TODO: how can we make sure these are always called correctly
+        // even in event of failure?
+        writer.dispose();
+        ios.close();
     }
 
 }
