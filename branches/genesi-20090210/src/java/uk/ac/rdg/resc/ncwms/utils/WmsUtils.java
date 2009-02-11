@@ -64,7 +64,7 @@ public class WmsUtils
      */
     public static final Collection<String> SUPPORTED_VERSIONS = new ArrayList<String>();
 
-    private static DateTimeFormatter ISO_DATE_TIME_FORMATTER =
+    public static DateTimeFormatter ISO_DATE_TIME_FORMATTER =
         ISODateTimeFormat.dateTime().withZone(DateTimeZone.UTC);
 
     private static DateTimeFormatter ISO_TIME_FORMATTER =

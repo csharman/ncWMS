@@ -125,18 +125,22 @@ public class NcwmsContext implements ApplicationContextAware
     }
     
     /**
-     * Called by Spring to set the working directory
-     * @throws IllegalArgumentException if the File does not represent an
-     * absolute path
+     * Called by Spring to set the path to the working directory.
+     * @param workingDirectory If this is an absolute path this will be used
+     * as the path for the working directory. If this is a relative path then
+     * the working directory will be set relative to $HOME.
      */
-    public void setWorkingDirectory(File workingDirectory)
+    public void setWorkingDirectoryPath(String workingDirectoryPath)
     {
-        if (!workingDirectory.isAbsolute())
+        File workDir = new File(workingDirectoryPath);
+        if (workDir.isAbsolute())
         {
-            throw new IllegalArgumentException("The working directory must be" +
-                " an absolute path");
+            this.workingDirectory = workDir;
         }
-        this.workingDirectory = workingDirectory;
+        else
+        {
+            this.workingDirectory = new File(System.getProperty("user.home"), workingDirectoryPath);
+        }
         // Set the location of the config file
         this.configFile = new File(this.workingDirectory, CONFIG_FILE_NAME);
     }

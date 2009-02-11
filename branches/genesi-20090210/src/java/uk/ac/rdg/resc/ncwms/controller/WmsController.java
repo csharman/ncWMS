@@ -415,6 +415,15 @@ public class WmsController extends AbstractController
             throw new WmsException("You may only request a maximum of " +
                 WmsController.LAYER_LIMIT + " layer(s) simultaneously from this server");
         }
+
+        // BEGIN HACK FOR SCIAMACHY DATA
+        if (layers[0].equals("SCIAMACHY"))
+        {
+            SciamachyGetMap.renderMap(getMapRequest, httpServletResponse);
+            return null;
+        }
+        // END HACK FOR SCIAMACHY DATA
+
         // TODO: support more than one layer (superimposition, difference, mask)
         Layer layer = this.metadataStore.getLayerByUniqueName(layers[0]);
         
