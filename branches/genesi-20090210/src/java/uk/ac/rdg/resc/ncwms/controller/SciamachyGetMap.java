@@ -261,28 +261,23 @@ class SciamachyGetMap {
 
     private static List<Polygon> getPolygons(GroundPixel groundPixel, GetMapRequest getMap) {
         List<Polygon> polygons = new ArrayList<Polygon>();
-        Polygon polygon1 = new Polygon();
-        Polygon polygon2 = new Polygon();
-        boolean allLessThan180 = true;
-        boolean allGreaterThan180 = true;
-        for (LonLat corner : groundPixel.getCorners()) {
-            if (corner.getLongitude() >= 180.0) {
-                allLessThan180 = false;
-            } else {
-                allGreaterThan180 = false;
-            }
-            addPoint(polygon1, getPoint(corner.getLongitude(), corner.getLatitude(), getMap));
-            addPoint(polygon2, getPoint(corner.getLongitude() - 360.0, corner.getLatitude(), getMap));
+
+        Polygon poly1 = new Polygon();
+
+        // TODO: explain this, and add another polygon when this one crosses
+        // the anti-meridian
+        double centreLon = groundPixel.getCentre().getLongitude180();
+        for (LonLat corner: groundPixel.getCorners()) {
+            double cornerLon1 = corner.getLongitude180();
+            double cornerLon2 = cornerLon1 < 0.0 ? cornerLon1 + 360.0 : cornerLon1 - 360.0;
+            double d1 = Math.abs(centreLon - cornerLon1);
+            double d2 = Math.abs(centreLon - cornerLon2);
+            double cornerLon = d1 < d2 ? cornerLon1 : cornerLon2;
+            addPoint(poly1, getPoint(cornerLon, corner.getLatitude(), getMap));
         }
-        if (allLessThan180) {
-            polygons.add(polygon1);
-        } else if (allGreaterThan180) {
-            polygons.add(polygon2);
-        } else {
-            // this spans the anti-meridian so we need to add both polygons
-            polygons.add(polygon1);
-            polygons.add(polygon2);
-        }
+
+        polygons.add(poly1);
+
         return polygons;
     }
     
