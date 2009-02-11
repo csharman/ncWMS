@@ -188,13 +188,4 @@ public class SciamachySwath {
         }
     }
 
-    public static void main(String[] args) throws Exception {
-        File swathDir = new File("C:\\Documents and Settings\\Jon\\Desktop\\ASCII");
-        for (String filename : swathDir.list()) {
-            System.out.println("Processing " + filename);
-            SciamachySwath swath = SciamachySwath.fromFile(new File(swathDir, filename).getPath());
-            SciamachyRenderer.writeImage(swath, new File(swathDir, filename + ".png").getPath());
-        }
-    }
-
 }

@@ -45,7 +45,7 @@ public class StyleNotDefinedException extends WmsException
      */
     public StyleNotDefinedException(String message)
     {
-        super(message);
+        super(message, "StyleNotDefined");
     }
     
 }

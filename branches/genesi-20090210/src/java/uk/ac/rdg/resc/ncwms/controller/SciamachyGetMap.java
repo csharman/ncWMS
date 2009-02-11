@@ -10,6 +10,8 @@ import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Polygon;
 import java.awt.image.BufferedImage;
+import java.awt.image.ImageProducer;
+import java.awt.image.IndexColorModel;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
@@ -29,7 +31,9 @@ import uk.ac.rdg.resc.ncwms.datareader.sciamachy.SciamachySwath.LonLat;
 import uk.ac.rdg.resc.ncwms.datareader.sciamachy.SciamachySwath.Retrieval;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidFormatException;
+import uk.ac.rdg.resc.ncwms.exceptions.StyleNotDefinedException;
 import uk.ac.rdg.resc.ncwms.exceptions.WmsException;
+import uk.ac.rdg.resc.ncwms.styles.ColorPalette;
 import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
 
 /**
@@ -41,7 +45,7 @@ class SciamachyGetMap {
     
     private static final Logger logger = LoggerFactory.getLogger(SciamachyGetMap.class);
 
-    private static File DATA_DIR = new File("C:\\Documents and Settings\\Jon\\Desktop\\ASCII");
+    private static File DATA_DIR = new File("C:\\Documents and Settings\\Jon\\Desktop\\NILU");
 
     private static class DataFile {
         private Interval timeRange;
@@ -57,7 +61,7 @@ class SciamachyGetMap {
         // Look for all the .txt files
         FilenameFilter filter = new FilenameFilter() {
             public boolean accept(File dir, String name) {
-                return name.endsWith(".txt");
+                return name.endsWith(".dat");
             }
         };
         for (File f : DATA_DIR.listFiles(filter)) {
@@ -97,6 +101,25 @@ class SciamachyGetMap {
         if (dataFiles.size() == 0) {
             throw new InvalidDimensionValueException("time", timeString);
         }
+
+        // Get the ColorPalette requested.  This is simply the value of
+        // the STYLES parameter
+        String[] styles = getMap.getStyleRequest().getStyles();
+        String paletteName = styles.length == 0
+            ? ColorPalette.DEFAULT_PALETTE_NAME
+            : styles[0];
+        ColorPalette pal = ColorPalette.get(paletteName);
+        if (pal == null) {
+            throw new StyleNotDefinedException(paletteName);
+        }
+        // Convert this palette to an indexed colour model, using the client's
+        // request parameters.
+        IndexColorModel indexColorModel = pal.getColorModel(
+            getMap.getStyleRequest().getNumColourBands(),
+            getMap.getStyleRequest().getOpacity(),
+            getMap.getStyleRequest().getBackgroundColour(),
+            getMap.getStyleRequest().isTransparent()
+        );
         
         // Create a BufferedImage to hold the image pixels
         BufferedImage im = new BufferedImage(
@@ -108,7 +131,7 @@ class SciamachyGetMap {
         // Add data from each of the matching files to the image
         Graphics2D g2d = (Graphics2D)im.getGraphics();
         for (File f : dataFiles) {
-            addData(f, g2d, timeInterval, getMap);
+            addData(f, g2d, timeInterval, getMap, indexColorModel);
         }
 
         // Send the image to the client
@@ -139,7 +162,7 @@ class SciamachyGetMap {
             long end = startStop.length == 2
                 ? WmsUtils.ISO_DATE_TIME_FORMATTER.parseMillis(startStop[1])
                 : start;
-            return new Interval(start, end + 1);
+            return new Interval(start, end + 1); // add 1ms to make this an inclusive interval
         } catch (IllegalArgumentException iae) {
             // Date/time string is invalid
             throw new InvalidDimensionValueException("time", timeString);
@@ -155,7 +178,6 @@ class SciamachyGetMap {
     private static List<File> findDataFiles(Interval timeInterval) {
         logger.debug("Searching for Sciamachy files in time interval {}", timeInterval);
         List<File> dataFiles = new ArrayList<File>();
-
         for (DataFile dataFile : DATA_FILES) {
             if (dataFile.timeRange.overlaps(timeInterval)) {
                 logger.debug("File found: {}", dataFile.file);
@@ -171,13 +193,14 @@ class SciamachyGetMap {
      * @param im
      * @param getMap
      */
-    private static void addData(File file, Graphics2D g2d, Interval interval, GetMapRequest getMap) throws IOException {
+    private static void addData(File file, Graphics2D g2d, Interval interval, GetMapRequest getMap,
+        IndexColorModel indexColorModel) throws WmsException, IOException {
         // Read the data from the file
         SciamachySwath swath = SciamachySwath.fromFile(file.getPath());
         // Draw a polygon for each retrieval that is within the time interval
         for (Retrieval retrieval : swath.getRetrievals()) {
             if (interval.contains(retrieval.getDateTime())) {
-                Color color = getColor(retrieval.getTotalOzone());
+                Color color = getColor((float)retrieval.getTotalOzone(), indexColorModel, getMap.getStyleRequest());
                 g2d.setPaint(color);
                 for (Polygon polygon : getPolygons(retrieval.getGroundPixel(), getMap)) {
                     g2d.fillPolygon(polygon);
@@ -185,20 +208,54 @@ class SciamachyGetMap {
             }
         }
     }
-    
-    private static Color getColor(double dataValue) {
-        if (dataValue < 200.0) {
-            return Color.BLUE;
-        } else if (dataValue < 225.0) {
-            return Color.GREEN;
-        } else if (dataValue < 250.0) {
-            return Color.YELLOW;
-        } else if (dataValue < 275.0) {
-            return Color.ORANGE;
-        } else if (dataValue < 300.0) {
-            return Color.RED;
+
+    private static Color getColor(float dataValue, IndexColorModel indexColorModel,
+        GetMapStyleRequest styleRequest) throws WmsException {
+        ColorScaleRange scaleRange = styleRequest.getColorScaleRange();
+        float scaleMin, scaleMax;
+        if (scaleRange.isAuto()) {
+            throw new WmsException("Can't use an automatic scale range for Sciamachy data");
+        } else if (scaleRange.isDefault()) {
+            scaleMin = 180.0f;
+            scaleMax = 320.0f;
         } else {
-            return Color.MAGENTA;
+            scaleMin = scaleRange.getScaleMin();
+            scaleMax = scaleRange.getScaleMax();
+        }
+        int index = getColourIndex(dataValue, scaleMin, scaleMax, styleRequest);
+        return new Color(
+            indexColorModel.getRed(index),
+            indexColorModel.getGreen(index),
+            indexColorModel.getBlue(index),
+            indexColorModel.getAlpha(index)
+        );
+    }
+
+    /**
+     * @return the colour index that corresponds to the given value
+     * @see ImageProducer
+     */
+    private static int getColourIndex(float value, float scaleMin, float scaleMax,
+        GetMapStyleRequest styleRequest)
+    {
+        int numColourBands = styleRequest.getNumColourBands();
+        boolean logarithmic = styleRequest.isScaleLogarithmic();
+        if (Float.isNaN(value))
+        {
+            return numColourBands; // represents a background pixel
+        }
+        else if (value < scaleMin || value > scaleMax)
+        {
+            return numColourBands + 1; // represents an out-of-range pixel
+        }
+        else
+        {
+            double min = logarithmic ? Math.log(scaleMin) : scaleMin;
+            double max = logarithmic ? Math.log(scaleMax) : scaleMax;
+            double val = logarithmic ? Math.log(value) : value;
+            double frac = (val - min) / (max - min);
+            // Compute and return the index of the corresponding colour
+            return (int)(frac * numColourBands);
         }
     }
 
