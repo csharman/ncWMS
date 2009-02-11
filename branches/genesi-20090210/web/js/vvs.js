@@ -22,7 +22,7 @@ window.onload = function()
     isIE = navigator.appVersion.indexOf('MSIE') >= 0;
 
     // Stop the pink tiles appearing on error
-    //OpenLayers.Util.onImageLoadError = function() {  this.style.display = ""; this.src="./images/blank.png"; }
+    OpenLayers.Util.onImageLoadError = function() {  this.style.display = ""; this.src="./images/blank.png"; }
 
     // Set up the OpenLayers map widget
     map = new OpenLayers.Map('map');
@@ -33,14 +33,23 @@ window.onload = function()
     var coastline_wms = new OpenLayers.Layer.WMS1_1_1( "Coastlines",
         "http://labs.metacarta.com/wms/vmap0?", {layers: 'coastline_01', transparent: 'true' } );
 
+    var palette = 'rainbow';
+    var scaleMin = 180.0; // Dobson Units
+    var scaleMax = 400.0;
+    var conv = 2.1414e-7; // Conversion factor from DU to GlobModel units
+                          // N.B. this is a factor of 100 too small due to an
+                          // error in the data!
+
     globmodel_layer = new OpenLayers.Layer.WMS1_3(
         'GlobModel',
         'wms',
         {
             layers: 'GLOBMODEL_ozone/colo3',
-            styles: '',
+            styles: 'boxfill/' + palette,
+            time: '2006-08-20T12:00:00.000Z',
             transparent: true,
-            crs: 'CRS:84'
+            crs: 'CRS:84',
+            colorscalerange: scaleMin * conv + ',' + scaleMax * conv
         },
         {
             buffer: 1,
@@ -53,10 +62,11 @@ window.onload = function()
         'wms',
         {
             layers: 'SCIAMACHY',
-            styles: '',
-            time: '2006-08-20T10:00:00.000Z/2006-08-20T20:00:00.000Z',
+            styles: palette,
+            time: '2006-08-20T10:00:00.000Z/2006-08-20T14:00:00.000Z',
             transparent: true,
-            crs: 'CRS:84'
+            crs: 'CRS:84',
+            colorscalerange: scaleMin + ',' + scaleMax
         },
         {
             buffer: 1,
@@ -85,4 +95,12 @@ window.onload = function()
         draggable:true,
         modal:true
     });
+}
+
+function setGlobModelVisibility(checked) {
+    globmodel_layer.setVisibility(checked);
+}
+
+function setSciamachyVisibility(checked) {
+    sciamachy_layer.setVisibility(checked);
 }
