@@ -6,9 +6,11 @@
 package uk.ac.rdg.resc.ncwms.datareader.sciamachy;
 
 import java.io.BufferedReader;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -51,17 +53,22 @@ public class SciamachySwath {
      */
     public static SciamachySwath fromFile(String filename) throws FileNotFoundException, IOException {
         logger.debug("Loading swath data from {}", filename);
+        SciamachySwath swath = fromInputStream(new FileInputStream(filename));
+        logger.debug("Successfully loaded swath data from {}", filename);
+        return swath;
+    }
+
+    public static SciamachySwath fromInputStream(InputStream in) throws FileNotFoundException, IOException {
         BufferedReader br = null;
         try {
             SciamachySwath swath = new SciamachySwath();
-            br = new BufferedReader(new FileReader(filename));
+            br = new BufferedReader(new InputStreamReader(in));
             String line;
             while ((line = br.readLine()) != null) {
                 Retrieval retrieval = new Retrieval(line);
                 swath.retrievals.add(retrieval);
             }
             swath.retrievals = Collections.unmodifiableList(swath.retrievals);
-            logger.debug("Successfully loaded swath data from {}", filename);
             return swath;
         } finally {
             if (br != null) br.close();

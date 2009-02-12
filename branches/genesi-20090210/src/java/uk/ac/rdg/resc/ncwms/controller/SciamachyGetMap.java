@@ -12,8 +12,6 @@ import java.awt.Polygon;
 import java.awt.image.BufferedImage;
 import java.awt.image.ImageProducer;
 import java.awt.image.IndexColorModel;
-import java.io.File;
-import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -23,8 +21,7 @@ import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageOutputStream;
 import javax.servlet.http.HttpServletResponse;
 import org.joda.time.Interval;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import uk.ac.rdg.resc.ncwms.datareader.sciamachy.SciamachyCatalogue;
 import uk.ac.rdg.resc.ncwms.datareader.sciamachy.SciamachySwath;
 import uk.ac.rdg.resc.ncwms.datareader.sciamachy.SciamachySwath.GroundPixel;
 import uk.ac.rdg.resc.ncwms.datareader.sciamachy.SciamachySwath.LonLat;
@@ -41,77 +38,24 @@ import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
  * to a GetMap query
  * @author Jon
  */
-class SciamachyGetMap {
-    
-    private static final Logger logger = LoggerFactory.getLogger(SciamachyGetMap.class);
+public class SciamachyGetMap {
 
-    private static File DATA_DIR = new File("C:\\Documents and Settings\\Jon\\Desktop\\ESA");
+    // Injected by Spring
+    private SciamachyCatalogue sciamachyCatalogue;
 
-    private static class DataFile {
-        private Interval timeRange;
-        private File file;
-    }
-
-    private static List<DataFile> DATA_FILES = new ArrayList<DataFile>();
-
-    /**
-     * Gets an Interval representing the overall time bounds of data.
-     * @return
-     */
-    private static Interval getTimeBounds() {
-        return new Interval (
-            DATA_FILES.get(0).timeRange.getStart(),
-            DATA_FILES.get(DATA_FILES.size() - 1).timeRange.getEnd().plusMillis(1)
-        );
-    }
-
-    /**
-     * Loads the temporal extents of all the data files
-     */
-    static {
-        // Look for all the .txt files
-        FilenameFilter filter = new FilenameFilter() {
-            public boolean accept(File dir, String name) {
-                return name.endsWith(".txt");
-            }
-        };
-        for (File f : DATA_DIR.listFiles(filter)) {
-            SciamachySwath swath = null;
-            try {
-                swath = SciamachySwath.fromFile(f.getPath());
-            } catch (IOException ioe) {
-                throw new ExceptionInInitializerError(ioe);
-            }
-            List<Retrieval> retrievals = swath.getRetrievals();
-            DataFile df = new DataFile();
-            df.file = f;
-            // The interval is exclusive of the end time so we add 1ms to the end
-            // time so that it includes all retrievals.
-            df.timeRange = new Interval(
-                retrievals.get(0).getDateTime(),
-                retrievals.get(retrievals.size() - 1).getDateTime().plusMillis(1)
-            );
-            DATA_FILES.add(df);
-        }
-        logger.debug("Found {} Sciamachy data files", DATA_FILES.size());
-    }
-
-    public SciamachyGetMap() { throw new AssertionError(); }
-
-    public static void renderMap(GetMapRequest getMap, HttpServletResponse response)
+    public void renderMap(GetMapRequest getMap, HttpServletResponse response)
         throws WmsException, IOException {
 
         // Get the time range requested
         String timeString = getMap.getDataRequest().getTimeString();
         Interval timeInterval = getTimeInterval(timeString);
 
-        if (!getTimeBounds().overlaps(timeInterval)) {
+        if (!this.sciamachyCatalogue.getTimeBounds().overlaps(timeInterval)) {
             throw new InvalidDimensionValueException("time", timeString);
         }
 
-        // Find the file(s) that match this time interval and bounding box
-        // TODO: in the final system this will search the GENESI-DR system
-        List<File> dataFiles = findDataFiles(timeInterval);
+        // Find the file(s) that match this time interval (TODO and bounding box)
+        List<String> dataFiles = this.sciamachyCatalogue.findDataFiles(timeInterval);
 
         // Get the ColorPalette requested.  This is simply the value of
         // the STYLES parameter
@@ -141,8 +85,10 @@ class SciamachyGetMap {
         
         // Add data from each of the matching files to the image
         Graphics2D g2d = (Graphics2D)im.getGraphics();
-        for (File f : dataFiles) {
-            addData(f, g2d, timeInterval, getMap, indexColorModel);
+        for (String file : dataFiles) {
+            // read data from the file
+            SciamachySwath swath = this.sciamachyCatalogue.getSwath(file);
+            addData(swath, g2d, timeInterval, getMap, indexColorModel);
         }
 
         // Send the image to the client
@@ -179,24 +125,6 @@ class SciamachyGetMap {
             throw new InvalidDimensionValueException("time", timeString);
         }
     }
-
-    /**
-     * Searches the list of available data files for files that contain data
-     * within the provided time interval.
-     * @param timeInterval
-     * @return
-     */
-    private static List<File> findDataFiles(Interval timeInterval) {
-        logger.debug("Searching for Sciamachy files in time interval {}", timeInterval);
-        List<File> dataFiles = new ArrayList<File>();
-        for (DataFile dataFile : DATA_FILES) {
-            if (dataFile.timeRange.overlaps(timeInterval)) {
-                logger.debug("File found: {}", dataFile.file);
-                dataFiles.add(dataFile.file);
-            }
-        }
-        return dataFiles;
-    }
     
     /**
      * Adds data from the given file to the given graphics context
@@ -204,10 +132,8 @@ class SciamachyGetMap {
      * @param im
      * @param getMap
      */
-    private static void addData(File file, Graphics2D g2d, Interval interval, GetMapRequest getMap,
+    private static void addData(SciamachySwath swath, Graphics2D g2d, Interval interval, GetMapRequest getMap,
         IndexColorModel indexColorModel) throws WmsException, IOException {
-        // Read the data from the file
-        SciamachySwath swath = SciamachySwath.fromFile(file.getPath());
         // Draw a polygon for each retrieval that is within the time interval
         for (Retrieval retrieval : swath.getRetrievals()) {
             if (interval.contains(retrieval.getDateTime())) {
@@ -339,6 +265,14 @@ class SciamachyGetMap {
         // even in event of failure?
         writer.dispose();
         ios.close();
+    }
+
+    /**
+     * Called by Spring to inject the catalogue interface to Sciamachy data
+     * @param sciamachyCatalogue
+     */
+    public void setSciamachyCatalogue(SciamachyCatalogue sciamachyCatalogue) {
+        this.sciamachyCatalogue = sciamachyCatalogue;
     }
 
 }

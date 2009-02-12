@@ -65,6 +65,19 @@
             init-method="init" destroy-method="close">
         <property name="ncwmsContext"><ref local="ncwmsContext"/></property>        
     </bean>
+
+    <!-- This bean will handle GetMap requests for SCIAMACHY data -->
+    <bean id="sciamachyGetMap" class="uk.ac.rdg.resc.ncwms.controller.SciamachyGetMap">
+        <!-- Catalogue of Sciamachy data files -->
+        <property name="sciamachyCatalogue"><ref local="sciamachyCatalogue"/></property>
+    </bean>
+
+    <!-- This bean acts as a discovery interface to Sciamachy data -->
+    <bean id="sciamachyCatalogue" class="uk.ac.rdg.resc.ncwms.datareader.sciamachy.LocalSciamachyCatalogue"
+            init-method="init">
+        <property name="dataLocation" value="C:\Documents and Settings\Jon\Desktop\ESA"/>
+        <property name="fileExtension" value="txt"/>
+    </bean>
     
     <!-- This Controller will handle all the requests to the WMS -->
     <bean id="wmsController" class="uk.ac.rdg.resc.ncwms.controller.WmsController"
@@ -75,6 +88,7 @@
         <property name="metadataController"><ref local="metadataController"/></property>
         <property name="usageLogger"><ref local="usageLogger"/></property>
         <property name="tileCache"><ref local="tileCache"/></property>
+        <property name="sciamachyGetMap"><ref local="sciamachyGetMap"/></property>
     </bean>
     
     <!-- This Controller will handle all requests for the non-standard

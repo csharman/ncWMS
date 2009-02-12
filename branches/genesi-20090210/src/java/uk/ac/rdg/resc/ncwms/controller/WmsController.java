@@ -121,6 +121,7 @@ public class WmsController extends AbstractController
     private UsageLogger usageLogger;
     private MetadataController metadataController;
     private TileCache tileCache;
+    private SciamachyGetMap sciamachyGetMap;
     
     /**
      * Called automatically by Spring
@@ -419,7 +420,7 @@ public class WmsController extends AbstractController
         // BEGIN HACK FOR SCIAMACHY DATA
         if (layers[0].equals("SCIAMACHY"))
         {
-            SciamachyGetMap.renderMap(getMapRequest, httpServletResponse);
+            this.sciamachyGetMap.renderMap(getMapRequest, httpServletResponse);
             return null;
         }
         // END HACK FOR SCIAMACHY DATA
@@ -1044,6 +1045,14 @@ public class WmsController extends AbstractController
     public void setTileCache(TileCache tileCache)
     {
         this.tileCache = tileCache;
+    }
+
+    /**
+     * Called by Spring to inject the SciamachyGetMap object
+     */
+    public void setSciamachyGetMap(SciamachyGetMap sciamachyGetMap)
+    {
+        this.sciamachyGetMap = sciamachyGetMap;
     }
 }
 
