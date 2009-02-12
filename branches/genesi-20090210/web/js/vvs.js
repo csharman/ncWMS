@@ -14,9 +14,6 @@ window.onload = function()
     $('scaleMax').value = '';
     $('scaleMin').value = '';
 
-    // Make sure 100% opacity is selected
-    $('opacityValue').value = '100';
-
     // Detect the browser (IE6 doesn't render PNGs properly so we don't provide
     // the option to have partial overlay opacity)
     isIE = navigator.appVersion.indexOf('MSIE') >= 0;
@@ -74,12 +71,13 @@ window.onload = function()
         }
     );
 
-    map.addLayers([demis_wms, globmodel_layer, sciamachy_layer, coastline_wms/*ol_wms, osm_wms, human_wms*/]);
+    map.addLayers([demis_wms, globmodel_layer, sciamachy_layer, coastline_wms]);
+    demis_wms.setVisibility(false);
 
     //map.setBaseLayer(demis_wms);
 
     map.addControl(new OpenLayers.Control.LoadingPanel());
-    map.addControl(new OpenLayers.Control.LayerSwitcher());
+    //map.addControl(new OpenLayers.Control.LayerSwitcher());
     
     //map.addControl(new OpenLayers.Control.MousePosition({prefix: 'Lon: ', separator: ' Lat:'}));
     map.zoomTo(1);
@@ -97,10 +95,50 @@ window.onload = function()
     });
 }
 
-function setGlobModelVisibility(checked) {
-    globmodel_layer.setVisibility(checked);
+function setLayerVisibility(layerName, checked) {
+    var layer = map.getLayersByName(layerName)[0];
+    layer.setVisibility(checked);
 }
 
-function setSciamachyVisibility(checked) {
-    sciamachy_layer.setVisibility(checked);
+function setLayerOpacity(layerName, opacity) {
+    var layer = map.getLayersByName(layerName)[0];
+    layer.setOpacity(opacity);
+}
+
+function updateDates() {
+    var globModelDay = document.getElementById('globModelDay').value;
+    var globModelHour = document.getElementById('globModelHour').value;
+
+    var gmDate = new Date();
+    gmDate.setUTCFullYear(2006, 7, globModelDay); // 7 = August
+    gmDate.setUTCHours(globModelHour, 0, 0, 0); // Sets hours, minutes, seconds and ms
+
+    // Calculate the date/time range for the sciamachy data
+    var sciaWindowMs = document.getElementById('sciaWindow').value * 60 * 1000;
+    var sciaLow = new Date(gmDate.getTime() - sciaWindowMs);
+    var sciaHigh = new Date(gmDate.getTime() + sciaWindowMs);
+
+    globmodel_layer.mergeNewParams({ time: dateToIso(gmDate) });
+    sciamachy_layer.mergeNewParams({ time: dateToIso(sciaLow) + '/' + dateToIso(sciaHigh) });
+}
+
+// Converts a Javascript Date object to an ISO string to millisecond precision,
+// in UTC
+function dateToIso(date) {
+    var zeropad = function (num) { return ((num < 10) ? '0' : '') + num; }
+
+    var millispad = function (num) {
+        var pad = '';
+        if (num < 10) pad = '00';
+        else if (num < 100) pad = '0';
+        return pad + num;
+    }
+
+    return date.getUTCFullYear() + '-'
+         + zeropad(date.getUTCMonth() + 1) + '-'
+         + zeropad(date.getUTCDate()) + 'T'
+         + zeropad(date.getUTCHours()) + ':'
+         + zeropad(date.getUTCMinutes()) + ':'
+         + zeropad(date.getUTCSeconds()) + '.'
+         + millispad(date.getUTCMilliseconds()) + 'Z';
 }

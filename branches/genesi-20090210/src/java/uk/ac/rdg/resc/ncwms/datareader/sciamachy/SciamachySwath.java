@@ -59,7 +59,6 @@ public class SciamachySwath {
             while ((line = br.readLine()) != null) {
                 Retrieval retrieval = new Retrieval(line);
                 swath.retrievals.add(retrieval);
-                //System.out.println(retrieval);
             }
             swath.retrievals = Collections.unmodifiableList(swath.retrievals);
             logger.debug("Successfully loaded swath data from {}", filename);
