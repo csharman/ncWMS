@@ -21,11 +21,7 @@
         <script type="text/javascript" src="http://yui.yahooapis.com/2.5.2/build/yahoo-dom-event/yahoo-dom-event.js"></script>
         <script type="text/javascript" src="http://yui.yahooapis.com/2.5.2/build/dragdrop/dragdrop-min.js"></script>
         <script type="text/javascript" src="http://yui.yahooapis.com/2.5.2/build/container/container-min.js"></script>
-
-        <!-- Prototype is used only for Ajax requests in server.js - can we refactor
-             to remove this dependency? -->
-        <script type="text/javascript" src="js/prototype-1.5.1.1.js"></script>
-        <script type="text/javascript" src="js/server.js"></script>
+        
         <script type="text/javascript" src="js/vvs.js"></script>
     </head>
 
@@ -33,15 +29,16 @@
 
     <div id="mainPanel">
         <div id="panelHeader">
+            <h1>GlobModel Visualization and Validation Service</h1>
             <table border="1">
                 <thead>
-                    <tr><th>Layer</th><th>Visibility</th><th>Time</th><th>Opacity</th></tr>
+                    <tr><th></th><th>Visibility</th><th>Time</th><th>Opacity</th></tr>
                 </thead>
                 <tbody>
-                    <tr><td>Coastlines:</td><td align="center"><input type="checkbox" checked="checked" onclick="javascript:setLayerVisibility('Coastlines', this.checked)"/></td><td colspan="2"></td></tr>
+                    <tr><th>Coastlines:</th><td align="center"><input id="coastVisibility" type="checkbox" checked="checked" onclick="javascript:updateVisibilities()"/></td><td>n/a</td><td>n/a</td></tr>
                     <tr>
-                        <td>Sciamachy:</td>
-                        <td align="center"><input type="checkbox" onclick="javascript:setLayerVisibility('SCIAMACHY', this.checked)"/></td>
+                        <th>Sciamachy:</th>
+                        <td align="center"><input id="sciaVisibility" type="checkbox" onclick="javascript:updateVisibilities()"/></td>
                         <td>
                             +/-
                             <select id="sciaWindow" onchange="javascript:updateDates()">
@@ -52,7 +49,7 @@
                             of GlobModel data
                         </td>
                         <td>
-                            <select onchange="javascript:setLayerOpacity('SCIAMACHY', this.value)">
+                            <select id="sciaOpacity" onchange="javascript:updateOpacities()">
                                 <option value="1" selected="selected">100%</option>
                                 <option value="0.75">75%</option>
                                 <option value="0.5">50%</option>
@@ -61,12 +58,12 @@
                         </td>
                     </tr>
                     <tr>
-                        <td>GlobModel:</td>
-                        <td align="center"><input type="checkbox" checked="checked" onclick="javascript:setLayerVisibility('GlobModel', this.checked)"/></td>
+                        <th>GlobModel:</th>
+                        <td align="center"><input id ="gmVisibility" type="checkbox" checked="checked" onclick="javascript:updateVisibilities()"/></td>
                         <td>
+                            <span id="dayName"></span>
                             August
                             <select id="globModelDay" onchange="javascript:updateDates()">
-                                <option value="20">20</option>
                                 <option value="21">21</option>
                                 <option value="22">22</option>
                                 <option value="23">23</option>
@@ -88,7 +85,7 @@
                             </select>
                         </td>
                         <td>
-                            <select onchange="javascript:setLayerOpacity('GlobModel', this.value)">
+                            <select id="gmOpacity" onchange="javascript:updateOpacities()">
                                 <option value="1" selected="selected">100%</option>
                                 <option value="0.75">75%</option>
                                 <option value="0.5">50%</option>
@@ -96,19 +93,20 @@
                             </select>
                         </td>
                     </tr>
-                    <tr><td>Topography:</td><td align="center"><input type="checkbox" onclick="javascript:setLayerVisibility('Demis WMS', this.checked)"/></td><td colspan="2"></td></tr>
+                    <tr><th>Topography:</th><td align="center"><input id="topoVisibility" type="checkbox" onclick="javascript:updateVisibilities()"/></td><td>n/a</td><td>n/a</td></tr>
                 </tbody>
             </table>
         </div>
 
         <div id="mapPanel">
             <div id="map"></div>
-            <img id="scaleBar" class="scaleBar" width="40" height="398" src="wms?REQUEST=GetLegendGraphic&COLORBARONLY=true&WIDTH=1&HEIGHT=398" alt="scale bar" title="Click to change the colour palette" onclick="javascript:showPaletteSelector();"/>
+            <img id="scaleBar" class="scaleBar" width="40" height="398" alt="scale bar" title="Click to change the colour palette" onclick="javascript:showPaletteSelector();"/>
             <div class="scaleMarkers">
-                <input id="scaleMax" class="scaleMax" type="text" size="11" onblur="javascript:validateScale()"/>
+                <input id="scaleMax" class="scaleMax" type="text" size="3" onblur="javascript:updateColorScale()" value="400"/>
                 <span id="scaleTwoThirds"></span>
+                <span id="units">Dobson Units</span>
                 <span id="scaleOneThird"></span>
-                <input id="scaleMin" class="scaleMin" type="text" size="11" onblur="javascript:validateScale()"/>
+                <input id="scaleMin" class="scaleMin" type="text" size="3" onblur="javascript:updateColorScale()" value="180"/>
             </div>
         </div>
     </div>

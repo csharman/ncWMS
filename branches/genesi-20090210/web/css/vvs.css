@@ -1,8 +1,22 @@
 /* Style for all fonts */
 div {
     font-family: Arial, Helvetica, sans-serif;
-    font-size: 100%; /* renders 12pt */
+    font-size: 100%; /* renders 13pt */
     text-align: left;
+}
+
+h1 {
+    font-size: 138.5%; /* renders 18pt */
+    font-weight: bold;
+    padding-bottom: 10px;
+}
+
+td, th {
+    padding: 3px;
+}
+
+th {
+    font-weight: bold;
 }
 
 #mainPanel {
@@ -89,6 +103,11 @@ input.scaleMin {
 #scaleOneThird {
     position: absolute;
     top: 255px;
+}
+
+#units {
+    position: absolute;
+    top: 188px;
 }
 
 #scaleTwoThirds {

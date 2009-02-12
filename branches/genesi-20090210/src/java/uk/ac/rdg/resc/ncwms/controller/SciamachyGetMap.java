@@ -55,6 +55,17 @@ class SciamachyGetMap {
     private static List<DataFile> DATA_FILES = new ArrayList<DataFile>();
 
     /**
+     * Gets an Interval representing the overall time bounds of data.
+     * @return
+     */
+    private static Interval getTimeBounds() {
+        return new Interval (
+            DATA_FILES.get(0).timeRange.getStart(),
+            DATA_FILES.get(DATA_FILES.size() - 1).timeRange.getEnd().plusMillis(1)
+        );
+    }
+
+    /**
      * Loads the temporal extents of all the data files
      */
     static {
@@ -94,13 +105,13 @@ class SciamachyGetMap {
         String timeString = getMap.getDataRequest().getTimeString();
         Interval timeInterval = getTimeInterval(timeString);
 
+        if (!getTimeBounds().overlaps(timeInterval)) {
+            throw new InvalidDimensionValueException("time", timeString);
+        }
+
         // Find the file(s) that match this time interval and bounding box
         // TODO: in the final system this will search the GENESI-DR system
         List<File> dataFiles = findDataFiles(timeInterval);
-        
-        if (dataFiles.size() == 0) {
-            throw new InvalidDimensionValueException("time", timeString);
-        }
 
         // Get the ColorPalette requested.  This is simply the value of
         // the STYLES parameter
