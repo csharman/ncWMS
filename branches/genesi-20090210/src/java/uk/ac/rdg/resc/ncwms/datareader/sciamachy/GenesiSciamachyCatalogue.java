@@ -83,7 +83,8 @@ public class GenesiSciamachyCatalogue extends AbstractSciamachyCatalogue {
      * @return
      * @throws java.io.IOException
      */
-    public SciamachySwath getSwath(String dataFileUrl) throws IOException {
+    @Override
+    protected SciamachySwath readSwath(String dataFileUrl) throws IOException {
         logger.debug("Reading Sciamachy data from {}", dataFileUrl);
         try {
             InputStream in = new URL(dataFileUrl).openStream();

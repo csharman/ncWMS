@@ -58,7 +58,8 @@ public class LocalSciamachyCatalogue extends AbstractSciamachyCatalogue {
      * which has been returned by {@link #getDataFiles(org.joda.time.Interval)}.
      * @throws IOException if there was a problem opening the stream
      */
-    public SciamachySwath getSwath(String dataFileId) throws IOException {
+    @Override
+    protected SciamachySwath readSwath(String dataFileId) throws IOException {
         return SciamachySwath.fromFile(dataFileId);
     }
 

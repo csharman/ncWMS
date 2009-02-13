@@ -5,8 +5,11 @@
 
 package uk.ac.rdg.resc.ncwms.datareader.sciamachy;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.joda.time.Interval;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +18,7 @@ import org.slf4j.LoggerFactory;
  * Partially implements a {@link SciamachyCatalogue}.  Subclasses must implement
  * {@link #populateCatalogue()}, calling {@link #addDataFile(java.lang.String, org.joda.time.Interval)}
  * for each data file found.
+ * @todo implement caching of swaths
  * @author Jon
  */
 public abstract class AbstractSciamachyCatalogue implements SciamachyCatalogue {
@@ -28,6 +32,26 @@ public abstract class AbstractSciamachyCatalogue implements SciamachyCatalogue {
 
     private List<DataFile> dataFiles = new ArrayList<DataFile>();
     private Interval timeBounds = null;
+
+    /**
+     * Implements an LRU in-memory cache
+     */
+    private static final class LRUCache<K, V> extends LinkedHashMap<K, V> {
+        private int maxNumEntries;
+        public LRUCache(int maxNumEntries) {
+            this.maxNumEntries = maxNumEntries;
+        }
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<K, V> entry) {
+            return this.size() > this.maxNumEntries;
+        }
+    }
+
+    /**
+     * Holds in memory the most recently-used Swaths
+     */
+    private Map<String, SciamachySwath> swathCache =
+        new LRUCache<String, SciamachySwath>(20);
 
     /**
      * Initializes the catalogue: simply calls {@link #populateCatalogue()}
@@ -94,5 +118,27 @@ public abstract class AbstractSciamachyCatalogue implements SciamachyCatalogue {
         }
         return dataFilePaths;
     }
+
+    /**
+     * Gets the swath from the file with the given id.  Uses an in-memory cache
+     * of the most recent swaths: therefore this will only read from the
+     * file/URL if the data aren't already in the cache.
+     * @param dataFileId
+     * @return
+     * @throws IOException
+     */
+    public final SciamachySwath getSwath(String dataFileId) throws IOException {
+        SciamachySwath swath = this.swathCache.get(dataFileId);
+        if (swath == null) {
+            swath = this.readSwath(dataFileId);
+            logger.debug("Putting swath {} into cache", dataFileId);
+            this.swathCache.put(dataFileId, swath);
+        } else {
+            logger.debug("Getting swath {} from cache", dataFileId);
+        }
+        return swath;
+    }
+
+    protected abstract SciamachySwath readSwath(String dataFileId) throws IOException;
 
 }
