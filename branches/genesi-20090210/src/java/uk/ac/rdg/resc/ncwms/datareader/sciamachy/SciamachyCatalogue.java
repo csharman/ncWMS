@@ -18,6 +18,9 @@ public interface SciamachyCatalogue {
     /** Gets the overall time interval spanning the data */
     public Interval getTimeBounds();
 
+    /** Gets the number of data files in the catalogue */
+    public int getNumDataFiles();
+
     /**
      * Gets the list of data file identifiers (file paths or URLs) that contain
      * data that overlap the given time interval

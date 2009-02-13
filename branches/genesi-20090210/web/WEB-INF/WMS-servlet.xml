@@ -73,10 +73,10 @@
     </bean>
 
     <!-- This bean acts as a discovery interface to Sciamachy data -->
-    <bean id="sciamachyCatalogue" class="uk.ac.rdg.resc.ncwms.datareader.sciamachy.LocalSciamachyCatalogue"
+    <bean id="sciamachyCatalogue" class="uk.ac.rdg.resc.ncwms.datareader.sciamachy.GenesiSciamachyCatalogue"
             init-method="init">
-        <property name="dataLocation" value="C:\Documents and Settings\Jon\Desktop\ESA"/>
-        <property name="fileExtension" value="txt"/>
+        <!--<property name="dataLocation" value="C:\Documents and Settings\Jon\Desktop\ESA"/>
+        <property name="fileExtension" value="txt"/>-->
     </bean>
     
     <!-- This Controller will handle all the requests to the WMS -->

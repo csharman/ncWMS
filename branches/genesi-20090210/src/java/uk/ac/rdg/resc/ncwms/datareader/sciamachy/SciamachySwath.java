@@ -58,6 +58,13 @@ public class SciamachySwath {
         return swath;
     }
 
+    /**
+     * Reads data from the given input stream, closing the stream after use.
+     * @param in
+     * @return
+     * @throws java.io.FileNotFoundException
+     * @throws java.io.IOException
+     */
     public static SciamachySwath fromInputStream(InputStream in) throws FileNotFoundException, IOException {
         BufferedReader br = null;
         try {
