@@ -77,6 +77,9 @@
             init-method="init">
         <!--<property name="dataLocation" value="C:\Documents and Settings\Jon\Desktop\ESA"/>
         <property name="fileExtension" value="txt"/>-->
+        <!-- Location of the catalogue of SCIAMACHY data files. "?count=0" means
+             "don't limit the number of results", which otherwise defaults to 100 -->
+        <property name="catalogueUrl" value="http://dr-site.esrin.esa.int/genesi/envisat_sciamachy/sci_ol__2pt/xml?count=0"/>
     </bean>
     
     <!-- This Controller will handle all the requests to the WMS -->

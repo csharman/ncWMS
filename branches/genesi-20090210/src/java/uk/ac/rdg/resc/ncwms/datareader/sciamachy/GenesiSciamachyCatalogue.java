@@ -5,7 +5,6 @@
 
 package uk.ac.rdg.resc.ncwms.datareader.sciamachy;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -32,16 +31,13 @@ public class GenesiSciamachyCatalogue extends AbstractSciamachyCatalogue {
 
     /**
      * This URL returns an XML document containing the list of all the
-     * Sciamachy files.
+     * Sciamachy files.  Value will be injected by Spring
      * @todo need to discover this URL from the GENESI-DR central site, but
      * can't figure out how for now.
      */
-    private static final String CATALOGUE_URL =
-        "http://dr-site.esrin.esa.int/genesi/envisat_sciamachy/sci_ol__2pt/xml/";
+    private String catalogueUrl;
     
-    /**
-     * This parses date/times in the GENESI catalogue XML.
-     */
+    /** This parses date/times in the GENESI catalogue XML. */
     private static final DateTimeFormatter DATE_TIME_PARSER = DateTimeFormat
         .forPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSS")
         .withZone(DateTimeZone.UTC);
@@ -51,12 +47,11 @@ public class GenesiSciamachyCatalogue extends AbstractSciamachyCatalogue {
      */
     public void populateCatalogue() throws DocumentException {
         // Read the catalogue XML using dom4j
-        // TODO: replace with CATALOGUE_URL
-        //File f = new File("C:\\documents and settings\\jon\\desktop\\scia.xml");
-        logger.debug("Searching for SCIAMACHY datasets in {}", CATALOGUE_URL);
-        Document doc = new SAXReader().read(CATALOGUE_URL);
+        logger.debug("Searching for SCIAMACHY datasets in {}", catalogueUrl);
+        Document doc = new SAXReader().read(catalogueUrl);
 
         // We know this is a List<Node>. Dom4j doesn't yet use generics.
+        @SuppressWarnings("unchecked")
         List<Node> datasets = (List<Node>)doc.selectNodes("//dclite4g:DataSet");
         logger.debug("Found {} matching datasets in GENESI-DR catalogue", datasets.size());
 
@@ -96,8 +91,9 @@ public class GenesiSciamachyCatalogue extends AbstractSciamachyCatalogue {
         }
     }
 
-    public static final void main(String[] args) throws Exception {
-        new GenesiSciamachyCatalogue().populateCatalogue();
+    /** Called by Spring to inject the catalogue URL (in WMS-servlet.xml) */
+    public void setCatalogueUrl(String catalogueUrl) {
+        this.catalogueUrl = catalogueUrl;
     }
 
 }
