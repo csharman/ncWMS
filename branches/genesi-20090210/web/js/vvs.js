@@ -35,7 +35,7 @@ window.onload = function()
         {
             layers: 'GLOBMODEL_ozone/colo3',
             transparent: true,
-            crs: 'CRS:84',
+            crs: 'CRS:84'
         },
         {
             buffer: 1,
@@ -49,7 +49,7 @@ window.onload = function()
         {
             layers: 'SCIAMACHY',
             transparent: true,
-            crs: 'CRS:84',
+            crs: 'CRS:84'
         },
         {
             buffer: 1,
@@ -85,7 +85,7 @@ window.onload = function()
         draggable:true,
         modal:true
     });
-    updatePalette('rainbow'); // default palette name
+    updatePalette('occam'); // default palette name
 }
 
 function updateVisibilities() {
