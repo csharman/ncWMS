@@ -30,8 +30,12 @@ package uk.ac.rdg.resc.ncwms.controller;
 
 import java.awt.Font;
 import java.awt.geom.Ellipse2D;
+import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -40,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.logging.Level;
 import javax.imageio.ImageIO;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -60,7 +65,9 @@ import uk.ac.rdg.resc.ncwms.cache.TileCacheKey;
 import uk.ac.rdg.resc.ncwms.config.Config;
 import uk.ac.rdg.resc.ncwms.config.Dataset;
 import uk.ac.rdg.resc.ncwms.datareader.DataReader;
+import uk.ac.rdg.resc.ncwms.datareader.GriddedDataElement;
 import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
+import uk.ac.rdg.resc.ncwms.datareader.TransectDataReader;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidFormatException;
 import uk.ac.rdg.resc.ncwms.exceptions.LayerNotQueryableException;
@@ -926,8 +933,35 @@ public class WmsController extends AbstractController
             HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
         // You will need to populate this Map with the information that needs
         // to go into the XML template
+         String layers = params.getString("layers");
+         String time = params.getString("time");
+         String strPointA = params.getString("pointA");
+         String strPointB = params.getString("pointB");
+         System.out.println("layer is "+layers);
+         
+         SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+         
+         String[] pointa = strPointA.split(",");
+        Point2D.Double pointA = new Point2D.Double();
+        pointA.setLocation(Double.valueOf(pointa[0]), Double.valueOf(pointa[1]));
+        
+          String[] pointb = strPointA.split(",");
+        Point2D.Double pointB = new Point2D.Double();
+        pointA.setLocation(Double.valueOf(pointb[0]), Double.valueOf(pointb[1]));
+
+         TransectDataReader reader  = new TransectDataReader();
+         Collection<GriddedDataElement> elements = null;
+        try {
+            try {
+                elements = reader.getTransectData(pointA, pointB, df.parse(time), layers);
+            } catch (ParseException ex) {
+                java.util.logging.Logger.getLogger(WmsController.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        } catch (IOException ex) {
+            java.util.logging.Logger.getLogger(WmsController.class.getName()).log(Level.SEVERE, null, ex);
+        }
         Map<String, Object> models = new HashMap<String, Object>();
-        models.put("name", "Fred");
+        models.put("name", elements);
         // This displays WEB-INF/jsp/transect_xml.jsp, passing in the data
         return new ModelAndView("transect_xml", models);
     }
