@@ -945,9 +945,9 @@ public class WmsController extends AbstractController
         Point2D.Double pointA = new Point2D.Double();
         pointA.setLocation(Double.valueOf(pointa[0]), Double.valueOf(pointa[1]));
         
-          String[] pointb = strPointA.split(",");
+          String[] pointb = strPointB.split(",");
         Point2D.Double pointB = new Point2D.Double();
-        pointA.setLocation(Double.valueOf(pointb[0]), Double.valueOf(pointb[1]));
+        pointB.setLocation(Double.valueOf(pointb[0]), Double.valueOf(pointb[1]));
 
          TransectDataReader reader  = new TransectDataReader();
          Collection<GriddedDataElement> elements = null;

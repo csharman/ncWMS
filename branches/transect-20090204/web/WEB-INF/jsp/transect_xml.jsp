@@ -8,8 +8,13 @@
 
 
 <transect>
-
     <c:forEach var="transectPoint" items="${name}">
-    <time>${transectPoint.date}</time>
+   <point>
+<transectdate>${transectPoint.date}</transectdate>
+<latitude>${transectPoint.lat}</latitude>
+<longitude>${transectPoint.lon}</longitude>
+ <value>${transectPoint.value}</value>
+</point>
+   
     </c:forEach>
 </transect>
