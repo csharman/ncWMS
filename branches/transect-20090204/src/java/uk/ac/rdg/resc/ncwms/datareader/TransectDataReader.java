@@ -108,7 +108,6 @@ public class TransectDataReader extends DefaultDataReader{
                 }
             }
         }
-
         Date startDate = new java.util.Date();
         Double pixelsWidth = (Math.abs(pointB.getX() - pointA.getX())) / Math.abs(resolutionX);
         Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO,"point A x "+pointA.getX()+", point B x "+pointB.getX()+", pixel width "+pixelsWidth.intValue());
@@ -136,7 +135,9 @@ public class TransectDataReader extends DefaultDataReader{
 
         float[] realData = new float[0];
         try {
-            HorizontalGrid hGrid = new HorizontalGrid("EPSG:4326", pixelsWidth.intValue(), pixelsHeight.intValue(), new double[]{pointA.getX(),pointA.getY(),pointB.getX(),pointB.getY()});
+
+//            HorizontalGrid hGrid = new HorizontalGrid("EPSG:4326", pixelsWidth.intValue(), pixelsHeight.intValue(), new double[]{pointA.getX(),pointA.getY(),pointB.getX(),pointB.getY()});
+            HorizontalGrid hGrid = new HorizontalGrid("EPSG:4326", pixelsWidth.intValue(), pixelsHeight.intValue(), actualLayer.getBbox());
             realData = readActualLayerData(date, actualLayer, hGrid, dataReader, realData);
         } catch (InvalidCrsException ex) {
             Logger.getLogger(TransectDataReader.class.getName()).log(Level.SEVERE, null, ex);
@@ -146,9 +147,8 @@ public class TransectDataReader extends DefaultDataReader{
         
         boolean isRow = (Math.abs(slope) >= 1) ? true : false;        
         boolean isNegative  = (Math.signum(slope)==-1.0)?true : false;
-        Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO,"isRow "+isRow +", height "+pixelsHeight.intValue()+" width"+pixelsWidth.intValue());
-        int axisNum = (isRow) ? pixelsHeight.intValue() : pixelsWidth.intValue();
-        Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO,"axis number is "+axisNum);
+
+        int axisNum = (isRow) ? pixelsHeight.intValue() : pixelsWidth.intValue();     
         for (int rownum = 0; rownum < axisNum; rownum++) {
             GriddedDataElement e = new GriddedDataElement();
 
@@ -164,8 +164,7 @@ public class TransectDataReader extends DefaultDataReader{
                 e.setValue(Double.NaN);
             }
             e.setPixelIndex(p);
-            gridded.add(e);
-            Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO,"adding a grodded element");
+            gridded.add(e);       
         }
 
         //time taken to convert data
@@ -196,9 +195,7 @@ public class TransectDataReader extends DefaultDataReader{
                 df.format(timestep.getDate());
                 df2.format(date);
 
-                if (df.getCalendar().getTime().equals(df2.getCalendar().getTime())) {
-                    Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "times were equal");
-                    Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "filename "+timestep.getFilename() +", actualLayer "+actualLayer +", Index in File "+timestep.getIndexInFile()+", hgrid "+hGrid);
+                if (df.getCalendar().getTime().equals(df2.getCalendar().getTime())) {                   
                     realData = dataReader.read(timestep.getFilename(), actualLayer, timestep.getIndexInFile(), -1, hGrid);
                 }
             }
@@ -305,11 +302,12 @@ Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "axis num i
 
         if (isRow) {
             int xcoord = (int) ((axisnum / slope) + (c));
+            System.out.println("return calc pixel  "+(widthOrHeight * axisnum) + xcoord);
             return (widthOrHeight * axisnum) + xcoord;
         } else {    //y=mx + c
 
             int ycoord = (int) ((slope * axisnum) + c);
-            //System.out.println("slope is "+slope+ " axisNum is "+axisnum +" c is "+c);
+            System.out.println("slope is "+slope+ " axisNum is "+axisnum +" c is "+c);
             return ((width * ycoord) + axisnum);
         }
 

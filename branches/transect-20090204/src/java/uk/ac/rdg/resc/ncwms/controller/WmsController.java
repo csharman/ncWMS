@@ -962,6 +962,11 @@ public class WmsController extends AbstractController
         }
         Map<String, Object> models = new HashMap<String, Object>();
         models.put("name", elements);
+        try {
+            models.put("date", df.parse(time));
+        } catch (ParseException ex) {
+            java.util.logging.Logger.getLogger(WmsController.class.getName()).log(Level.SEVERE, null, ex);
+        }
         // This displays WEB-INF/jsp/transect_xml.jsp, passing in the data
         return new ModelAndView("transect_xml", models);
     }

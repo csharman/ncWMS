@@ -7,10 +7,9 @@
      name : Name of a person (String).  See the other JSP files for more details. --%>
 
 
-<transect>
+<transect date="${date}">
     <c:forEach var="transectPoint" items="${name}">
    <point>
-<transectdate>${transectPoint.date}</transectdate>
 <latitude>${transectPoint.lat}</latitude>
 <longitude>${transectPoint.lon}</longitude>
  <value>${transectPoint.value}</value>
