@@ -2,7 +2,6 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-
 package uk.ac.rdg.resc.ncwms.datareader;
 
 import java.awt.geom.Point2D;
@@ -19,8 +18,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.jfree.data.xy.XYDataItem;
 import org.jfree.data.xy.XYSeries;
+import ucar.unidata.geoloc.LatLonPoint;
 import ucar.unidata.geoloc.LatLonPointImpl;
-import ucar.unidata.geoloc.ProjectionPoint;
 import uk.ac.rdg.resc.ncwms.config.Config;
 import uk.ac.rdg.resc.ncwms.config.Dataset;
 import uk.ac.rdg.resc.ncwms.config.NcwmsContext;
@@ -31,16 +30,15 @@ import uk.ac.rdg.resc.ncwms.metadata.LayerImpl;
 import uk.ac.rdg.resc.ncwms.metadata.MetadataStore;
 import uk.ac.rdg.resc.ncwms.metadata.Regular1DCoordAxis;
 import uk.ac.rdg.resc.ncwms.metadata.TimestepInfo;
-import uk.ac.rdg.resc.ncwms.metadata.TwoDCoordAxis;
 import uk.ac.rdg.resc.ncwms.metadata.projection.HorizontalProjection;
 
 /**
  *
  * @author dcrossma
  */
-public class TransectDataReader extends DefaultDataReader{
+public class TransectDataReader extends DefaultDataReader {
 
-     /**
+    /**
      * Retrieves the data for the specified transect from the data repository
      *
      * @param pointA of the transect
@@ -75,25 +73,25 @@ public class TransectDataReader extends DefaultDataReader{
         Config config = readConfig();
 
         Map<String, Dataset> datasets = config.getDatasets();
-        Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO,"number of datasets is  "+datasets.size());
+        Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "number of datasets is  " + datasets.size());
 
         Calendar transectDate = Calendar.getInstance();
         transectDate.setTime(date);
 
-        Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO,"transect Date is "+transectDate.getTime());
-        
+        Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "transect Date is " + transectDate.getTime());
+
         Map<String, LayerImpl> layers = new HashMap<String, LayerImpl>();
         for (Map.Entry<String, Dataset> entry : datasets.entrySet()) {
             Dataset set = entry.getValue();
 
             DefaultDataReader reader = new DefaultDataReader();
-            
-                try {
-                    layers = reader.getAllLayers(set);
-                } catch (Exception ex) {
-                    Logger.getLogger(TransectDataReader.class.getName()).log(Level.SEVERE, null, ex);
-                }
-           
+
+            try {
+                layers = reader.getAllLayers(set);
+            } catch (Exception ex) {
+                Logger.getLogger(TransectDataReader.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
             for (Map.Entry<String, LayerImpl> entryLayers : layers.entrySet()) {
                 LayerImpl currentLayer = (LayerImpl) entryLayers.getValue();
                 if (givenLayer.equals(set.getId() + "/" + currentLayer.getId())) {
@@ -102,15 +100,15 @@ public class TransectDataReader extends DefaultDataReader{
                     actualLayer = currentLayer;
 
                     resolutionX = calcXResolution(pointA, pointB, actualLayer);
-                    Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO,"resolution x "+resolutionX);
+                    Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "resolution x " + resolutionX);
                     resolutionY = calcYResolution(pointA, pointB, actualLayer);
-                    Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO,"resolution y "+resolutionY);
+                    Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "resolution y " + resolutionY);
                 }
             }
         }
         Date startDate = new java.util.Date();
         Double pixelsWidth = (Math.abs(pointB.getX() - pointA.getX())) / Math.abs(resolutionX);
-        Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO,"point A x "+pointA.getX()+", point B x "+pointB.getX()+", pixel width "+pixelsWidth.intValue());
+        Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "point A x " + pointA.getX() + ", point B x " + pointB.getX() + ", pixel width " + pixelsWidth.intValue());
 
         Double pixelsHeight = (Math.abs(pointB.getY() - pointA.getY())) / Math.abs(resolutionY);
         Double slope = (pointA.getY() - pointB.getY()) / (pointA.getX() - pointB.getX());
@@ -134,44 +132,76 @@ public class TransectDataReader extends DefaultDataReader{
         DataReader dataReader = new DefaultDataReader();
 
         float[] realData = new float[0];
-        try {
 
-//            HorizontalGrid hGrid = new HorizontalGrid("EPSG:4326", pixelsWidth.intValue(), pixelsHeight.intValue(), new double[]{pointA.getX(),pointA.getY(),pointB.getX(),pointB.getY()});
-            HorizontalGrid hGrid = new HorizontalGrid("EPSG:4326", pixelsWidth.intValue(), pixelsHeight.intValue(), actualLayer.getBbox());
+        try {
+             HorizontalGrid hGrid = new HorizontalGrid("EPSG:4326", pixelsWidth.intValue(), pixelsHeight.intValue(), getTransectBBox(pointA, pointB));
+            //         HorizontalGrid hGrid = new HorizontalGrid("EPSG:4326", pixelsWidth.intValue(), pixelsHeight.intValue(), new double[]{pointB.getX(),pointB.getY(),pointA.getX(),pointA.getY()});
+
+            //        HorizontalGrid hGrid = new HorizontalGrid("EPSG:4326", pixelsWidth.intValue(), pixelsHeight.intValue(), actualLayer.getBbox());
             realData = readActualLayerData(date, actualLayer, hGrid, dataReader, realData);
+
+            Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "slope is " + slope);
+            boolean isRow = (Math.abs(slope) >= 1) ? true : false;
+            Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "isNeg " + Math.signum(slope));
+            boolean isNegative = (Math.signum(slope) == -1.0) ? true : false;
+
+            int axisNum = (isRow) ? pixelsHeight.intValue() : pixelsWidth.intValue();
+
+            for (int rownum = 0; rownum < axisNum; rownum++) {
+                GriddedDataElement e = new GriddedDataElement();
+
+                e.setDate(date);
+
+                int p = this.calcPixel(rownum, slope, pixelsWidth.intValue(), pixelsHeight.intValue(), isRow, isNegative);
+                Point2D.Double latlon = pixelToLatLon(lats, lons, p, pixelsWidth.intValue());             
+                e.setLat(latlon.getY());
+                e.setLon(latlon.getX());
+                try {
+                    e.setValue(round(realData[p], 2));
+                } catch (ArrayIndexOutOfBoundsException aiob) {
+                    e.setValue(Double.NaN);
+                }
+                e.setPixelIndex(p);
+                gridded.add(e);
+            }
         } catch (InvalidCrsException ex) {
             Logger.getLogger(TransectDataReader.class.getName()).log(Level.SEVERE, null, ex);
         } catch (Exception ex) {
             Logger.getLogger(TransectDataReader.class.getName()).log(Level.SEVERE, null, ex);
         }
-        
-        boolean isRow = (Math.abs(slope) >= 1) ? true : false;        
-        boolean isNegative  = (Math.signum(slope)==-1.0)?true : false;
-
-        int axisNum = (isRow) ? pixelsHeight.intValue() : pixelsWidth.intValue();     
-        for (int rownum = 0; rownum < axisNum; rownum++) {
-            GriddedDataElement e = new GriddedDataElement();
-
-            e.setDate(date);
-
-            int p = this.calcPixel(rownum, slope, pixelsWidth.intValue(), pixelsHeight.intValue(), isRow,isNegative);
-            Point2D.Double latlon = pixelToLatLon(lats, lons, p, pixelsWidth.intValue());
-            e.setLat(latlon.getY());
-            e.setLon(latlon.getX());
-            try {
-                e.setValue(round(realData[p], 2));
-            } catch (ArrayIndexOutOfBoundsException aiob) {
-                e.setValue(Double.NaN);
-            }
-            e.setPixelIndex(p);
-            gridded.add(e);       
-        }
-
+    
         //time taken to convert data
         Date endDate = new java.util.Date();
         System.out.println("took to convert data " + ((endDate.getTime() - startDate.getTime()) / 1000.0));
         return gridded;
 
+    }
+
+    private double[] getTransectBBox(Point2D.Double pointA, Point2D.Double pointB) {
+        double maxLat = Double.NaN;
+        double minLat = Double.NaN;
+        double maxLon = Double.NaN;
+        double minLon = Double.NaN;
+
+
+        if (pointA.getX() >= pointB.getX()) {
+            maxLon = pointA.getX();
+            minLon = pointB.getX();
+        } else {
+            maxLon = pointB.getX();
+            minLon = pointA.getX();
+        }
+
+        if (pointA.getY() >= pointB.getY()) {
+            maxLat = pointB.getY();
+            minLat = pointA.getY();
+        } else {
+            maxLat = pointA.getY();
+            minLat = pointB.getY();
+        }
+        Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "bBox[" + minLon + ", " + minLat + ", " + maxLon + ", " + maxLat + "]");
+        double[] bBox = new double[]{minLon, minLat, maxLon, maxLat};
+        return bBox;
     }
 
     /**
@@ -195,7 +225,7 @@ public class TransectDataReader extends DefaultDataReader{
                 df.format(timestep.getDate());
                 df2.format(date);
 
-                if (df.getCalendar().getTime().equals(df2.getCalendar().getTime())) {                   
+                if (df.getCalendar().getTime().equals(df2.getCalendar().getTime())) {
                     realData = dataReader.read(timestep.getFilename(), actualLayer, timestep.getIndexInFile(), -1, hGrid);
                 }
             }
@@ -215,10 +245,10 @@ public class TransectDataReader extends DefaultDataReader{
      */
     private Double calcYResolution(Point2D.Double pointA, Point2D.Double pointB, Layer actualLayer) {
         Double resolutionY;
-        
+
         HorizontalProjection dataProj = actualLayer.getHorizontalProjection();
 //        TwoDCoordAxis axis  =(TwoDCoordAxis)actualLayer.getYaxis();
-  Regular1DCoordAxis axis  =(Regular1DCoordAxis)actualLayer.getYaxis();
+        Regular1DCoordAxis axis = (Regular1DCoordAxis) actualLayer.getYaxis();
         int y1 = axis.getIndex(dataProj.latLonToProj(new LatLonPointImpl(pointA.getY(), pointA.getX())).getY());
         int y2 = axis.getIndex(dataProj.latLonToProj(new LatLonPointImpl(pointB.getY(), pointB.getX())).getY());
         resolutionY = (pointA.getY() - pointB.getY()) / (y2 - y1);
@@ -238,7 +268,7 @@ public class TransectDataReader extends DefaultDataReader{
 
         HorizontalProjection dataProj = actualLayer.getHorizontalProjection();
 //        TwoDCoordAxis axis  =(TwoDCoordAxis)actualLayer.getYaxis();
-        Regular1DCoordAxis axis  =(Regular1DCoordAxis)actualLayer.getXaxis();
+        Regular1DCoordAxis axis = (Regular1DCoordAxis) actualLayer.getXaxis();
         int x1 = axis.getIndex(dataProj.latLonToProj(new LatLonPointImpl(pointA.getY(), pointA.getX())).getX());
         int x2 = axis.getIndex(dataProj.latLonToProj(new LatLonPointImpl(pointB.getY(), pointB.getX())).getX());
 
@@ -266,7 +296,6 @@ public class TransectDataReader extends DefaultDataReader{
         return config;
     }
 
-
     /**
      * Method calcPixel ...
      *
@@ -277,8 +306,8 @@ public class TransectDataReader extends DefaultDataReader{
      * @param isRow   of type boolean
      * @return int
      */
-    private int calcPixel(int axisnum, double slope, int width, int height, boolean isRow,boolean isNegative) {
-Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "axis num is "+axisnum +", slope is "+slope+", width is "+width+", height is "+height+" isRow: "+isRow +", isNegative: "+isNegative);
+    private int calcPixel(int axisnum, double slope, int width, int height, boolean isRow, boolean isNegative) {
+//Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "axis num is "+axisnum +", slope is "+slope+", width is "+width+", height is "+height+" isRow: "+isRow +", isNegative: "+isNegative);
         int c;
         int widthOrHeight;
 
@@ -288,8 +317,8 @@ Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "axis num i
             widthOrHeight = height;
         }
 
-        if(isNegative){
-        slope = slope * -1.0;
+        if (isNegative) {
+            slope = slope * -1.0;
         }
 
 
@@ -302,12 +331,12 @@ Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "axis num i
 
         if (isRow) {
             int xcoord = (int) ((axisnum / slope) + (c));
-            System.out.println("return calc pixel  "+(widthOrHeight * axisnum) + xcoord);
+//            System.out.println("return calc pixel  "+(widthOrHeight * axisnum) + xcoord);
             return (widthOrHeight * axisnum) + xcoord;
         } else {    //y=mx + c
 
             int ycoord = (int) ((slope * axisnum) + c);
-            System.out.println("slope is "+slope+ " axisNum is "+axisnum +" c is "+c);
+//            System.out.println("slope is "+slope+ " axisNum is "+axisnum +" c is "+c);
             return ((width * ycoord) + axisnum);
         }
 
@@ -431,5 +460,4 @@ Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "axis num i
             return Math.ceil(val * 100.0) / 100.0;
         }
     }
-
 }
