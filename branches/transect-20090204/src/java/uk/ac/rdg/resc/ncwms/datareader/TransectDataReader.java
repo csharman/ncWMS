@@ -113,20 +113,20 @@ public class TransectDataReader extends DefaultDataReader {
         Double pixelsHeight = (Math.abs(pointB.getY() - pointA.getY())) / Math.abs(resolutionY);
         Double slope = (pointA.getY() - pointB.getY()) / (pointA.getX() - pointB.getX());
 
-        double deltaLat = deltaLat(pixelsHeight.intValue(), pointA, pointB);
-        double deltaLon = deltaLon(pixelsWidth.intValue(), pointA, pointB);
+//        double deltaLat = deltaLat(pixelsHeight.intValue(), pointA, pointB);
+        //double deltaLon = deltaLon(pixelsWidth.intValue(), pointA, pointB);
         List<GriddedDataElement> gridded = new ArrayList<GriddedDataElement>();
 
-        double[] lats = new double[pixelsHeight.intValue()];
-        double[] lons = new double[pixelsWidth.intValue()];
-
-        for (int i = 0; i < pixelsHeight.intValue(); i++) {
-            lats[i] = truncate((pointA.getY() + (i * deltaLat)));
-        }
-
-        for (int i = 0; i < pixelsWidth.intValue(); i++) {
-            lons[i] = truncate((pointA.getX() + (i * deltaLon)));
-        }
+//        double[] lats = new double[pixelsHeight.intValue()];
+//        double[] lons = new double[pixelsWidth.intValue()];
+//
+//        for (int i = 0; i < pixelsHeight.intValue(); i++) {
+//            lats[i] = truncate((pointA.getY() + (i * deltaLat)));
+//        }
+//
+//        for (int i = 0; i < pixelsWidth.intValue(); i++) {
+//            lons[i] = truncate((pointA.getX() + (i * deltaLon)));
+//        }
 
 
         DataReader dataReader = new DefaultDataReader();
@@ -134,15 +134,18 @@ public class TransectDataReader extends DefaultDataReader {
         float[] realData = new float[0];
 
         try {
-             HorizontalGrid hGrid = new HorizontalGrid("EPSG:4326", pixelsWidth.intValue(), pixelsHeight.intValue(), getTransectBBox(pointA, pointB));
-            //         HorizontalGrid hGrid = new HorizontalGrid("EPSG:4326", pixelsWidth.intValue(), pixelsHeight.intValue(), new double[]{pointB.getX(),pointB.getY(),pointA.getX(),pointA.getY()});
+            boolean isRow = (Math.abs(slope) >= 1) ? true : false;
+            boolean isReverse = isReverseTraversal(pointA, pointB, isRow);
+
+            HorizontalGrid hGrid = new HorizontalGrid("EPSG:4326", pixelsWidth.intValue(), pixelsHeight.intValue(), getTransectBBox(pointA, pointB));
+            //HorizontalGrid hGrid = new HorizontalGrid("EPSG:4326", pixelsWidth.intValue(), pixelsHeight.intValue(), new double[]{pointA.getX(),pointA.getY(),pointB.getX(),pointB.getY()});
 
             //        HorizontalGrid hGrid = new HorizontalGrid("EPSG:4326", pixelsWidth.intValue(), pixelsHeight.intValue(), actualLayer.getBbox());
             realData = readActualLayerData(date, actualLayer, hGrid, dataReader, realData);
 
             Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "slope is " + slope);
-            boolean isRow = (Math.abs(slope) >= 1) ? true : false;
-            Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "isNeg " + Math.signum(slope));
+
+            Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "isNeg " + Math.signum(slope) + " , isReverse " + isReverse);
             boolean isNegative = (Math.signum(slope) == -1.0) ? true : false;
 
             int axisNum = (isRow) ? pixelsHeight.intValue() : pixelsWidth.intValue();
@@ -152,10 +155,14 @@ public class TransectDataReader extends DefaultDataReader {
 
                 e.setDate(date);
 
-                int p = this.calcPixel(rownum, slope, pixelsWidth.intValue(), pixelsHeight.intValue(), isRow, isNegative);
-                Point2D.Double latlon = pixelToLatLon(lats, lons, p, pixelsWidth.intValue());             
+//                int p = this.calcPixel(rownum, slope, pixelsWidth.intValue(), pixelsHeight.intValue(), isRow, isNegative);
+                // Point2D.Double latlon = pixelToLatLon(lats, lons, p, pixelsWidth.intValue());
+                int p = this.calcPixel(rownum, slope, hGrid, isRow, isNegative, isReverse);
+                 Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "pixel value is" + p);
+                Point2D.Double latlon = pixelToLatLon(hGrid.getYAxisValues(), hGrid.getXAxisValues(), p, pixelsWidth.intValue());
                 e.setLat(latlon.getY());
                 e.setLon(latlon.getX());
+
                 try {
                     e.setValue(round(realData[p], 2));
                 } catch (ArrayIndexOutOfBoundsException aiob) {
@@ -169,7 +176,7 @@ public class TransectDataReader extends DefaultDataReader {
         } catch (Exception ex) {
             Logger.getLogger(TransectDataReader.class.getName()).log(Level.SEVERE, null, ex);
         }
-    
+
         //time taken to convert data
         Date endDate = new java.util.Date();
         System.out.println("took to convert data " + ((endDate.getTime() - startDate.getTime()) / 1000.0));
@@ -183,6 +190,7 @@ public class TransectDataReader extends DefaultDataReader {
         double maxLon = Double.NaN;
         double minLon = Double.NaN;
 
+        Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "pointA[" + pointA.getX() + "," + pointA.getY() + "] , pointB[" + pointB.getX() + "," + pointB.getY() + "]");
 
         if (pointA.getX() >= pointB.getX()) {
             maxLon = pointA.getX();
@@ -193,15 +201,23 @@ public class TransectDataReader extends DefaultDataReader {
         }
 
         if (pointA.getY() >= pointB.getY()) {
-            maxLat = pointB.getY();
-            minLat = pointA.getY();
-        } else {
             maxLat = pointA.getY();
             minLat = pointB.getY();
+        } else {
+            maxLat = pointB.getY();
+            minLat = pointA.getY();
         }
         Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "bBox[" + minLon + ", " + minLat + ", " + maxLon + ", " + maxLat + "]");
         double[] bBox = new double[]{minLon, minLat, maxLon, maxLat};
         return bBox;
+    }
+
+    private boolean isReverseTraversal(Point2D pointA, Point2D pointB, boolean isRow) {
+        if (isRow) {
+            return (pointA.getY() < pointB.getY()) ? true : false;
+        } else {
+            return (pointA.getX() > pointB.getX()) ? true : false;
+        }
     }
 
     /**
@@ -306,23 +322,23 @@ public class TransectDataReader extends DefaultDataReader {
      * @param isRow   of type boolean
      * @return int
      */
-    private int calcPixel(int axisnum, double slope, int width, int height, boolean isRow, boolean isNegative) {
-//Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "axis num is "+axisnum +", slope is "+slope+", width is "+width+", height is "+height+" isRow: "+isRow +", isNegative: "+isNegative);
+    private int calcPixel(int axisnum, double slope, HorizontalGrid hGrid, boolean isRow, boolean isNegative, boolean isReverse) {
+        Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "axis num is " + axisnum + ", slope is " + slope + ", width is " + hGrid.getWidth() + ", height is " + hGrid.getHeight() + " isRow: " + isRow + ", isNegative: " + isNegative);
         int c;
         int widthOrHeight;
 
         if (isRow) {
-            widthOrHeight = width;
+            widthOrHeight = hGrid.getWidth();
         } else {
-            widthOrHeight = height;
+            widthOrHeight = hGrid.getHeight();
         }
 
-        if (isNegative) {
-            slope = slope * -1.0;
-        }
+//        if (isNegative) {
+//        slope = slope * -1.0;
+//         }
 
 
-        if (slope > 0) {
+        if (slope < 0) {
             c = 0;
         } else {
             c = widthOrHeight - 1;
@@ -330,14 +346,20 @@ public class TransectDataReader extends DefaultDataReader {
         }
 
         if (isRow) {
-            int xcoord = (int) ((axisnum / slope) + (c));
-//            System.out.println("return calc pixel  "+(widthOrHeight * axisnum) + xcoord);
-            return (widthOrHeight * axisnum) + xcoord;
+            int xcoord = (int) ((axisnum / slope * -1)) + c;
+
+            if (isReverse) {
+                return (hGrid.getWidth() * hGrid.getHeight() - 1) - (hGrid.getWidth() * axisnum) - xcoord;
+            }
+            return ((hGrid.getWidth() * axisnum)) + xcoord;
         } else {    //y=mx + c
 
-            int ycoord = (int) ((slope * axisnum) + c);
+            int ycoord = (int) ((slope * axisnum * -1) + c);
 //            System.out.println("slope is "+slope+ " axisNum is "+axisnum +" c is "+c);
-            return ((width * ycoord) + axisnum);
+            if (isReverse) {
+               return (hGrid.getWidth() * hGrid.getHeight() - 1) - (hGrid.getWidth() * ycoord) - axisnum ;
+            }
+            return ((hGrid.getWidth() * ycoord) + axisnum);
         }
 
 
@@ -417,14 +439,8 @@ public class TransectDataReader extends DefaultDataReader {
         for (Object aData : data) {
             GriddedDataElement element = (GriddedDataElement) aData;
 
-            if (element.getValue() > 0) {
-                hasData = true;
-                s.add(new XYDataItem(index, element.getValue()));
-
-            } else {
-                s.add(new XYDataItem(index, null));
-            }
-
+            hasData = true;
+            s.add(new XYDataItem(index, element.getValue()));
             index++;
         }
         return (hasData) ? s : null;
