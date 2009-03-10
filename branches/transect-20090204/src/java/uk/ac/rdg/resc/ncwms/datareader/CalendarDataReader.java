@@ -34,9 +34,9 @@ public class CalendarDataReader {
      * @param givenLayer of type String
      * @return List<Date>
      */
-    public List<String> getDatesForDataset(String givenLayer) {
+    public List<Date> getDatesForDataset(String givenLayer) {
 
-        List<String> calendarList = new ArrayList<String>();
+        List<Date> calendarList = new ArrayList<Date>();
 
         Config config = null;
         NcwmsContext context = new NcwmsContext();
@@ -75,7 +75,7 @@ public class CalendarDataReader {
                     List<TimestepInfo> timesteps = currentLayer.getTimesteps();
 
                     for (TimestepInfo timestep : timesteps) {
-                        calendarList.add(timestep.getDate().toString());
+                        calendarList.add(timestep.getDate());
                     }
                     Collections.sort(calendarList);
                 }

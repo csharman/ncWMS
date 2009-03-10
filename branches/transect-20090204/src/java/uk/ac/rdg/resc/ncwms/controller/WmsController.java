@@ -927,10 +927,10 @@ public class WmsController extends AbstractController {
     private ModelAndView getLayerDates(RequestParams params,HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
         String layers = params.getString("layers");
         CalendarDataReader reader  = new CalendarDataReader();
-        Collection<String> layerDates = reader.getDatesForDataset(layers);
+        List<Date> layerDates = reader.getDatesForDataset(layers);
         System.out.println("size "+layerDates.size());
         Map<String, Object> models = new HashMap<String, Object>();
-        models.put("dates", layerDates);
+        models.put("dates", layerDates.toArray());
         return new ModelAndView("calendar_xml", models);
     }
 
