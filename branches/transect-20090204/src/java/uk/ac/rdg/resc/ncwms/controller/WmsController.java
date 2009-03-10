@@ -70,6 +70,7 @@ import uk.ac.rdg.resc.ncwms.cache.TileCache;
 import uk.ac.rdg.resc.ncwms.cache.TileCacheKey;
 import uk.ac.rdg.resc.ncwms.config.Config;
 import uk.ac.rdg.resc.ncwms.config.Dataset;
+import uk.ac.rdg.resc.ncwms.datareader.CalendarDataReader;
 import uk.ac.rdg.resc.ncwms.datareader.DataReader;
 import uk.ac.rdg.resc.ncwms.datareader.GriddedDataElement;
 import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
@@ -218,7 +219,10 @@ public class WmsController extends AbstractController {
                 return getKMLRegion(params, httpServletRequest);
             } else if (request.equals("GetTransect")) {
                 return getTransect(params, httpServletRequest, httpServletResponse);
-            } else {
+            } else if (request.equals("GetLayerDates")) {
+                return getLayerDates(params, httpServletRequest, httpServletResponse);
+            }
+            else {
                 throw new OperationNotSupportedException(request);
             }
         } catch (WmsException wmse) {
@@ -918,6 +922,16 @@ public class WmsController extends AbstractController {
             }
             return null;
         }
+    }
+
+    private ModelAndView getLayerDates(RequestParams params,HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
+        String layers = params.getString("layers");
+        CalendarDataReader reader  = new CalendarDataReader();
+        Collection<String> layerDates = reader.getDatesForDataset(layers);
+        System.out.println("size "+layerDates.size());
+        Map<String, Object> models = new HashMap<String, Object>();
+        models.put("dates", layerDates);
+        return new ModelAndView("calendar_xml", models);
     }
 
     /**
