@@ -5,6 +5,7 @@
 package uk.ac.rdg.resc.ncwms.datareader;
 
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -34,10 +35,11 @@ public class CalendarDataReader {
      * @param givenLayer of type String
      * @return List<Date>
      */
-    public List<Date> getDatesForDataset(String givenLayer) {
+    public List<String> getDatesForDataset(String givenLayer) {
 
-        List<Date> calendarList = new ArrayList<Date>();
+        List<String> calendarList = new ArrayList<String>();
 
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd+HH:mm");
         Config config = null;
         NcwmsContext context = new NcwmsContext();
         MetadataStore store = new InMemoryMetadataStore();
@@ -75,7 +77,7 @@ public class CalendarDataReader {
                     List<TimestepInfo> timesteps = currentLayer.getTimesteps();
 
                     for (TimestepInfo timestep : timesteps) {
-                        calendarList.add(timestep.getDate());
+                        calendarList.add(sdf.format(timestep.getDate()));
                     }
                     Collections.sort(calendarList);
                 }
