@@ -873,7 +873,7 @@ public class WmsController extends AbstractController {
         Collection<GriddedDataElement> elements = null;
 
         String id = layers.substring(0, 1);
-        String layerName = layers.substring(2, 9);
+        String layerName = layers.substring(2);
         Layer layer = null;
         try {
             layer = this.metadataStore.getLayer(id, layerName);
