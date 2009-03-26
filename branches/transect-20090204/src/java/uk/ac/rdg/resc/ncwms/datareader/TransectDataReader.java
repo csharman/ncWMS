@@ -8,24 +8,19 @@ import java.awt.geom.Point2D;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.jfree.data.xy.XYDataItem;
 import org.jfree.data.xy.XYSeries;
 import ucar.unidata.geoloc.LatLonPointImpl;
 import uk.ac.rdg.resc.ncwms.config.Config;
-import uk.ac.rdg.resc.ncwms.config.Dataset;
 import uk.ac.rdg.resc.ncwms.config.NcwmsContext;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidCrsException;
 import uk.ac.rdg.resc.ncwms.metadata.InMemoryMetadataStore;
 import uk.ac.rdg.resc.ncwms.metadata.Layer;
-import uk.ac.rdg.resc.ncwms.metadata.LayerImpl;
 import uk.ac.rdg.resc.ncwms.metadata.MetadataStore;
 import uk.ac.rdg.resc.ncwms.metadata.Regular1DCoordAxis;
 import uk.ac.rdg.resc.ncwms.metadata.TimestepInfo;
@@ -47,7 +42,38 @@ public class TransectDataReader extends DefaultDataReader {
      * @return Collection GriddedDataElement
      * @throws java.io.IOException for the data
      */
-    public Collection<uk.ac.rdg.resc.ncwms.datareader.GriddedDataElement> getTransectData(Point2D.Double pointA, Point2D.Double pointB, java.util.Date date, String layer) throws IOException {
+    public Collection<uk.ac.rdg.resc.ncwms.datareader.GriddedDataElement> getTransectData(Point2D.Double pointA, Point2D.Double pointB, java.util.Date date, Layer layer) throws IOException {
+
+        Double resolutionX = calcXResolution(pointA, pointB, layer);
+        Double resolutionY = calcYResolution(pointA, pointB, layer);
+        Double pixelsWidth = (Math.abs(pointB.getX() - pointA.getX())) / Math.abs(resolutionX);
+        Double pixelsHeight = (Math.abs(pointB.getY() - pointA.getY())) / Math.abs(resolutionY);
+        System.out.println("res " + resolutionX + " resY " + resolutionY + " width " + pixelsWidth + " height " + pixelsHeight);
+
+        if(pixelsWidth >300){
+        double[] bbox = getTransectBBox(pointA, pointB);
+        double xDifference =bbox[2] - bbox[0];
+        double yDifference = bbox[3] - bbox[1];
+
+        Point2D.Double pointGridQuater  = new Point2D.Double();
+        pointGridQuater.setLocation(bbox[0]+(xDifference/4), bbox[3]-(yDifference/4));
+
+        Point2D.Double pointGridHalf  = new Point2D.Double();
+        pointGridHalf.setLocation(bbox[0]+(xDifference/2), bbox[3]-(yDifference/2));
+
+        Point2D.Double pointGrid2ndQuater  = new Point2D.Double();
+        pointGrid2ndQuater.setLocation(bbox[2]-(xDifference/4), bbox[1]+(yDifference/4));
+
+        Collection<GriddedDataElement> grid1  = this.convert(date, pointA, pointGridQuater, layer);
+        Collection<GriddedDataElement> grid2  = this.convert(date, pointGridQuater, pointGridHalf, layer);
+        Collection<GriddedDataElement> grid3  = this.convert(date, pointGridHalf, pointGrid2ndQuater, layer);
+        Collection<GriddedDataElement> grid4  = this.convert(date, pointGrid2ndQuater, pointB, layer);
+
+        grid1.addAll(grid2);
+        grid1.addAll(grid3);
+        grid1.addAll(grid4);
+        return grid1;
+        }
         return this.convert(date, pointA, pointB, layer);
 
     }
@@ -62,42 +88,15 @@ public class TransectDataReader extends DefaultDataReader {
      * @param givenLayer of the file eg 1/SST
      * @return Collection of GriddedDataElements
      */
-    private Collection<uk.ac.rdg.resc.ncwms.datareader.GriddedDataElement> convert(java.util.Date date, Point2D.Double pointA, Point2D.Double pointB, String givenLayer) {
+    private Collection<uk.ac.rdg.resc.ncwms.datareader.GriddedDataElement> convert(java.util.Date date, Point2D.Double pointA, Point2D.Double pointB, Layer actualLayer) {
 
         Double resolutionX = null;
         Double resolutionY = null;
-        //create the dataset
-        Layer actualLayer = null;
+        //create the dataset        
 
-        Config config = readConfig();
-        Map<String, Dataset> datasets = config.getDatasets();
-        Calendar transectDate = Calendar.getInstance();
-        transectDate.setTime(date);
+        resolutionX = calcXResolution(pointA, pointB, actualLayer);
+        resolutionY = calcYResolution(pointA, pointB, actualLayer);
 
-        Map<String, LayerImpl> layers = new HashMap<String, LayerImpl>();
-        for (Map.Entry<String, Dataset> entry : datasets.entrySet()) {
-            Dataset set = entry.getValue();
-
-            DefaultDataReader reader = new DefaultDataReader();
-
-            try {
-                layers = reader.getAllLayers(set);
-            } catch (Exception ex) {
-                Logger.getLogger(TransectDataReader.class.getName()).log(Level.SEVERE, null, ex);
-            }
-
-            for (Map.Entry<String, LayerImpl> entryLayers : layers.entrySet()) {
-                LayerImpl currentLayer = (LayerImpl) entryLayers.getValue();
-                if (givenLayer.equals(set.getId() + "/" + currentLayer.getId())) {
-
-                    currentLayer.setDataset(set);
-                    actualLayer = currentLayer;
-
-                    resolutionX = calcXResolution(pointA, pointB, actualLayer);
-                    resolutionY = calcYResolution(pointA, pointB, actualLayer);
-                }
-            }
-        }
         Date startDate = new java.util.Date();
         Double pixelsWidth = (Math.abs(pointB.getX() - pointA.getX())) / Math.abs(resolutionX);
 
@@ -118,7 +117,7 @@ public class TransectDataReader extends DefaultDataReader {
             realData = readActualLayerData(date, actualLayer, hGrid, dataReader, realData);
 
             int axisNum = (isRow) ? pixelsHeight.intValue() : pixelsWidth.intValue();
-
+            Date forStartDate = new java.util.Date();
             for (int rownum = 0; rownum < axisNum; rownum++) {
                 GriddedDataElement e = new GriddedDataElement();
 
@@ -136,6 +135,9 @@ public class TransectDataReader extends DefaultDataReader {
                 e.setPixelIndex(p);
                 gridded.add(e);
             }
+            Date forEndDate = new java.util.Date();
+            Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "took to iterate through rows  " + ((forEndDate.getTime() - forStartDate.getTime()) / 1000.0));
+
         } catch (InvalidCrsException ex) {
             Logger.getLogger(TransectDataReader.class.getName()).log(Level.SEVERE, null, ex);
         } catch (Exception ex) {
@@ -144,12 +146,13 @@ public class TransectDataReader extends DefaultDataReader {
 
         //time taken to convert data
         Date endDate = new java.util.Date();
-        System.out.println("took to convert data " + ((endDate.getTime() - startDate.getTime()) / 1000.0));
+        Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "took to convert data " + ((endDate.getTime() - startDate.getTime()) / 1000.0));
         return gridded;
 
     }
 
     private double[] getTransectBBox(Point2D.Double pointA, Point2D.Double pointB) {
+        Date startDate = new java.util.Date();
         double maxLat = Double.NaN;
         double minLat = Double.NaN;
         double maxLon = Double.NaN;
@@ -170,6 +173,8 @@ public class TransectDataReader extends DefaultDataReader {
             maxLat = pointB.getY();
             minLat = pointA.getY();
         }
+        Date endDate = new java.util.Date();
+        Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "took to calculate transect bbox " + ((endDate.getTime() - startDate.getTime()) / 1000.0));
         return new double[]{minLon, minLat, maxLon, maxLat};
     }
 
@@ -192,6 +197,7 @@ public class TransectDataReader extends DefaultDataReader {
      * @return float[]
      */
     private float[] readActualLayerData(Date date, Layer actualLayer, HorizontalGrid hGrid, DataReader dataReader, float[] realData) {
+        Date startDate = new java.util.Date();
         try {
 
             for (TimestepInfo timestep : actualLayer.getTimesteps()) {
@@ -202,11 +208,14 @@ public class TransectDataReader extends DefaultDataReader {
 
                 if (df.getCalendar().getTime().equals(df2.getCalendar().getTime())) {
                     realData = dataReader.read(timestep.getFilename(), actualLayer, timestep.getIndexInFile(), -1, hGrid);
+                    Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "Reading data class readActualLayerData");
                 }
             }
         } catch (Exception exception) {
             exception.printStackTrace();
         }
+        Date endDate = new java.util.Date();
+        Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "took to read Actual Layer " + ((endDate.getTime() - startDate.getTime()) / 1000.0));
         return realData;
     }
 
@@ -256,6 +265,7 @@ public class TransectDataReader extends DefaultDataReader {
      * @return Config
      */
     private Config readConfig() {
+        Date startDate = new java.util.Date();
         NcwmsContext context = new NcwmsContext();
         MetadataStore store = new InMemoryMetadataStore();
         Config config = null;
@@ -266,6 +276,8 @@ public class TransectDataReader extends DefaultDataReader {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        Date endDate = new java.util.Date();
+        Logger.getLogger(TransectDataReader.class.getName()).log(Level.INFO, "took to read Cnfig " + ((endDate.getTime() - startDate.getTime()) / 1000.0));
         return config;
     }
 
@@ -341,9 +353,9 @@ public class TransectDataReader extends DefaultDataReader {
      * @param strDate for the data
      * @return XYSeries of the data for a given date
      */
-    public XYSeries formatChartData(Collection data, String strDate) {
+    public XYSeries formatChartData(Collection data, Layer layer) {
 
-        XYSeries s = new XYSeries("Transect for " + strDate, true);
+        XYSeries s = new XYSeries("Transect for " + layer.getLayerName(), true);
 
         boolean hasData = false;
 
@@ -351,8 +363,14 @@ public class TransectDataReader extends DefaultDataReader {
         for (Object aData : data) {
             GriddedDataElement element = (GriddedDataElement) aData;
 
-            hasData = true;
-            s.add(new XYDataItem(index, element.getValue()));
+             if (element.getValue() > 0) {
+                hasData = true;
+                s.add(new XYDataItem(index, element.getValue()));
+
+            } else {
+                s.add(new XYDataItem(index, null));
+            }
+
             index++;
         }
         return (hasData) ? s : null;

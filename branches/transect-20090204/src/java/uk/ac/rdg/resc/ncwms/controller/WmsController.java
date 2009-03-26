@@ -58,11 +58,14 @@ import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.chart.plot.XYPlot;
 import org.jfree.chart.renderer.xy.XYItemRenderer;
 import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
+import org.jfree.chart.title.TextTitle;
 import org.jfree.data.time.Millisecond;
 import org.jfree.data.time.TimeSeries;
 import org.jfree.data.time.TimeSeriesCollection;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
+import org.jfree.ui.HorizontalAlignment;
+import org.jfree.ui.RectangleEdge;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.AbstractController;
 import ucar.unidata.geoloc.LatLonPoint;
@@ -221,8 +224,7 @@ public class WmsController extends AbstractController {
                 return getTransect(params, httpServletRequest, httpServletResponse);
             } else if (request.equals("GetLayerDates")) {
                 return getLayerDates(params, httpServletRequest, httpServletResponse);
-            }
-            else {
+            } else {
                 throw new OperationNotSupportedException(request);
             }
         } catch (WmsException wmse) {
@@ -869,13 +871,22 @@ public class WmsController extends AbstractController {
 
         TransectDataReader reader = new TransectDataReader();
         Collection<GriddedDataElement> elements = null;
+
+        String id = layers.substring(0, 1);
+        String layerName = layers.substring(2, 9);
+        Layer layer = null;
         try {
+            layer = this.metadataStore.getLayer(id, layerName);
             try {
-                elements = reader.getTransectData(pointA, pointB, df.parse(time), layers);
+                Date startDate = new java.util.Date();
+                elements = reader.getTransectData(pointA, pointB, df.parse(time), layer);
+                //time taken for the test
+                Date endDate = new java.util.Date();
+                System.out.println("took to complete " + ((endDate.getTime() - startDate.getTime()) / 1000.0) + " to generate a data with " + elements.size() + " points");
             } catch (ParseException ex) {
                 java.util.logging.Logger.getLogger(WmsController.class.getName()).log(Level.SEVERE, null, ex);
             }
-        } catch (IOException ex) {
+        } catch (Exception ex) {
             java.util.logging.Logger.getLogger(WmsController.class.getName()).log(Level.SEVERE, null, ex);
         }
         if (outputFormat.equals(FEATURE_INFO_XML_FORMAT)) {
@@ -891,7 +902,7 @@ public class WmsController extends AbstractController {
         } else {
             // Must be PNG format: prepare and output the JFreeChart
             // TODO: this is nasty: we're mixing presentation code in the controller
-                SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy");
+            SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy");
             Date date = null;
             try {
                 date = df.parse(time);
@@ -899,18 +910,25 @@ public class WmsController extends AbstractController {
                 java.util.logging.Logger.getLogger(WmsController.class.getName()).log(Level.SEVERE, null, ex);
             }
 
-            XYSeries series = reader.formatChartData(elements, sdf.format(date));
+            XYSeries series = reader.formatChartData(elements, layer);
 
             XYSeriesCollection dataset = new XYSeriesCollection();
             dataset.addSeries(series);
 
-            JFreeChart chart = ChartFactory.createXYLineChart("Transect for " + layers.substring(2), "transect " + pointA.getY() + "," + pointA.getX() + " to " + pointB.getY() + "," + pointB.getX(), layers.substring(2), dataset, PlotOrientation.VERTICAL, true, true, false);
+
+
+            JFreeChart chart = ChartFactory.createXYLineChart("Transect for " + layer.getTitle(), "transect " + round(pointA.getY(), 2) + "," + round(pointA.getX(), 2) + " to " + round(pointB.getY(), 2) + "," + round(pointB.getX(), 2), layer.getLayerName(), dataset, PlotOrientation.VERTICAL, true, true, false);
 
             XYPlot plot = chart.getXYPlot();
             XYItemRenderer renderer = plot.getRenderer();
             renderer.setSeriesPaint(0, Color.RED);
-
-
+            if(!layer.getCopyrightStatement().equals(null)){
+            final TextTitle textTitle = new TextTitle(layer.getCopyrightStatement());
+            textTitle.setFont(new Font("SansSerif", Font.PLAIN, 10));
+            textTitle.setPosition(RectangleEdge.BOTTOM);
+            textTitle.setHorizontalAlignment(HorizontalAlignment.RIGHT);
+            chart.addSubtitle(textTitle);
+            }
             NumberAxis rangeAxis = (NumberAxis) plot.getRangeAxis();
 
             rangeAxis.setAutoRangeIncludesZero(false);
@@ -924,11 +942,19 @@ public class WmsController extends AbstractController {
         }
     }
 
-    private ModelAndView getLayerDates(RequestParams params,HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
+    private ModelAndView getLayerDates(RequestParams params, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
         String layers = params.getString("layers");
-        CalendarDataReader reader  = new CalendarDataReader();
-        List<String> layerDates = reader.getDatesForDataset(layers);
-        System.out.println("size "+layerDates.size());
+        String id = layers.substring(0, 1);
+        String layer = layers.substring(2);
+        System.out.println("id " + id + " layer " + layer);
+        CalendarDataReader reader = new CalendarDataReader();
+        List<String> layerDates = null;
+        try {
+            layerDates = reader.getDatesForDataset(this.metadataStore.getLayer(id, layer));
+        } catch (Exception ex) {
+            java.util.logging.Logger.getLogger(WmsController.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        System.out.println("size " + layerDates.size());
         Map<String, Object> models = new HashMap<String, Object>();
         models.put("dates", layerDates.toArray());
         return new ModelAndView("calendar_xml", models);
@@ -1030,6 +1056,21 @@ public class WmsController extends AbstractController {
      */
     public void setTileCache(TileCache tileCache) {
         this.tileCache = tileCache;
+    }
+
+    /**
+     * rounds a value to the given decimal place
+     *
+     * @param val    to be rounded
+     * @param places to be rounded to
+     * @return float rounded for the given value
+     */
+    private double round(double val, int places) {
+        long factor = (long) Math.pow(10, places);
+
+        val = val * factor;
+        long tmp = Math.round(val);
+        return (double) tmp / factor;
     }
 }
 
