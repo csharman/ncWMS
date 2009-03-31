@@ -32,6 +32,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URL;
 import java.net.URLConnection;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -47,6 +48,7 @@ import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogger;
 import uk.ac.rdg.resc.ncwms.metadata.Layer;
 import uk.ac.rdg.resc.ncwms.metadata.MetadataStore;
+import uk.ac.rdg.resc.ncwms.metadata.TimestepInfo;
 import uk.ac.rdg.resc.ncwms.styles.ColorPalette;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry;
 import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
@@ -106,6 +108,10 @@ public class MetadataController
             else if (item.equals("minmax"))
             {
                 return this.showMinMax(request, usageLogEntry);
+            }
+            else if (item.equals("calendardates"))
+            {
+                return this.showCalendarDates(request, usageLogEntry);
             }
             else
             {
@@ -433,6 +439,39 @@ public class MetadataController
             }
         }
         return new float[]{min, max};
+    }
+
+    /**
+     * This method is used to display a complete list of a particular layer's
+     * timesteps.  It provides an alternative to the two-step method of first
+     * getting the days on which we have data (see
+     * {@link #showLayerDetails(javax.servlet.http.HttpServletRequest, uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry)})
+     * and then getting the times for a certain day (see
+     * {@link #showTimesteps(javax.servlet.http.HttpServletRequest)}).
+     * @todo Should display the date-times in ISO format
+     * @todo Would a JSON output format be acceptable?  This would be more
+     * consistent with the rest of the methods in this class.
+     * @author Dave Crossman (AIMS), Jon Blower
+     */
+    private ModelAndView showCalendarDates(HttpServletRequest request, UsageLogEntry usageLogEntry)
+        throws Exception
+    {
+        Layer layer = getLayer(request);
+        usageLogEntry.setLayer(layer);
+        List<String> calendarList = new ArrayList<String>();
+
+        // Could this be changed to an ISO format?  In any case, we would need
+        // to include the seconds and milliseconds to satisfy the general case.
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd+HH:mm");
+        for (TimestepInfo timestep : layer.getTimesteps()) {
+            calendarList.add(sdf.format(timestep.getDate()));
+        }
+
+        // The list should already be sorted so we shouldn't need this.
+        // Collections.sort(calendarList);
+        
+        // Could this be a JSON format?
+        return new ModelAndView("calendar_xml", "dates", calendarList);
     }
 
     /**

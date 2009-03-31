@@ -73,7 +73,6 @@ import uk.ac.rdg.resc.ncwms.cache.TileCache;
 import uk.ac.rdg.resc.ncwms.cache.TileCacheKey;
 import uk.ac.rdg.resc.ncwms.config.Config;
 import uk.ac.rdg.resc.ncwms.config.Dataset;
-import uk.ac.rdg.resc.ncwms.datareader.CalendarDataReader;
 import uk.ac.rdg.resc.ncwms.datareader.DataReader;
 import uk.ac.rdg.resc.ncwms.datareader.GriddedDataElement;
 import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
@@ -222,8 +221,6 @@ public class WmsController extends AbstractController {
                 return getKMLRegion(params, httpServletRequest);
             } else if (request.equals("GetTransect")) {
                 return getTransect(params, httpServletRequest, httpServletResponse);
-            } else if (request.equals("GetLayerDates")) {
-                return getLayerDates(params, httpServletRequest, httpServletResponse);
             } else {
                 throw new OperationNotSupportedException(request);
             }
@@ -940,24 +937,6 @@ public class WmsController extends AbstractController {
             }
             return null;
         }
-    }
-
-    private ModelAndView getLayerDates(RequestParams params, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
-        String layers = params.getString("layers");
-        String id = layers.substring(0, 1);
-        String layer = layers.substring(2);
-        System.out.println("id " + id + " layer " + layer);
-        CalendarDataReader reader = new CalendarDataReader();
-        List<String> layerDates = null;
-        try {
-            layerDates = reader.getDatesForDataset(this.metadataStore.getLayer(id, layer));
-        } catch (Exception ex) {
-            java.util.logging.Logger.getLogger(WmsController.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        System.out.println("size " + layerDates.size());
-        Map<String, Object> models = new HashMap<String, Object>();
-        models.put("dates", layerDates.toArray());
-        return new ModelAndView("calendar_xml", models);
     }
 
     /**
