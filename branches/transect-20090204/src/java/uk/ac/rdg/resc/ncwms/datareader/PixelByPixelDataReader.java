@@ -28,6 +28,8 @@
 
 package uk.ac.rdg.resc.ncwms.datareader;
 
+import java.util.HashSet;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ucar.ma2.Array;
@@ -50,15 +52,16 @@ public class PixelByPixelDataReader extends DefaultDataReader
     private static final Logger logger = LoggerFactory.getLogger(PixelByPixelDataReader.class);
     
     /**
-     * Reads data from the given GeoGrid and populates the given pixel array.
+     * Reads data from the given GridDatatype and populates the given pixel array.
      * This method reads each pixel with a separate request to the data source
      * and is not expected to be efficient.
      */
     @Override
-    protected void populatePixelArray(float[] picData, Range tRange, Range zRange,
+    protected Set<DataValues> populatePixelArray(Range tRange, Range zRange,
         PixelMap pixelMap, GridDatatype grid, VariableDS var) throws Exception
     {
         long start = System.currentTimeMillis();
+        Set<DataValues> dataValues = new HashSet<DataValues>();
 
         // Now create the picture from the data array
         for (int j : pixelMap.getJIndices())
@@ -73,14 +76,12 @@ public class PixelByPixelDataReader extends DefaultDataReader
                 Index index = xySlice.getIndex();
                 float val = xySlice.getFloat(index.set(0, 0));
                 val = (float)var.convertScaleOffsetMissing(val);
-                for (int pixelIndex : pixelMap.getPixelIndices(i, j))
-                {
-                    picData[pixelIndex] = val;
-                }
+                dataValues.add(new DataValues(val, pixelMap.getPixelIndices(i, j)));
             }
         }
         logger.debug("Read data pixel-by-pixel in {} ms",
             (System.currentTimeMillis() - start));
+        return dataValues;
     }
     
 }

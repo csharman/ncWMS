@@ -31,10 +31,13 @@ package uk.ac.rdg.resc.ncwms.datareader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ucar.ma2.Array;
@@ -58,7 +61,6 @@ import uk.ac.rdg.resc.ncwms.metadata.CoordAxis;
 import uk.ac.rdg.resc.ncwms.metadata.Layer;
 import uk.ac.rdg.resc.ncwms.metadata.LayerImpl;
 import uk.ac.rdg.resc.ncwms.metadata.TimestepInfo;
-import uk.ac.rdg.resc.ncwms.metadata.projection.HorizontalProjection;
 
 /**
  * Default data reading class for CF-compliant NetCDF datasets.
@@ -92,8 +94,8 @@ public class DefaultDataReader extends DataReader
      * @param grid The grid onto which the data are to be read
      * @throws Exception if an error occurs
      */
-    public float[] read(String filename, Layer layer, int tIndex, int zIndex,
-        HorizontalGrid grid) throws Exception
+    public Set<DataValues> read(String filename, Layer layer, int tIndex, int zIndex,
+        PointSource pointSource) throws Exception
     {
         NetcdfDataset nc = null;
         try
@@ -108,13 +110,8 @@ public class DefaultDataReader extends DataReader
             Range tRange = new Range(tIndex, tIndex);
             Range zRange = new Range(zIndex, zIndex);
             
-            // Create an array to hold the data
-            float[] picData = new float[grid.getSize()];
-            // Use NaNs to represent missing data
-            Arrays.fill(picData, Float.NaN);
-            
-            PixelMap pixelMap = new PixelMap(layer, grid);
-            if (pixelMap.isEmpty()) return picData;
+            PixelMap pixelMap = new PixelMap(layer, pointSource);
+            if (pixelMap.isEmpty()) return Collections.emptySet();
             
             long readMetadata = System.currentTimeMillis();
             logger.debug("Read metadata in {} milliseconds", (readMetadata - start));
@@ -145,7 +142,7 @@ public class DefaultDataReader extends DataReader
             // values
             VariableDS var = (VariableDS)nc.findVariable(layer.getId());
             // The actual reading of data from the variable is done here
-            this.populatePixelArray(picData, tRange, zRange, pixelMap, gridData, var);
+            Set<DataValues> dataValues = this.populatePixelArray(tRange, zRange, pixelMap, gridData, var);
             long after = System.currentTimeMillis();
             // Write to the benchmark logger (if enabled in log4j.properties)
             // Headings are written in NcwmsContext.init()
@@ -157,7 +154,7 @@ public class DefaultDataReader extends DataReader
                     layer.getDataset().getId() + "," +
                     layer.getId() + "," +
                     this.getClass().getSimpleName() + "," +
-                    grid.getSize() + "," +
+                    pointSource.size() + "," +
                     pixelMap.getNumUniqueIJPairs() + "," +
                     pixelMap.getSumRowLengths() + "," +
                     pixelMap.getBoundingBoxSize() + "," +
@@ -169,7 +166,7 @@ public class DefaultDataReader extends DataReader
             logger.debug("Built picture array in {} milliseconds", (builtPic - readMetadata));
             logger.debug("Whole read() operation took {} milliseconds", (builtPic - start));
             
-            return picData;
+            return dataValues;
         }
         finally
         {
@@ -193,9 +190,10 @@ public class DefaultDataReader extends DataReader
      * use alternative strategies, e.g. point-by-point or bounding box.
      * @see PixelMap
      */
-    protected void populatePixelArray(float[] picData, Range tRange, Range zRange,
+    protected Set<DataValues> populatePixelArray(Range tRange, Range zRange,
         PixelMap pixelMap, GridDatatype grid, VariableDS var) throws Exception
     {
+        Set<DataValues> dataValues = new HashSet<DataValues>();
         // Cycle through the y indices, extracting a scanline of
         // data each time from minX to maxX
         logger.debug("Shape of grid: {}", Arrays.toString(grid.getShape()));
@@ -229,12 +227,10 @@ public class DefaultDataReader extends DataReader
                 val = (float)var.convertScaleOffsetMissing(val);
                 // Now we set the value of all the image pixels associated with
                 // this data point.
-                for (int p : pixelMap.getPixelIndices(i, j))
-                {
-                    picData[p] = val;
-                }
+                dataValues.add(new DataValues(val, pixelMap.getPixelIndices(i, j)));
             }
         }
+        return dataValues;
     }
     
     /**
@@ -295,7 +291,6 @@ public class DefaultDataReader extends DataReader
                 {
                     CoordAxis xAxis = this.getXAxis(coordSys);
                     CoordAxis yAxis = this.getYAxis(coordSys);
-                    HorizontalProjection proj = HorizontalProjection.create(coordSys.getProjection());
                     
                     boolean zPositive = this.isZPositive(coordSys);
                     CoordinateAxis1D zAxis = coordSys.getVerticalAxis();
@@ -335,7 +330,7 @@ public class DefaultDataReader extends DataReader
                         layer.setUnits(grid.getUnitsString());
                         layer.setXaxis(xAxis);
                         layer.setYaxis(yAxis);
-                        layer.setHorizontalProjection(proj);
+                        layer.setHorizontalProjection(coordSys.getProjection());
                         layer.setBbox(bbox);
 
                         if (zAxis != null)

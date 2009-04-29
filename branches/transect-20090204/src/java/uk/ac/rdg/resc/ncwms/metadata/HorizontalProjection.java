@@ -26,7 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.metadata.projection;
+package uk.ac.rdg.resc.ncwms.metadata;
 
 import ucar.unidata.geoloc.LatLonPoint;
 import ucar.unidata.geoloc.ProjectionImpl;
@@ -43,7 +43,7 @@ import ucar.unidata.geoloc.ProjectionPointImpl;
  * $Date$
  * $Log$
  */
-public abstract class HorizontalProjection
+abstract class HorizontalProjection
 {
     /**
      * Singleton object representing the longitude-latitude projection

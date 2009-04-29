@@ -52,9 +52,41 @@ window.onload = function()
 
     // Stop the pink tiles appearing on error
     OpenLayers.Util.onImageLoadError = function() {  this.style.display = ""; this.src="./images/blank.png"; }
-    
+
+    // Set up a layer for drawing lines etc (for transects and sections)
+    var drawinglayer = new OpenLayers.Layer.Vector( "Drawing" );
+    drawinglayer.displayInLayerSwitcher = false;
+    // When we're about to add a new feature, destroy the previous ones
+    drawinglayer.events.register('beforefeatureadded', drawinglayer, function(event) {
+        //alert('Before featrue');
+        drawinglayer.destroyFeatures(); // TODO: doesn't work
+    });
+    drawinglayer.events.register('featureadded', drawinglayer, function(event) {
+        alert('Feature added: ' + event.feature.geometry);
+        // Get the linestring specification
+        var line = event.feature.geometry.toString();
+        // we strip off the "LINESTRING(" and the trailing ")"
+        line = line.substring(11, line.length - 1);
+        // Load an image of the transect
+        var transectUrl = 'wms?REQUEST=GetTransect' +
+            '&LAYER=' + activeLayer.id +
+            '&CRS=' + map.baseLayer.projection.toString() +
+            '&ELEVATION=' + getZValue() +
+            '&TIME=' + isoTValue +
+            '&LINESTRING=' + line +
+            '&FORMAT=image/png';
+        popUp(transectUrl, 450, 350);
+    });
+
     // Set up the OpenLayers map widget
-    map = new OpenLayers.Map('map');
+    map = new OpenLayers.Map( 'map', {
+        controls: [
+            new OpenLayers.Control.PanZoom(),
+            // TODO: remove unused controls
+            new OpenLayers.Control.EditingToolbar(drawinglayer)
+        ]
+    });
+
     var ol_wms = new OpenLayers.Layer.WMS1_1_1( "OpenLayers WMS", 
         "http://labs.metacarta.com/wms-c/Basic.py?", {layers: 'basic'});
     var bluemarble_wms = new OpenLayers.Layer.WMS1_1_1( "Blue Marble", 
@@ -135,7 +167,7 @@ window.onload = function()
         {layers: 'Bathymetry___Elevation.bds', transparent: 'true'});
     seazone_wms.setVisibility(false);*/
     
-    map.addLayers([bluemarble_wms, demis_wms, ol_wms, osm_wms, human_wms, northPoleBaseLayer, southPoleBaseLayer/*, seazone_wms, essi_wms*/]);
+    map.addLayers([bluemarble_wms, demis_wms, ol_wms, osm_wms, human_wms, northPoleBaseLayer, southPoleBaseLayer, drawinglayer/*, seazone_wms, essi_wms*/]);
     
     map.setBaseLayer(demis_wms);
 

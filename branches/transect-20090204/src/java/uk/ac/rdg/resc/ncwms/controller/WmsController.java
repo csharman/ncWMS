@@ -27,24 +27,22 @@
  */
 package uk.ac.rdg.resc.ncwms.controller;
 
-import java.awt.Color;
 import java.awt.Font;
 import java.awt.geom.Ellipse2D;
-import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
-import java.util.logging.Level;
 import javax.imageio.ImageIO;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -53,30 +51,26 @@ import org.slf4j.LoggerFactory;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartUtilities;
 import org.jfree.chart.JFreeChart;
-import org.jfree.chart.axis.NumberAxis;
-import org.jfree.chart.plot.PlotOrientation;
-import org.jfree.chart.plot.XYPlot;
-import org.jfree.chart.renderer.xy.XYItemRenderer;
 import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
-import org.jfree.chart.title.TextTitle;
 import org.jfree.data.time.Millisecond;
 import org.jfree.data.time.TimeSeries;
 import org.jfree.data.time.TimeSeriesCollection;
-import org.jfree.data.xy.XYSeries;
-import org.jfree.data.xy.XYSeriesCollection;
-import org.jfree.ui.HorizontalAlignment;
-import org.jfree.ui.RectangleEdge;
+import org.opengis.referencing.NoSuchAuthorityCodeException;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.AbstractController;
 import ucar.unidata.geoloc.LatLonPoint;
+import ucar.unidata.geoloc.ProjectionPoint;
+import ucar.unidata.geoloc.ProjectionPointImpl;
 import uk.ac.rdg.resc.ncwms.cache.TileCache;
 import uk.ac.rdg.resc.ncwms.cache.TileCacheKey;
 import uk.ac.rdg.resc.ncwms.config.Config;
 import uk.ac.rdg.resc.ncwms.config.Dataset;
+import uk.ac.rdg.resc.ncwms.datareader.CrsHelper;
 import uk.ac.rdg.resc.ncwms.datareader.DataReader;
-import uk.ac.rdg.resc.ncwms.datareader.GriddedDataElement;
+import uk.ac.rdg.resc.ncwms.datareader.DataValues;
 import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
-import uk.ac.rdg.resc.ncwms.datareader.TransectDataReader;
+import uk.ac.rdg.resc.ncwms.datareader.PointSource;
+import uk.ac.rdg.resc.ncwms.exceptions.InvalidCrsException;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidFormatException;
 import uk.ac.rdg.resc.ncwms.exceptions.LayerNotQueryableException;
@@ -220,7 +214,7 @@ public class WmsController extends AbstractController {
                 logUsage = false; // We don't log usage for this operation
                 return getKMLRegion(params, httpServletRequest);
             } else if (request.equals("GetTransect")) {
-                return getTransect(params, httpServletRequest, httpServletResponse);
+                return getTransect(params, httpServletResponse);
             } else {
                 throw new OperationNotSupportedException(request);
             }
@@ -416,15 +410,15 @@ public class WmsController extends AbstractController {
         }
         usageLogEntry.setNumTimeSteps(tIndices.size());
         long beforeExtractData = System.currentTimeMillis();
-        for (int tIndex : tIndices) {
+        for (int tIndexInLayer : tIndices) {
             // tIndex == -1 if there is no t axis present
-            List<float[]> picData = readData(layer, tIndex, zIndex, grid,
+            List<float[]> picData = readData(layer, tIndexInLayer, zIndex, grid,
                     this.tileCache, usageLogEntry);
 
             // Only add a label if this is part of an animation
             String tValue = "";
             if (layer.isTaxisPresent() && tIndices.size() > 1) {
-                tValue = WmsUtils.dateToISO8601(layer.getTimesteps().get(tIndex).getDate());
+                tValue = WmsUtils.dateToISO8601(layer.getTimesteps().get(tIndexInLayer).getDate());
             }
             tValues.add(tValue);
             imageProducer.addFrame(picData, tValue); // the tValue is the label for the image
@@ -450,6 +444,40 @@ public class WmsController extends AbstractController {
                 grid.getBbox(), legend);
 
         return null;
+    }
+
+    /** Simple class to hold a filename and a time index in the file */
+    private static final class FilenameAndTindex
+    {
+        /** The filename */
+        private String filename;
+        /** The time index within this file */
+        private int tIndexInFile;
+    }
+
+    /**
+     * Given a layer and an index along the layer's time axis, this method
+     * returns the exact file and the time index within that file that must
+     * be read.
+     */
+    private static FilenameAndTindex getFilenameAndTindex(Layer layer, int tIndexInLayer) throws Exception
+    {
+        FilenameAndTindex ft = new FilenameAndTindex();
+        if (tIndexInLayer >= 0) {
+            TimestepInfo tInfo = layer.getTimesteps().get(tIndexInLayer);
+            ft.filename = tInfo.getFilename();
+            ft.tIndexInFile = tInfo.getIndexInFile();
+        } else {
+            // There is no time axis.  If this is a glob aggregation we must make
+            // sure that we use a valid filename, so we pick the first file
+            // in the aggregation.  (If this is not a glob aggregation then this
+            // should still work.)  If we don't do the glob expansion then we
+            // might end up passing an invalid filename such as "/path/to/*.nc"
+            // to DataReader.read().
+            ft.filename = layer.getDataset().getFiles().get(0);
+            ft.tIndexInFile = tIndexInLayer;
+        }
+        return ft;
     }
 
     /**
@@ -480,33 +508,17 @@ public class WmsController extends AbstractController {
      * about the usage of this WMS (may be null, e.g. if this is being called
      * from the MetadataLoader).
      */
-    private static float[] readDataArray(Layer layer, int tIndex, int zIndex,
+    private static float[] readDataArray(Layer layer, int tIndexInLayer, int zIndex,
             HorizontalGrid grid, TileCache tileCache, UsageLogEntry usageLogEntry)
             throws Exception {
         // Get a DataReader object for reading the data
-        String dataReaderClass = layer.getDataset().getDataReaderClass();
-        String location = layer.getDataset().getLocation();
-        DataReader dr = DataReader.getDataReader(dataReaderClass, location);
+        DataReader dr = DataReader.forDataset(layer.getDataset());
         log.debug("Got data reader of type {}", dr.getClass().getName());
 
         // See exactly which file we're reading from, and which time index in 
         // the file (handles datasets with glob aggregation)
-        String filename;
-        int tIndexInFile;
-        if (tIndex >= 0) {
-            TimestepInfo tInfo = layer.getTimesteps().get(tIndex);
-            filename = tInfo.getFilename();
-            tIndexInFile = tInfo.getIndexInFile();
-        } else {
-            // There is no time axis.  If this is a glob aggregation we must make
-            // sure that we use a valid filename, so we pick the first file
-            // in the aggregation.  (If this is not a glob aggregation then this
-            // should still work.)  If we don't do the glob expansion then we
-            // might end up passing an invalid filename such as "/path/to/*.nc"
-            // to DataReader.read().
-            filename = WmsUtils.globFiles(layer.getDataset().getLocation()).get(0).getPath();
-            tIndexInFile = tIndex;
-        }
+        FilenameAndTindex ft = getFilenameAndTindex(layer, tIndexInLayer);
+
         float[] data = null;
         TileCacheKey key = null;
         if (tileCache != null) {
@@ -515,13 +527,22 @@ public class WmsController extends AbstractController {
             // on whether the file in question is a local file, an OPeNDAP
             // endpoint or an NcML aggregation (see the Javadoc for the TileCache
             // class)
-            key = new TileCacheKey(filename, layer, grid, tIndexInFile, zIndex);
+            key = new TileCacheKey(ft.filename, layer, grid, ft.tIndexInFile, zIndex);
             // Try to get the data from cache
             data = tileCache.get(key);
         }
         if (data == null) {
             // Data not found in cache or cache not present
-            data = dr.read(filename, layer, tIndexInFile, zIndex, grid);
+            // Read data from the source
+            Set<DataValues> dataValues = dr.read(ft.filename, layer, ft.tIndexInFile, zIndex, grid);
+            // Transcribe the data onto an array representing the image's grid
+            data = new float[grid.size()];
+            Arrays.fill(data, Float.NaN);
+            for (DataValues dv : dataValues) {
+                for (Integer index : dv.getIndices()) {
+                    data[index] = dv.getDataValue();
+                }
+            }
             // Put the data into the cache
             if (tileCache != null) {
                 tileCache.put(key, data);
@@ -587,7 +608,7 @@ public class WmsController extends AbstractController {
         // Get the x and y values of the point of interest
         double x = grid.getXAxisValues()[dataRequest.getPixelColumn()];
         double y = grid.getYAxisValues()[dataRequest.getPixelRow()];
-        LatLonPoint latLon = grid.transformToLatLon(x, y);
+        LatLonPoint latLon = grid.getCrsHelper().crsToLatLon(x, y);
         usageLogEntry.setFeatureInfoLocation(latLon.getLongitude(), latLon.getLatitude());
 
         // Get the index along the z axis
@@ -610,16 +631,12 @@ public class WmsController extends AbstractController {
 
             float val;
             // We don't use the tile cache for getFeatureInfo
-            if (layer instanceof VectorLayer) {
-                VectorLayer vecLayer = (VectorLayer) layer;
-                float xval = readDataArray(vecLayer.getEastwardComponent(), tIndex,
-                        zIndex, singlePointGrid, null, usageLogEntry)[0];
-                float yval = readDataArray(vecLayer.getNorthwardComponent(), tIndex,
-                        zIndex, singlePointGrid, null, usageLogEntry)[0];
-                val = (float) Math.sqrt(xval * xval + yval * yval);
-            } else {
-                val = readDataArray(layer, tIndex, zIndex, singlePointGrid, null,
-                        usageLogEntry)[0];
+            List<float[]> data = readData(layer, tIndex, zIndex, singlePointGrid, null, usageLogEntry);
+            val = data.get(0)[0];
+            if (data.size() > 1)
+            {
+                float val2 = data.get(1)[0];
+                val = (float)Math.sqrt(val * val + val2 * val2);
             }
             featureData.put(date, Float.isNaN(val) ? null : val);
         }
@@ -846,47 +863,122 @@ public class WmsController extends AbstractController {
         return new ModelAndView("regionBasedOverlay", models);
     }
 
-    private ModelAndView getTransect(RequestParams params,
-            HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
-        // You will need to populate this Map with the information that needs
-        // to go into the XML template
-        String layers = params.getString("layers");
-        String time = params.getString("time");
-        String strPointA = params.getString("pointA");
-        String strPointB = params.getString("pointB");
-        String outputFormat = params.getString("FORMAT");
+    /**
+     * Outputs a transect (data value versus distance along a path) in PNG or
+     * XML format.
+     * @todo this method is too long, refactor!
+     */
+    private ModelAndView getTransect(RequestParams params, HttpServletResponse response)
+            throws Exception {
+        
+        // Parse the request parameters
+        String layerStr = params.getMandatoryString("layer");
+        Layer layer = this.metadataStore.getLayerByUniqueName(layerStr);
+        String crsCode = params.getMandatoryString("crs");
+        String lineString = params.getMandatoryString("linestring");
+        String outputFormat = params.getMandatoryString("format");
+        int tIndexInLayer = getTIndices(params.getString("time"), layer).get(0); // -1 if no t axis
+        int zIndex = getZIndex(params.getString("elevation"), layer); // -1 if no z axis
+        
+        if (!outputFormat.equals(FEATURE_INFO_PNG_FORMAT)) {
+            // TODO: support XML format
+            throw new InvalidFormatException(outputFormat);
+        }
+
+        final CrsHelper crsHelper;
+        try {
+            crsHelper = new CrsHelper(crsCode);
+        } catch(NoSuchAuthorityCodeException nsace) {
+            throw new InvalidCrsException(crsCode);
+        }
+        
+        // Parse the line string, which is in the form "x1 y1, x2 y2, x3 y3"
+        String[] pointsStr = lineString.split(",");
+        if (pointsStr.length < 2) {
+            throw new WmsException("At least two points are required to generate a transect");
+        }
+        // The waypoints along the transect as specified by the line string
+        final List<ProjectionPoint> waypoints = new ArrayList<ProjectionPoint>();
+        for (String s : pointsStr) {
+            String[] coords = s.trim().split(" +"); // allows one or more spaces to be used as a delimiter
+            if (coords.length != 2) {
+                throw new WmsException("Coordinates format error");
+            }
+            try {
+                waypoints.add(new ProjectionPointImpl(
+                    Double.parseDouble(coords[0].trim()),
+                    Double.parseDouble(coords[1].trim())
+                ));
+            } catch (NumberFormatException nfe) {
+                throw new WmsException("Coordinates format error");
+            }
+        }
+        log.debug("Got {} waypoints", waypoints.size());
+
+        // Calculate the total length of the path in units of the CRS.
+        // While we're doing this we'll calculate the total length of the path
+        // up to each waypoint
+        double[] waypointDistances = new double[waypoints.size()];
+        double pathLength = 0.0;
+        waypointDistances[0] = pathLength;
+        for (int i = 1; i < waypoints.size(); i++) {
+            ProjectionPoint p1 = waypoints.get(i - 1);
+            ProjectionPoint p2 = waypoints.get(i);
+            double dx = p2.getX() - p1.getX();
+            double dy = p2.getY() - p1.getY();
+            pathLength += Math.sqrt(dx * dx + dy * dy);
+            waypointDistances[i] = pathLength;
+        }
+
+        // Create List of points interpolating between the waypoints
+        final int numPoints = 100; // no point in using more points than we can display in a chart
+        final List<ProjectionPoint> points = new ArrayList<ProjectionPoint>(numPoints);
+        // The first point is the first waypoint
+        points.add(waypoints.get(0));
+        // Now for the points in the middle
+        for (int i = 1; i < numPoints - 1; i++) {
+            // Calculate the distance along the path
+            double s = pathLength * i / (numPoints - 1);
+            // Find the last waypoint we passed on this path
+            int waypointIndex = 0;
+            while (waypointIndex < waypointDistances.length) {
+                if (s < waypointDistances[waypointIndex]) break; // TODO: off by one??
+                else waypointIndex++;
+            }
+            // Find the distance from the last waypoint
+            double ds = s - waypointDistances[waypointIndex];
+            // Find the fractional distance from the last waypoint to the next?
+            
+            // Now interpolate between the last waypoint and the next
+        }
+        // The last point is the last waypoint
+        points.add(waypoints.get(waypoints.size() - 1));
+        log.debug("Created {} points along the path", points.size());
+
+        // Create a PointSource wrapper around the interpolated points
+        PointSource pointSource = new PointSource() {
+            public CrsHelper getCrsHelper() { return crsHelper; }
+            public Iterator<ProjectionPoint> iterator() { return points.iterator(); }
+            public int size() { return points.size(); }
+        };
+        
+        // Read the data from the data source
+        DataReader dr = DataReader.forDataset(layer.getDataset());
+        // Find the exact file we need and the t index within the file
+        FilenameAndTindex ft = getFilenameAndTindex(layer, tIndexInLayer);
+        // TODO: doesn't work for vector layers!
+        Set<DataValues> dataValues = dr.read(ft.filename, layer, ft.tIndexInFile,
+            zIndex, pointSource);
+        log.debug("Transect: Got {} dataValues", dataValues.size());
+
+        // Prepare and output the JFreeChart
+        // TODO: this is nasty: we're mixing presentation code in the controller
 
         SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 
-        String[] pointa = strPointA.split(",");
-        Point2D.Double pointA = new Point2D.Double();
-        pointA.setLocation(Double.valueOf(pointa[0]), Double.valueOf(pointa[1]));
 
-        String[] pointb = strPointB.split(",");
-        Point2D.Double pointB = new Point2D.Double();
-        pointB.setLocation(Double.valueOf(pointb[0]), Double.valueOf(pointb[1]));
 
-        TransectDataReader reader = new TransectDataReader();
-        Collection<GriddedDataElement> elements = null;
-
-        String id = layers.substring(0, 1);
-        String layerName = layers.substring(2);
-        Layer layer = null;
-        try {
-            layer = this.metadataStore.getLayer(id, layerName);
-            try {
-                Date startDate = new java.util.Date();
-                elements = reader.getTransectData(pointA, pointB, df.parse(time), layer);
-                //time taken for the test
-                Date endDate = new java.util.Date();
-                System.out.println("took to complete " + ((endDate.getTime() - startDate.getTime()) / 1000.0) + " to generate a data with " + elements.size() + " points");
-            } catch (ParseException ex) {
-                java.util.logging.Logger.getLogger(WmsController.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        } catch (Exception ex) {
-            java.util.logging.Logger.getLogger(WmsController.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        if (outputFormat.equals(FEATURE_INFO_XML_FORMAT)) {
+        /*if (outputFormat.equals(FEATURE_INFO_XML_FORMAT)) {
             Map<String, Object> models = new HashMap<String, Object>();
             models.put("name", elements);
             try {
@@ -936,7 +1028,8 @@ public class WmsController extends AbstractController {
                 java.util.logging.Logger.getLogger(WmsController.class.getName()).log(Level.SEVERE, null, ex);
             }
             return null;
-        }
+        }*/
+        return null;
     }
 
     /**
@@ -1035,21 +1128,6 @@ public class WmsController extends AbstractController {
      */
     public void setTileCache(TileCache tileCache) {
         this.tileCache = tileCache;
-    }
-
-    /**
-     * rounds a value to the given decimal place
-     *
-     * @param val    to be rounded
-     * @param places to be rounded to
-     * @return float rounded for the given value
-     */
-    private double round(double val, int places) {
-        long factor = (long) Math.pow(10, places);
-
-        val = val * factor;
-        long tmp = Math.round(val);
-        return (double) tmp / factor;
     }
 }
 

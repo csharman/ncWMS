@@ -51,9 +51,11 @@ public class TimestepInfo implements Comparable<TimestepInfo>
      * @param timestep The real date/time of this timestep
      * @param filename The filename containing this timestep
      * @param indexInFile The index of this timestep in the file
+     * @throws NullPointerException if {@code timestep == null || filename == null}
      */
     public TimestepInfo(Date timestep, String filename, int indexInFile)
     {
+        if (timestep == null || filename == null) throw new NullPointerException();
         this.timestep = timestep;
         this.filename = filename;
         this.indexInFile = indexInFile;
@@ -91,10 +93,21 @@ public class TimestepInfo implements Comparable<TimestepInfo>
     {
         return this.timestep.compareTo(otherInfo.timestep);
     }
+
+    @Override
+    public int hashCode()
+    {
+        int result = 17;
+        result = 31 * result + this.timestep.hashCode();
+        result = 31 * result + this.filename.hashCode();
+        result = 31 * result + this.indexInFile;
+        return result;
+    }
     
     /**
      * Compares all fields for equality
      */
+    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) return true;

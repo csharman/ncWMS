@@ -30,9 +30,11 @@ package uk.ac.rdg.resc.ncwms.datareader;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ucar.ma2.Array;
@@ -75,7 +77,7 @@ public class USGSDataReader extends DefaultDataReader
      * @throws Exception if an error occurs
      */
     @Override
-    public float[] read(String filename, Layer layer, int tIndex, int zIndex, HorizontalGrid grid)
+    public Set<DataValues> read(String filename, Layer layer, int tIndex, int zIndex, PointSource pointSource)
         throws Exception
     {
         NetcdfDataset nc = null;
@@ -90,13 +92,9 @@ public class USGSDataReader extends DefaultDataReader
             Range tRange = new Range(tIndex, tIndex);
             Range zRange = new Range(zIndex, zIndex);
             
-            // Create an array to hold the data
-            float[] picData = new float[grid.getSize()];
-            Arrays.fill(picData, Float.NaN);
-            
             // Maps x and y indices to pixel indices
-            PixelMap pixelMap = new PixelMap(layer, grid);
-            if (pixelMap.isEmpty()) return picData;
+            PixelMap pixelMap = new PixelMap(layer, pointSource);
+            if (pixelMap.isEmpty()) return Collections.emptySet();
             start = System.currentTimeMillis();
             
             // Now build the picture.  We don't need to enhance the dataset but
@@ -128,17 +126,10 @@ public class USGSDataReader extends DefaultDataReader
             }
             logger.debug("Scale factor: {}, add offset: {}", scaleFactor, addOffset);
             
-            int yAxisIndex = 1;
-            int xAxisIndex = 2;
             List<Range> ranges = new ArrayList<Range>();
             ranges.add(tRange);
             // TODO: logic is fragile here
-            if (var.getRank() == 4)
-            {
-                ranges.add(zRange);
-                yAxisIndex = 2;
-                xAxisIndex = 3;
-            }
+            if (var.getRank() == 4) ranges.add(zRange);
             
             // Read the whole chunk of x-y data (cf. BoundingBoxDataReader)
             ranges.add(new Range(pixelMap.getMinJIndex(), pixelMap.getMaxJIndex()));
@@ -150,6 +141,7 @@ public class USGSDataReader extends DefaultDataReader
             Object arrObj = data.copyTo1DJavaArray();
             
             // Copy the data to the image array
+            Set<DataValues> dataValues = new HashSet<DataValues>();
             for (int j : pixelMap.getJIndices())
             {
                 int jIndex = j - pixelMap.getMinJIndex();
@@ -176,16 +168,13 @@ public class USGSDataReader extends DefaultDataReader
                         if (Double.isNaN(validMin) || Double.isNaN(validMax) ||
                             (realVal >= validMin && realVal <= validMax))
                         {
-                            for (int p : pixelMap.getPixelIndices(i, j))
-                            {
-                                picData[p] = realVal;
-                            }
+                            dataValues.add(new DataValues(realVal, pixelMap.getPixelIndices(i, j)));
                         }
                     }
                 }
             }
             logger.debug("Read data in {} ms", System.currentTimeMillis() - start);
-            return picData;
+            return dataValues;
         }
         finally
         {

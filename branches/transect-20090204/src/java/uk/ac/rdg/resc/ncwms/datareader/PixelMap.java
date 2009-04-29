@@ -28,9 +28,8 @@
 
 package uk.ac.rdg.resc.ncwms.datareader;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import org.slf4j.Logger;
@@ -40,8 +39,6 @@ import ucar.unidata.geoloc.ProjectionPoint;
 import uk.ac.rdg.resc.ncwms.metadata.CoordAxis;
 import uk.ac.rdg.resc.ncwms.metadata.Layer;
 import uk.ac.rdg.resc.ncwms.metadata.OneDCoordAxis;
-import uk.ac.rdg.resc.ncwms.metadata.TwoDCoordAxis;
-import uk.ac.rdg.resc.ncwms.metadata.projection.HorizontalProjection;
 
 /**
  *<p>Maps pixels within the requested image to i and j indices of corresponding
@@ -133,6 +130,44 @@ public class PixelMap
     
     // Number of unique i-j pairs
     private int numUniqueIJPairs = 0;
+
+    public PixelMap(Layer layer, PointSource pointSource) throws Exception
+    {
+        long start = System.currentTimeMillis();
+        if (pointSource instanceof HorizontalGrid)
+        {
+            this.initFromGrid(layer, (HorizontalGrid)pointSource);
+        }
+        else
+        {
+            this.initFromPointSource(layer, pointSource);
+        }
+        logger.debug("Built pixel map in {} ms", System.currentTimeMillis() - start);
+    }
+
+    private void initFromPointSource(Layer layer, PointSource pointSource) throws Exception
+    {
+        logger.debug("Using generic method based on PointSource");
+        CrsHelper crsHelper = pointSource.getCrsHelper();
+        int pixelIndex = 0;
+        for (ProjectionPoint point : pointSource)
+        {
+            // Check that this point is valid in the target CRS
+            if (crsHelper.isPointValidForCrs(point))
+            {
+                // Translate this point in the target grid to lat-lon
+                LatLonPoint latLon = crsHelper.crsToLatLon(point);
+                // Now find the nearest index in the grid
+                int[] gridCoords = layer.latLonToGrid(latLon);
+                if (gridCoords != null)
+                {
+                    // Ignores negative indices
+                    this.put(gridCoords[0], gridCoords[1], pixelIndex);
+                }
+            }
+            pixelIndex++;
+        }
+    }
     
     /**
      * Generates a PixelMap for the given Layer.  Data read from the Layer will
@@ -140,25 +175,22 @@ public class PixelMap
      * 
      * @throws Exception if the necessary transformations could not be performed
      */
-    public PixelMap(Layer layer, HorizontalGrid grid) throws Exception
+    private void initFromGrid(Layer layer, HorizontalGrid grid) throws Exception
     {
-        long start = System.currentTimeMillis();
-        
-        HorizontalProjection dataProj = layer.getHorizontalProjection();
         CoordAxis xAxis = layer.getXaxis();
         CoordAxis yAxis = layer.getYaxis();
         
         // Cycle through each pixel in the picture and work out which
-        // x and y index in the source data it corresponds to
-        int pixelIndex = 0;
+        // i and j index in the source data it corresponds to
         
         // We can gain efficiency if the target grid is a lat-lon grid and
         // the data exist on a lat-long grid by minimizing the number of
         // calls to axis.getIndex().
-        if (dataProj.isLatLon() && grid.isLatLon() &&
+        if (layer.isLatLon() && grid.isLatLon() &&
             xAxis instanceof OneDCoordAxis && yAxis instanceof OneDCoordAxis)
         {
             logger.debug("Using optimized method for lat-lon coordinates with 1D axes");
+            int pixelIndex = 0;
             // These class casts should always be valid
             OneDCoordAxis xAxis1D = (OneDCoordAxis)xAxis;
             OneDCoordAxis yAxis1D = (OneDCoordAxis)yAxis;
@@ -188,48 +220,10 @@ public class PixelMap
         }
         else
         {
-            logger.debug("Using generic (but slower) method");
-            for (double y : grid.getYAxisValues())
-            {
-                for (double x : grid.getXAxisValues())
-                {
-                    // Check that this point is valid in the target CRS
-                    if (grid.isPointValidForCrs(x, y))
-                    {
-                        // Translate this point in the target grid to lat-lon
-                        // TODO: the transformer can transform many points at once.
-                        // Doing so might be more efficient than this method.
-                        LatLonPoint latLon = grid.transformToLatLon(x, y);
-                        // Translate this lat-lon point to a point in the data's projection coordinates
-                        ProjectionPoint projPoint = dataProj.latLonToProj(latLon);
-                        // Translate the projection point to grid point indices i, j
-                        int i, j;
-                        if (xAxis instanceof OneDCoordAxis && yAxis instanceof OneDCoordAxis)
-                        {
-                            OneDCoordAxis xAxis1D = (OneDCoordAxis)xAxis;
-                            OneDCoordAxis yAxis1D = (OneDCoordAxis)yAxis;
-                            i = xAxis1D.getIndex(projPoint.getX());
-                            j = yAxis1D.getIndex(projPoint.getY());
-                        }
-                        else if (xAxis instanceof TwoDCoordAxis && yAxis instanceof TwoDCoordAxis)
-                        {
-                            TwoDCoordAxis xAxis2D = (TwoDCoordAxis)xAxis;
-                            TwoDCoordAxis yAxis2D = (TwoDCoordAxis)yAxis;
-                            i = xAxis2D.getIndex(projPoint);
-                            j = yAxis2D.getIndex(projPoint);
-                        }
-                        else
-                        {
-                            // Shouldn't happen'
-                            throw new IllegalStateException("x and y axes are of different types!");
-                        }
-                        this.put(i, j, pixelIndex); // Ignores negative indices
-                    }
-                    pixelIndex++;
-                }
-            }
+            // We can't do better than the generic initialization method
+            // based upon iterating through each point in the grid.
+            this.initFromPointSource(layer, (PointSource)grid);
         }
-        logger.debug("Built pixel map in {} ms", System.currentTimeMillis() - start);
     }
     
     /**
@@ -296,18 +290,18 @@ public class PixelMap
     }
     
     /**
-     * Gets the list of all pixel indices, representing individual points in the 
+     * Gets the set of all pixel indices, representing individual points in the
      * final image, that correspond with the given point in the source data.  A single
      * value from the source data might map to several pixels in the final image,
      * especially if we are "zoomed in".
-     * @return a List of all pixel indices that correspond with the given i and
+     * @return a Set of all pixel indices that correspond with the given i and
      * j index
      * @throws IllegalArgumentException if there is no row with the given j index
      * or if the given i index is not found in the row
      */
-    public List<Integer> getPixelIndices(int i, int j)
+    public Set<Integer> getPixelIndices(int i, int j)
     {
-        Map<Integer, List<Integer>> row = this.getRow(j).getIIndices();
+        Map<Integer, Set<Integer>> row = this.getRow(j).getIIndices();
         if (!row.containsKey(i))
         {
             throw new IllegalArgumentException("The i index " + i +
@@ -390,10 +384,9 @@ public class PixelMap
      */
     private class Row
     {
-        // Maps i Indices to a list of pixel indices
+        // Maps i Indices to a set of pixel indices
         //             i        pixels
-        private Map<Integer, List<Integer>> iIndices =
-            new HashMap<Integer, List<Integer>>();
+        private Map<Integer, Set<Integer>> iIndices = new HashMap<Integer, Set<Integer>>();
         // Min and max x Indices in this row
         private int minIIndex = Integer.MAX_VALUE;
         private int maxIIndex = -1;
@@ -406,10 +399,10 @@ public class PixelMap
             if (i < this.minIIndex) this.minIIndex = i;
             if (i > this.maxIIndex) this.maxIIndex = i;
             
-            List<Integer> pixelIndices = this.iIndices.get(i);
+            Set<Integer> pixelIndices = this.iIndices.get(i);
             if (pixelIndices == null)
             {
-                pixelIndices = new ArrayList<Integer>();
+                pixelIndices = new HashSet<Integer>();
                 this.iIndices.put(i, pixelIndices);
                 // We have a new unique x-y pair
                 numUniqueIJPairs++;
@@ -418,7 +411,7 @@ public class PixelMap
             pixelIndices.add(pixel);
         }
 
-        public Map<Integer, List<Integer>> getIIndices()
+        public Map<Integer, Set<Integer>> getIIndices()
         {
             return iIndices;
         }
@@ -448,7 +441,7 @@ public class PixelMap
     
     /**
      * Gets the sum of the lengths of each row of data points,
-     * i.e. sum(imax - imin + 1).  This is the number of data points that will
+     * {@literal i.e.} sum(imax - imin + 1).  This is the number of data points that will
      * be extracted by the {@link DefaultDataReader}.
      * @return the sum of the lengths of each row of data points
      */

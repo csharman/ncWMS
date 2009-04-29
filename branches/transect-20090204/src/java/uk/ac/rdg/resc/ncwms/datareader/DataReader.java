@@ -28,13 +28,12 @@
 
 package uk.ac.rdg.resc.ncwms.datareader;
 
-import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import uk.ac.rdg.resc.ncwms.config.Dataset;
 import uk.ac.rdg.resc.ncwms.metadata.Layer;
 import uk.ac.rdg.resc.ncwms.metadata.LayerImpl;
@@ -59,21 +58,18 @@ public abstract class DataReader
      * This class can only be instantiated through getDataReader()
      */
     protected DataReader(){}
-    
+
     /**
-     * Gets a DataReader object.  <b>Only one</b> object of each class will be
-     * created (hence methods have to be thread-safe).
-     * 
-     * @param className Name of the class to generate
-     * @param location the location of the dataset: used to detect OPeNDAP URLs
-     * @return a DataReader object of the given class, or {@link DefaultDataReader}
-     * or {@link BoundingBoxDataReader} (depending on whether the location starts with
-     * "http://" or "dods://") if <code>className</code> is null or the empty string
-     * @throws an Exception if the DataReader could not be created
+     * Gets a DataReader for the given dataset.  Note that DataReader objects
+     * may be shared among datasets.
+     * @param dataset The dataset for which the DataReader is to be retrieved
+     * @return a DataReader that can read data for the given layer
+     * @throws Exception if there was an error retrieving the layer
      */
-    public static DataReader getDataReader(String className, String location)
-        throws Exception
+    public static DataReader forDataset(Dataset ds) throws Exception
     {
+        String className = ds.getDataReaderClass();
+        String location = ds.getLocation();
         String clazz = DefaultDataReader.class.getName();
         if (WmsUtils.isOpendapLocation(location))
         {
@@ -96,7 +92,7 @@ public abstract class DataReader
     }
     
     /**
-     * Reads an array of data from a NetCDF file and projects onto the given
+     * Reads an array of data from a data source and projects onto the given
      * {@link HorizontalGrid}.  Reads data for a single timestep only.  This method knows
      * nothing about aggregation: it simply reads data from the given file.
      * Missing values (e.g. land pixels in oceanography data) will be represented
@@ -109,8 +105,8 @@ public abstract class DataReader
      * @param grid The grid onto which the data are to be read
      * @throws Exception if an error occurs
      */
-    public abstract float[] read(String filename, Layer layer,
-        int tIndex, int zIndex, HorizontalGrid grid)
+    public abstract Set<DataValues> read(String filename, Layer layer,
+        int tIndex, int zIndex, PointSource pointSource)
         throws Exception;
     
     /**
@@ -126,20 +122,7 @@ public abstract class DataReader
     {
         String location = dataset.getLocation();
         // A list of names of files resulting from glob expansion
-        List<String> filenames = new ArrayList<String>();
-        if (WmsUtils.isOpendapLocation(location))
-        {
-            // We don't do the glob expansion
-            filenames.add(location);
-        }
-        else
-        {
-            // Add all the matching filenames
-            for (File f : WmsUtils.globFiles(location))
-            {
-                filenames.add(f.getPath());
-            }
-        }
+        List<String> filenames = dataset.getFiles();
         if (filenames.size() == 0)
         {
             throw new Exception(location + " does not match any files");

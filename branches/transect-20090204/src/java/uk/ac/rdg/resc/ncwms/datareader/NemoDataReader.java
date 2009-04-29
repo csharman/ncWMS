@@ -30,11 +30,13 @@ package uk.ac.rdg.resc.ncwms.datareader;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ucar.ma2.Array;
@@ -76,7 +78,7 @@ public class NemoDataReader extends DefaultDataReader
      * @throws Exception if an error occurs
      */
     @Override
-    public float[] read(String filename, Layer layer, int tIndex, int zIndex, HorizontalGrid grid)
+    public Set<DataValues> read(String filename, Layer layer, int tIndex, int zIndex, PointSource pointSource)
         throws Exception
     {
         logger.debug("Reading data from {}", filename);
@@ -92,13 +94,9 @@ public class NemoDataReader extends DefaultDataReader
             Range tRange = new Range(tIndex, tIndex);
             Range zRange = new Range(zIndex, zIndex);
             
-            // Create an array to hold the data
-            float[] picData = new float[grid.getSize()];
-            Arrays.fill(picData, Float.NaN);
-            
             // Maps x and y indices to pixel indices
-            PixelMap pixelMap = new PixelMap(layer, grid);
-            if (pixelMap.isEmpty()) return picData;
+            PixelMap pixelMap = new PixelMap(layer, pointSource);
+            if (pixelMap.isEmpty()) return Collections.emptySet();
             start = System.currentTimeMillis();
 
             // Now build the picture array.  We don't need any of the enhancements
@@ -148,6 +146,8 @@ public class NemoDataReader extends DefaultDataReader
             // Add dummy ranges for x and y
             ranges.add(new Range(0,0));
             ranges.add(new Range(0,0));
+
+            Set<DataValues> dataValues = new HashSet<DataValues>();
             
             // Iterate through the scanlines, the order doesn't matter
             for (int j : pixelMap.getJIndices())
@@ -183,16 +183,13 @@ public class NemoDataReader extends DefaultDataReader
                         float realVal = addOffset + val * scaleFactor;
                         if (realVal >= validMin && realVal <= validMax)
                         {
-                            for (int p : pixelMap.getPixelIndices(i, j))
-                            {
-                                picData[p] = realVal;
-                            }
+                            dataValues.add(new DataValues(realVal, pixelMap.getPixelIndices(i, j)));
                         }
                     }
                 }
             }
             logger.debug("Read data in {} ms", System.currentTimeMillis() - start);
-            return picData;
+            return dataValues;
         }
         finally
         {

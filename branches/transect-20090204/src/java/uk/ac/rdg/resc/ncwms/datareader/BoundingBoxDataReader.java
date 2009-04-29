@@ -29,6 +29,8 @@
 package uk.ac.rdg.resc.ncwms.datareader;
 
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ucar.ma2.Array;
@@ -61,7 +63,7 @@ public class BoundingBoxDataReader extends DefaultDataReader
      * read operation is required.
      */
     @Override
-    protected void populatePixelArray(float[] picData, Range tRange, Range zRange,
+    protected Set<DataValues> populatePixelArray(Range tRange, Range zRange,
         PixelMap pixelMap, GridDatatype grid, VariableDS var) throws Exception
     {
         // Read the whole chunk of x-y data
@@ -80,6 +82,7 @@ public class BoundingBoxDataReader extends DefaultDataReader
 
         // Now create the picture from the data array
         Index index = xySlice.getIndex(); // 2D index in y,x order
+        Set<DataValues> dataValues = new HashSet<DataValues>();
         for (int j : pixelMap.getJIndices())
         {
             for (int i : pixelMap.getIIndices(j))
@@ -91,10 +94,7 @@ public class BoundingBoxDataReader extends DefaultDataReader
                     // We unpack and check for missing values just for
                     // the points we need to display.
                     val = (float)var.convertScaleOffsetMissing(val);
-                    for (int pixelIndex : pixelMap.getPixelIndices(i, j))
-                    {
-                        picData[pixelIndex] = val;
-                    }
+                    dataValues.add(new DataValues(val, pixelMap.getPixelIndices(i, j)));
                 }
                 catch(ArrayIndexOutOfBoundsException aioobe)
                 {
@@ -104,6 +104,7 @@ public class BoundingBoxDataReader extends DefaultDataReader
                 }
             }
         }
+        return dataValues;
     }
     
 }

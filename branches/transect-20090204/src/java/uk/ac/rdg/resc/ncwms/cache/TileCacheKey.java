@@ -30,6 +30,7 @@ package uk.ac.rdg.resc.ncwms.cache;
 
 import java.io.File;
 import java.io.Serializable;
+import uk.ac.rdg.resc.ncwms.datareader.CrsHelper;
 import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.metadata.Layer;
 import uk.ac.rdg.resc.ncwms.metadata.Longitude;
@@ -144,6 +145,7 @@ public class TileCacheKey implements Serializable
         // Create and store the string representations and hash code for this
         // key.  The key is immutable so these will not change.
         this.str = buf.toString();
+        // TODO: not a good implementation of hashCode
         this.hashCode = this.str.hashCode();
     }
     
@@ -221,7 +223,7 @@ public class TileCacheKey implements Serializable
         this.height = grid.getHeight();
         if (grid.isLatLon())
         {
-            this.crsCode = HorizontalGrid.PLATE_CARREE_CRS_CODE;
+            this.crsCode = CrsHelper.PLATE_CARREE_CRS_CODE;
             // Constrain longitudes to range [-180,180]
             this.bbox = new double[] {
                 Longitude.constrain180(grid.getBbox()[0]),

@@ -35,12 +35,14 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ucar.unidata.geoloc.LatLonPoint;
+import ucar.unidata.geoloc.ProjectionPoint;
 import uk.ac.rdg.resc.ncwms.metadata.Layer;
 import uk.ac.rdg.resc.ncwms.metadata.LayerImpl;
 import uk.ac.rdg.resc.ncwms.metadata.TimestepInfo;
@@ -132,15 +134,11 @@ public class NSIDCSnowWaterDataReader extends DataReader
      * @param grid The grid onto which the data are to be read
      * @throws Exception if an error occurs
      */
-    public float[] read(String filename, Layer layer, int tIndex, int zIndex, HorizontalGrid grid)
+    public Set<DataValues> read(String filename, Layer layer, int tIndex, int zIndex, PointSource pointSource)
         throws Exception
     {
         // Find the file containing the data
         logger.debug("Reading data from " + filename);
-        
-        // Create an array to hold the data
-        float[] picData = new float[grid.getSize()];
-        Arrays.fill(picData, Float.NaN);
         
         FileInputStream fin = null;
         ByteBuffer data = null;
@@ -159,24 +157,27 @@ public class NSIDCSnowWaterDataReader extends DataReader
         }
         
         int picIndex = 0;
-        for (double y : grid.getYAxisValues())
+        Set<DataValues> dataValues = new HashSet<DataValues>();
+        for (ProjectionPoint point : pointSource)
         {
-            for (double x: grid.getXAxisValues())
+            Set<Integer> indices = new HashSet<Integer>();
+            indices.add(picIndex);
+            LatLonPoint latLon = pointSource.getCrsHelper().crsToLatLon(point);
+            if (latLon.getLatitude() >= 0.0 && latLon.getLatitude() <= 90.0)
             {
-                LatLonPoint latLon = grid.transformToLatLon(x, y);
-                if (latLon.getLatitude() >= 0.0 && latLon.getLatitude() <= 90.0)
+                // Find the index in the source data
+                int dataIndex = latLonToIndex(latLon.getLatitude(), latLon.getLongitude());
+                // two bytes per pixel
+                short val = data.getShort(dataIndex * 2);
+                if (val > 0)
                 {
-                    // Find the index in the source data
-                    int dataIndex = latLonToIndex(latLon.getLatitude(), latLon.getLongitude());
-                    // two bytes per pixel
-                    short val = data.getShort(dataIndex * 2);
-                    if (val > 0) picData[picIndex] = val;
+                    dataValues.add(new DataValues(val, indices));
                 }
-                picIndex++;
             }
+            picIndex++;
         }
         
-        return picData;
+        return dataValues;
     }
     
     /**
