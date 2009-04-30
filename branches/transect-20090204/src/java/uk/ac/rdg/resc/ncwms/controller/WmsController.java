@@ -27,10 +27,13 @@
  */
 package uk.ac.rdg.resc.ncwms.controller;
 
+import java.awt.Color;
 import java.awt.Font;
 import java.awt.geom.Ellipse2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -43,6 +46,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.logging.Level;
 import javax.imageio.ImageIO;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -51,16 +55,25 @@ import org.slf4j.LoggerFactory;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartUtilities;
 import org.jfree.chart.JFreeChart;
+import org.jfree.chart.axis.NumberAxis;
+import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.chart.plot.XYPlot;
+import org.jfree.chart.renderer.xy.XYItemRenderer;
 import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
+import org.jfree.chart.title.TextTitle;
 import org.jfree.data.time.Millisecond;
 import org.jfree.data.time.TimeSeries;
 import org.jfree.data.time.TimeSeriesCollection;
+import org.jfree.data.xy.XYDataItem;
+import org.jfree.data.xy.XYSeries;
+import org.jfree.data.xy.XYSeriesCollection;
+import org.jfree.ui.HorizontalAlignment;
+import org.jfree.ui.RectangleEdge;
 import org.opengis.referencing.NoSuchAuthorityCodeException;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.AbstractController;
 import ucar.unidata.geoloc.LatLonPoint;
 import ucar.unidata.geoloc.ProjectionPoint;
-import ucar.unidata.geoloc.ProjectionPointImpl;
 import uk.ac.rdg.resc.ncwms.cache.TileCache;
 import uk.ac.rdg.resc.ncwms.cache.TileCacheKey;
 import uk.ac.rdg.resc.ncwms.config.Config;
@@ -879,7 +892,7 @@ public class WmsController extends AbstractController {
         String outputFormat = params.getMandatoryString("format");
         int tIndexInLayer = getTIndices(params.getString("time"), layer).get(0); // -1 if no t axis
         int zIndex = getZIndex(params.getString("elevation"), layer); // -1 if no z axis
-        
+
         if (!outputFormat.equals(FEATURE_INFO_PNG_FORMAT)) {
             // TODO: support XML format
             throw new InvalidFormatException(outputFormat);
@@ -893,66 +906,11 @@ public class WmsController extends AbstractController {
         }
         
         // Parse the line string, which is in the form "x1 y1, x2 y2, x3 y3"
-        String[] pointsStr = lineString.split(",");
-        if (pointsStr.length < 2) {
-            throw new WmsException("At least two points are required to generate a transect");
-        }
-        // The waypoints along the transect as specified by the line string
-        final List<ProjectionPoint> waypoints = new ArrayList<ProjectionPoint>();
-        for (String s : pointsStr) {
-            String[] coords = s.trim().split(" +"); // allows one or more spaces to be used as a delimiter
-            if (coords.length != 2) {
-                throw new WmsException("Coordinates format error");
-            }
-            try {
-                waypoints.add(new ProjectionPointImpl(
-                    Double.parseDouble(coords[0].trim()),
-                    Double.parseDouble(coords[1].trim())
-                ));
-            } catch (NumberFormatException nfe) {
-                throw new WmsException("Coordinates format error");
-            }
-        }
-        log.debug("Got {} waypoints", waypoints.size());
-
-        // Calculate the total length of the path in units of the CRS.
-        // While we're doing this we'll calculate the total length of the path
-        // up to each waypoint
-        double[] waypointDistances = new double[waypoints.size()];
-        double pathLength = 0.0;
-        waypointDistances[0] = pathLength;
-        for (int i = 1; i < waypoints.size(); i++) {
-            ProjectionPoint p1 = waypoints.get(i - 1);
-            ProjectionPoint p2 = waypoints.get(i);
-            double dx = p2.getX() - p1.getX();
-            double dy = p2.getY() - p1.getY();
-            pathLength += Math.sqrt(dx * dx + dy * dy);
-            waypointDistances[i] = pathLength;
-        }
-
-        // Create List of points interpolating between the waypoints
-        final int numPoints = 100; // no point in using more points than we can display in a chart
-        final List<ProjectionPoint> points = new ArrayList<ProjectionPoint>(numPoints);
-        // The first point is the first waypoint
-        points.add(waypoints.get(0));
-        // Now for the points in the middle
-        for (int i = 1; i < numPoints - 1; i++) {
-            // Calculate the distance along the path
-            double s = pathLength * i / (numPoints - 1);
-            // Find the last waypoint we passed on this path
-            int waypointIndex = 0;
-            while (waypointIndex < waypointDistances.length) {
-                if (s < waypointDistances[waypointIndex]) break; // TODO: off by one??
-                else waypointIndex++;
-            }
-            // Find the distance from the last waypoint
-            double ds = s - waypointDistances[waypointIndex];
-            // Find the fractional distance from the last waypoint to the next?
-            
-            // Now interpolate between the last waypoint and the next
-        }
-        // The last point is the last waypoint
-        points.add(waypoints.get(waypoints.size() - 1));
+        final LineString transect = new LineString(lineString);
+        log.debug("Got {} waypoints", transect.getControlPoints().size());
+        // Create a list of points interpolated along this path
+        // No point in getting more points than we can display
+        final List<ProjectionPoint> points = transect.getPointsOnPath(100);
         log.debug("Created {} points along the path", points.size());
 
         // Create a PointSource wrapper around the interpolated points
@@ -967,16 +925,24 @@ public class WmsController extends AbstractController {
         // Find the exact file we need and the t index within the file
         FilenameAndTindex ft = getFilenameAndTindex(layer, tIndexInLayer);
         // TODO: doesn't work for vector layers!
+        // Read data.  We'll get one DataValues object for each grid cell that
+        // this path crosses.
         Set<DataValues> dataValues = dr.read(ft.filename, layer, ft.tIndexInFile,
             zIndex, pointSource);
         log.debug("Transect: Got {} dataValues", dataValues.size());
+        // Turn this into an array of data values, one for each of the points
+        // along the path. TODO: we could winnow the duplicates here.
+        float[] data = new float[points.size()];
+        for (DataValues dv : dataValues) {
+            for (int i : dv.getIndices()) {
+                data[i] = dv.getDataValue();
+            }
+        }
 
         // Prepare and output the JFreeChart
         // TODO: this is nasty: we're mixing presentation code in the controller
 
-        SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-
-
+        //SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 
         /*if (outputFormat.equals(FEATURE_INFO_XML_FORMAT)) {
             Map<String, Object> models = new HashMap<String, Object>();
@@ -988,47 +954,49 @@ public class WmsController extends AbstractController {
             }
             // This displays WEB-INF/jsp/transect_xml.jsp, passing in the data
             return new ModelAndView("transect_xml", models);
-        } else {
-            // Must be PNG format: prepare and output the JFreeChart
-            // TODO: this is nasty: we're mixing presentation code in the controller
-            SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy");
-            Date date = null;
-            try {
-                date = df.parse(time);
-            } catch (ParseException ex) {
-                java.util.logging.Logger.getLogger(WmsController.class.getName()).log(Level.SEVERE, null, ex);
-            }
+        } else {*/
 
-            XYSeries series = reader.formatChartData(elements, layer);
+        //SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy");
+        /*Date date = null;
+        try {
+            date = df.parse(time);
+        } catch (ParseException ex) {
+            java.util.logging.Logger.getLogger(WmsController.class.getName()).log(Level.SEVERE, null, ex);
+        }*/
 
-            XYSeriesCollection dataset = new XYSeriesCollection();
-            dataset.addSeries(series);
+        XYSeries series = new XYSeries("data", true); // TODO: more meaningful title
+        for (int i = 0; i < data.length; i++) {
+            series.add(i, data[i]);
+        }
 
+        XYSeriesCollection xySeriesColl = new XYSeriesCollection();
+        xySeriesColl.addSeries(series);
 
+        JFreeChart chart = ChartFactory.createXYLineChart(
+            "Transect for " + layer.getTitle(), // title
+            "transect distance", // TODO more meaningful x axis label
+            layer.getTitle() + " (" + layer.getUnits() + ")",
+            xySeriesColl,
+            PlotOrientation.VERTICAL,
+            false, // show legend
+            false, // show tooltips (?)
+            false // urls (?)
+        );
 
-            JFreeChart chart = ChartFactory.createXYLineChart("Transect for " + layer.getTitle(), "transect " + round(pointA.getY(), 2) + "," + round(pointA.getX(), 2) + " to " + round(pointB.getY(), 2) + "," + round(pointB.getX(), 2), layer.getLayerName(), dataset, PlotOrientation.VERTICAL, true, true, false);
-
-            XYPlot plot = chart.getXYPlot();
-            XYItemRenderer renderer = plot.getRenderer();
-            renderer.setSeriesPaint(0, Color.RED);
-            if(!layer.getCopyrightStatement().equals(null)){
+        XYPlot plot = chart.getXYPlot();
+        plot.getRenderer().setSeriesPaint(0, Color.RED);
+        if(layer.getCopyrightStatement() != null) {
             final TextTitle textTitle = new TextTitle(layer.getCopyrightStatement());
             textTitle.setFont(new Font("SansSerif", Font.PLAIN, 10));
             textTitle.setPosition(RectangleEdge.BOTTOM);
             textTitle.setHorizontalAlignment(HorizontalAlignment.RIGHT);
             chart.addSubtitle(textTitle);
-            }
-            NumberAxis rangeAxis = (NumberAxis) plot.getRangeAxis();
+        }
+        NumberAxis rangeAxis = (NumberAxis) plot.getRangeAxis();
 
-            rangeAxis.setAutoRangeIncludesZero(false);
-            plot.setNoDataMessage("There is no data for what you have chosen.");
-            try {
-                ChartUtilities.writeChartAsPNG(httpServletResponse.getOutputStream(), chart, 400, 300);
-            } catch (IOException ex) {
-                java.util.logging.Logger.getLogger(WmsController.class.getName()).log(Level.SEVERE, null, ex);
-            }
-            return null;
-        }*/
+        rangeAxis.setAutoRangeIncludesZero(false);
+        plot.setNoDataMessage("There is no data for what you have chosen.");
+        ChartUtilities.writeChartAsPNG(response.getOutputStream(), chart, 400, 300);
         return null;
     }
 

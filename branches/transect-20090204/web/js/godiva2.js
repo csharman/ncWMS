@@ -35,6 +35,7 @@ var paletteSelector = null; // Pop-up panel for selecting a new palette
 var paletteName = null; // Name of the currently-selected palette
 
 var popups = []; // Pop-ups (GetFeatureInfo results) shown on the map
+var editingToolbar; // Toolbar containing vector graphics editing controls (for drawing lines etc)
 
 // Called when the page has loaded
 window.onload = function()
@@ -56,13 +57,11 @@ window.onload = function()
     // Set up a layer for drawing lines etc (for transects and sections)
     var drawinglayer = new OpenLayers.Layer.Vector( "Drawing" );
     drawinglayer.displayInLayerSwitcher = false;
-    // When we're about to add a new feature, destroy the previous ones
-    drawinglayer.events.register('beforefeatureadded', drawinglayer, function(event) {
-        //alert('Before featrue');
-        drawinglayer.destroyFeatures(); // TODO: doesn't work
-    });
     drawinglayer.events.register('featureadded', drawinglayer, function(event) {
-        alert('Feature added: ' + event.feature.geometry);
+        // Destroy previously-added line string
+        if (drawinglayer.features.length > 1) {
+            drawinglayer.destroyFeatures(drawinglayer.features[0]);
+        }
         // Get the linestring specification
         var line = event.feature.geometry.toString();
         // we strip off the "LINESTRING(" and the trailing ")"
@@ -77,15 +76,19 @@ window.onload = function()
             '&FORMAT=image/png';
         popUp(transectUrl, 450, 350);
     });
+    
+    // Set up a control for drawing on the map
+    // We use CSS to hide the controls we're not using
+    editingToolbar = new OpenLayers.Control.EditingToolbar(drawinglayer);
 
     // Set up the OpenLayers map widget
     map = new OpenLayers.Map( 'map', {
         controls: [
             new OpenLayers.Control.PanZoom(),
-            // TODO: remove unused controls
-            new OpenLayers.Control.EditingToolbar(drawinglayer)
+            editingToolbar
         ]
     });
+    editingToolbar.div.style.visibility = 'hidden';
 
     var ol_wms = new OpenLayers.Layer.WMS1_1_1( "OpenLayers WMS", 
         "http://labs.metacarta.com/wms-c/Basic.py?", {layers: 'basic'});
@@ -611,6 +614,9 @@ function layerSelected(layerDetails)
     if (!scaleLocked && typeof layerDetails.logScaling != 'undefined') {
         $('scaleSpacing').value = layerDetails.logScaling ? 'logarithmic' : 'linear';
     }
+
+    // Make the editing toolbar visible
+    editingToolbar.div.style.visibility = 'visible';
 
     // Now set up the calendar control
     if (layerDetails.datesWithData == null) {
