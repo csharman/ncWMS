@@ -153,7 +153,6 @@ public final class CrsHelper {
     /**
      * Transforms the given LatLonPoint to an x-y point in this
      * {@link #getCoordinateReferenceSystem() CRS}.
-     * @r
      * @throws TransformException if the required transformation could not be performed
      */
     public ProjectionPoint latLonToCrs(LatLonPoint latLonPoint) throws TransformException
@@ -164,7 +163,6 @@ public final class CrsHelper {
     /**
      * Transforms the given longitude-latitude point to an x-y point in this
      * {@link #getCoordinateReferenceSystem() CRS}.
-     * @r
      * @throws TransformException if the required transformation could not be performed
      */
     public ProjectionPoint latLonToCrs(double longitude, double latitude) throws TransformException
@@ -177,7 +175,7 @@ public final class CrsHelper {
         // "force longitude-first" when creating the CRS for this grid
         double[] point = new double[]{longitude, latitude};
         // Transform to lat-lon in-place
-        this.crsToLatLon.transform(point, 0, point, 0, 1);
+        this.latLonToCrs.transform(point, 0, point, 0, 1);
         return new ProjectionPointImpl(point[0], point[1]);
     }
 
