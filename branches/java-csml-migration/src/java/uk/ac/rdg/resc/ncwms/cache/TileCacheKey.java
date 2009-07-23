@@ -50,20 +50,16 @@ import org.jcsml.ncutils.utils.NcUtils;
  */
 public class TileCacheKey extends NcDataCacheKey implements Serializable
 {
-	private String layerId;               // The unique identifier of this layer
     private String crsCode;               // The CRS code used for this tile
     private double[] bbox;                // Bounding box as [minX, minY, maxX, maxY]
     private int width;                    // Width of tile in pixels
     private int height;                   // Height of tile in pixels
-    private String filepath;              // Full path to the file containing the data
     private long lastModified = 0;        // The time at which the file was last modified
                                           // (used to check for changes to the file).  Not
                                           // used for OPeNDAP datasets.
     private long fileSize = 0;            // The size of the file in bytes
                                           // (used to check for changes to the file)
                                           // Not used for OPeNDAP datasets.
-    private int tIndex;                   // The t index of this tile in the file
-    private int zIndex;                   // The z index of this tile in the file
     private long datasetLastModified = 0; // The time (in ms since the epoch) at which
                                           // the relevant Dataset was modified (not used
                                           // for local files)
@@ -89,9 +85,9 @@ public class TileCacheKey extends NcDataCacheKey implements Serializable
     public TileCacheKey(String filepath, Layer layer, HorizontalGrid grid,
         int tIndex, int zIndex)
     {
-        this.layerId = layer.getId();
+    	super(filepath, layer, grid, tIndex, zIndex);
+
         this.setGrid(grid);
-        this.filepath = filepath;
         File f = new File(filepath);
         if (f.exists())
         {
@@ -115,8 +111,6 @@ public class TileCacheKey extends NcDataCacheKey implements Serializable
             this.datasetLastModified = 
             	layer.getDataset().getLastUpdate().getMillis();
         }
-        this.tIndex = tIndex;
-        this.zIndex = zIndex;
         
         // Create a String representation of this key
         StringBuffer buf = new StringBuffer();

@@ -42,6 +42,7 @@ import org.jcsml.ncutils.config.Dataset.State;
 import org.jcsml.ncutils.datareader.DataReader;
 import org.jcsml.ncutils.datareader.HorizontalGrid;
 import org.jcsml.ncutils.datareader.NcwmsCredentialsProvider;
+import org.jcsml.ncutils.metadata.Layer;
 import org.jcsml.ncutils.metadata.LayerImpl;
 import org.jcsml.ncutils.metadata.VectorLayerImpl;
 import org.jcsml.ncutils.utils.NcUtils;
@@ -261,7 +262,7 @@ public class MetadataLoader
      */
     private static void readLayerConfig(WmsDataset dataset, Map<String, LayerImpl> layers)
     {
-        for (LayerImpl layer : layers.values())
+        for (Layer layer : layers.values())
         {
             // Load the Variable object from the config file or create a new
             // one if it doesn't exist.

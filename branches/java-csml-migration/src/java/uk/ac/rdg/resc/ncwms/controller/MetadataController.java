@@ -43,7 +43,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.jcsml.ncutils.LayerDataReader;
-import org.jcsml.ncutils.config.GetMapDataRequest;
 import org.jcsml.ncutils.config.MapData;
 import org.jcsml.ncutils.datareader.HorizontalGrid;
 import org.jcsml.ncutils.metadata.Layer;
@@ -56,8 +55,6 @@ import org.joda.time.Period;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.servlet.ModelAndView;
-
-import edu.emory.mathcs.backport.java.util.Arrays;
 
 import uk.ac.rdg.resc.ncwms.config.Config;
 import uk.ac.rdg.resc.ncwms.exceptions.MetadataException;
@@ -392,8 +389,9 @@ public class MetadataController
         int zIndex = NcUtils.getZIndices(zVals, layer, false).get(0); // -1 if no z axis present
         
         // Get the information about the requested timestep (taking the first only)
-        List<String> tVals = new LinkedList<String>();
-        tVals.add(dataRequest.getTimeString());
+        List<String> tList = new LinkedList<String>();
+        tList.add(dataRequest.getTimeString());
+        List<DateTime> tVals = WmsController.expandTimeValues(tList, layer);
         int tIndex = NcUtils.getTIndices(tVals, layer, false).get(0);
         
         // Now read the data and calculate the minimum and maximum values

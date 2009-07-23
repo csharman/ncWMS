@@ -34,20 +34,20 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.jcsml.ncutils.CoordinateRange;
 import org.jcsml.ncutils.DataExtractor;
 import org.jcsml.ncutils.LayerDataReader;
+import org.jcsml.ncutils.TransectRange;
 import org.jcsml.ncutils.config.MapData;
 import org.jcsml.ncutils.config.MapLegendData;
 import org.jcsml.ncutils.config.MapStyleData;
@@ -432,10 +432,9 @@ public class WmsController extends AbstractController
 
         // Get the grid onto which the data will be projected
         HorizontalGrid grid = new HorizontalGrid(mapRequest.getMapData());
-        List<String> tVals = expandTimeValues(
-        		Arrays.asList(new String[]{mapRequest.getMapData().getTimeString()}), layer);
-        CoordinateRange coordinateRange = new CoordinateRange(grid, tVals,
-        		Arrays.asList(new Double[]{Double.parseDouble(mapRequest.getMapData().getElevationString())}));
+        
+        TransectRange transectRange = 
+        	getTransectRange(mapRequest.getMapData(), grid, layer);
         
         // NB, the webservice only accepts a single time slice at present
         usageLogEntry.setNumTimeSteps(Integer.valueOf(1));
@@ -454,15 +453,39 @@ public class WmsController extends AbstractController
         // set appropriate cache
         DataExtractor.setDataCache(tileCache);
         
+        List<Layer> layerList = new ArrayList<Layer>(1);
+        layerList.add(layer);
         DataExtractor.writeMapImage(httpServletResponse.getOutputStream(),
-        		Arrays.asList(new Layer[]{layer}),
-        		mapRequest.getMapStyleData(), coordinateRange);
+        		layerList,
+        		mapRequest.getMapStyleData(), transectRange);
         long timeToExtractData = System.currentTimeMillis() - beforeExtractData;
         usageLogEntry.setTimeToExtractDataMs(timeToExtractData);
     }
 
     
     /**
+     * Set up the transect range to use with the mapdata
+     * 
+	 * @param mapData mapData describing the requested map coord system
+     * @param pointList list of points at which data is to be retrieved
+	 * @param layer layer from which data will be retrieved
+	 * @return transectrange with the relevant coords added
+	 * 
+     * @throws InvalidDimensionValueException if time dimensions are invalid
+	 */
+	private static TransectRange getTransectRange(MapData mapData, 
+			PointList pointList, Layer layer) 
+	throws InvalidDimensionValueException
+	{
+        List<String> tList = new LinkedList<String>();
+        tList.add(mapData.getTimeString());
+        List<DateTime> tVals = expandTimeValues(tList, layer);
+        List<Double> zList = new LinkedList<Double>();
+        zList.add(Double.parseDouble(mapData.getElevationString()));
+        return new TransectRange(pointList, tVals, zList);
+	}
+
+	/**
      * Executes the GetFeatureInfo operation
      * @throws WmsException if the user has provided invalid parameters
      * @throws Exception if an internal error occurs
@@ -526,14 +549,16 @@ public class WmsController extends AbstractController
         int j = pixelMap.getMaxJIndex();
 
         // Get the index along the z axis - assuming exact values are specified
-		List<Integer> zIndices = NcUtils.getZIndices(
-				Arrays.asList(new Double[]{Double.parseDouble(dataRequest.getElevationString())}), 
-				layer, false);
+        List<Double> zList = new LinkedList<Double>();
+        zList.add(Double.parseDouble(dataRequest.getElevationString()));
+        List<Integer> zIndices = NcUtils.getZIndices(zList, layer, false);
         int zIndex = zIndices.get(0); // -1 if no z axis present
 
         // Get the information about the requested timesteps - assuming exact values are specified
-        List<Integer> tIndices = NcUtils.getTIndices(
-        		Arrays.asList(new String[]{dataRequest.getTimeString()}), layer, false);
+        List<String> tList = new LinkedList<String>();
+        tList.add(dataRequest.getTimeString());
+        List<DateTime> tVals = expandTimeValues(tList, layer);
+        List<Integer> tIndices = NcUtils.getTIndices(tVals, layer, false);
         usageLogEntry.setNumTimeSteps(tIndices.size());
 
         // Now read the data, mapping date-times to data values
@@ -788,18 +813,15 @@ public class WmsController extends AbstractController
         PointList pointList = NcUtils.getOptimalTransectPointList(layer, transect);
         log.debug("Using transect consisting of {} points", pointList.size());
 
-        List<String> tVals = expandTimeValues(
-        		Arrays.asList(new String[]{mapData.getTimeString()}), layer);
-        CoordinateRange coordinateRange = new CoordinateRange(pointList, tVals,
-        		Arrays.asList(new Double[]{Double.parseDouble(mapData.getElevationString())}));
+        TransectRange transectRange = getTransectRange(mapData, pointList, layer);
 
         if (outputFormat.equals(FEATURE_INFO_PNG_FORMAT))
 		{
-        	DataExtractor.getTransectAsImage(response.getOutputStream(), layer, coordinateRange);
+        	DataExtractor.getTransectAsImage(response.getOutputStream(), layer, transectRange);
 		}
         else if (outputFormat.equals(FEATURE_INFO_XML_FORMAT)) 
         {
-        	Map<String, Object> models = DataExtractor.getTransectAsXML(layer, coordinateRange);
+        	Map<String, Object> models = DataExtractor.getTransectAsXML(layer, transectRange);
     		 models.put("linestring", lineString);
         	return new ModelAndView("showTransect_xml", models);
         }
@@ -821,21 +843,32 @@ public class WmsController extends AbstractController
 	 * @param tValues a list of time values to expand
 	 * @param layer the layer to which the time values will correspond
 	 * 
-	 * @return a new list of time values, with any time ranges fully expanded
+	 * @return a new list of time values, with any time ranges fully expanded and
+	 * sorted in chronological order
+	 * 
 	 * @throws InvalidDimensionValueException if the time values in a range are not
 	 * found 
 	 */
-	public static List<String> expandTimeValues(List<String> tValues, Layer layer)
+	public static List<DateTime> expandTimeValues(List<String> tValues, Layer layer)
 		throws InvalidDimensionValueException
 	{
-		Set<String> newTValues = new LinkedHashSet<String>();
+		// ensure the dates are included in their chronological order
+		Set<DateTime> newTValues = new TreeSet<DateTime>();
 		for (String t : tValues)
 		{
 			String[] startStop = t.split("/");
 			if (startStop.length == 1)
 			{
-				// This is a single time value
-				newTValues.add(startStop[0]);
+				// This is a single time value - now check for the special 'current' case
+		        if (t.equals("current"))
+		        {
+		        	// - set the time to the current system time
+		        	newTValues.add(new DateTime());
+		        }
+		        else
+		        {
+					newTValues.add(NcUtils.iso8601ToDateTime(t));
+		        }
 			}
 			else if (startStop.length == 2)
 			{
@@ -843,7 +876,7 @@ public class WmsController extends AbstractController
 				List<Integer> tIndices = layer.findTIndices(startStop[0], startStop[1]);
 				for (Integer i : tIndices)
 				{
-					newTValues.add(NcUtils.dateTimeToISO8601(layer.getTvalues().get(i)));
+					newTValues.add(layer.getTvalues().get(i));
 				}
 			}
 			else
@@ -852,7 +885,7 @@ public class WmsController extends AbstractController
 			}
 		}
 
-		return new LinkedList<String>(newTValues);
+		return new LinkedList<DateTime>(newTValues);
 	}
 
 
