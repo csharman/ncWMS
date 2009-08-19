@@ -41,7 +41,6 @@ import org.jcsml.ncutils.config.Variable;
 import org.jcsml.ncutils.config.Dataset.State;
 import org.jcsml.ncutils.datareader.DataReader;
 import org.jcsml.ncutils.datareader.HorizontalGrid;
-import org.jcsml.ncutils.datareader.NcwmsCredentialsProvider;
 import org.jcsml.ncutils.metadata.Layer;
 import org.jcsml.ncutils.metadata.LayerImpl;
 import org.jcsml.ncutils.metadata.VectorLayerImpl;
@@ -55,6 +54,7 @@ import ucar.unidata.io.RandomAccessFile;
 import uk.ac.rdg.resc.ncwms.config.Config;
 import uk.ac.rdg.resc.ncwms.config.WmsDataset;
 import uk.ac.rdg.resc.ncwms.controller.MetadataController;
+import uk.ac.rdg.resc.ncwms.security.NcwmsCredentialsProvider;
 
 /**
  * Class that handles the periodic reloading of metadata (manages calls to

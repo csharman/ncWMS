@@ -47,7 +47,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.jcsml.ncutils.DataExtractor;
 import org.jcsml.ncutils.LayerDataReader;
-import org.jcsml.ncutils.TransectRange;
+import org.jcsml.ncutils.GridDomain;
 import org.jcsml.ncutils.config.MapData;
 import org.jcsml.ncutils.config.MapLegendData;
 import org.jcsml.ncutils.config.MapStyleData;
@@ -433,7 +433,7 @@ public class WmsController extends AbstractController
         // Get the grid onto which the data will be projected
         HorizontalGrid grid = new HorizontalGrid(mapRequest.getMapData());
         
-        TransectRange transectRange = 
+        GridDomain gridDomain = 
         	getTransectRange(mapRequest.getMapData(), grid, layer);
         
         // NB, the webservice only accepts a single time slice at present
@@ -457,7 +457,7 @@ public class WmsController extends AbstractController
         layerList.add(layer);
         DataExtractor.writeMapImage(httpServletResponse.getOutputStream(),
         		layerList,
-        		mapRequest.getMapStyleData(), transectRange);
+        		mapRequest.getMapStyleData(), gridDomain);
         long timeToExtractData = System.currentTimeMillis() - beforeExtractData;
         usageLogEntry.setTimeToExtractDataMs(timeToExtractData);
     }
@@ -473,7 +473,7 @@ public class WmsController extends AbstractController
 	 * 
      * @throws InvalidDimensionValueException if time dimensions are invalid
 	 */
-	private static TransectRange getTransectRange(MapData mapData, 
+	private static GridDomain getTransectRange(MapData mapData, 
 			PointList pointList, Layer layer) 
 	throws InvalidDimensionValueException
 	{
@@ -482,7 +482,7 @@ public class WmsController extends AbstractController
         List<DateTime> tVals = expandTimeValues(tList, layer);
         List<Double> zList = new LinkedList<Double>();
         zList.add(Double.parseDouble(mapData.getElevationString()));
-        return new TransectRange(pointList, tVals, zList);
+        return new GridDomain(pointList, tVals, zList);
 	}
 
 	/**
@@ -605,7 +605,7 @@ public class WmsController extends AbstractController
             // Create a chart with no legend, tooltips or URLs
             String title = "Lon: " + latLon.getLongitude() + ", Lat: " +
                     latLon.getLatitude();
-            String yLabel = layer.getTitle() + " (" + layer.getUnits() + ")";
+            String yLabel = layer.getTitle() + " (" + layer.getUnits().toString() + ")";
             JFreeChart chart = ChartFactory.createTimeSeriesChart(title,
                     "Date / time", yLabel, xydataset, false, false, false);
             XYLineAndShapeRenderer renderer = new XYLineAndShapeRenderer();
@@ -813,15 +813,15 @@ public class WmsController extends AbstractController
         PointList pointList = NcUtils.getOptimalTransectPointList(layer, transect);
         log.debug("Using transect consisting of {} points", pointList.size());
 
-        TransectRange transectRange = getTransectRange(mapData, pointList, layer);
+        GridDomain gridDomain = getTransectRange(mapData, pointList, layer);
 
         if (outputFormat.equals(FEATURE_INFO_PNG_FORMAT))
 		{
-        	DataExtractor.getTransectAsImage(response.getOutputStream(), layer, transectRange);
+        	DataExtractor.getTransectAsImage(response.getOutputStream(), layer, gridDomain);
 		}
         else if (outputFormat.equals(FEATURE_INFO_XML_FORMAT)) 
         {
-        	Map<String, Object> models = DataExtractor.getTransectAsXML(layer, transectRange);
+        	Map<String, Object> models = DataExtractor.getTransectAsXML(layer, gridDomain);
     		 models.put("linestring", lineString);
         	return new ModelAndView("showTransect_xml", models);
         }
