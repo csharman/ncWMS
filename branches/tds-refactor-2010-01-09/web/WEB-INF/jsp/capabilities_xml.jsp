@@ -8,8 +8,8 @@ response.setDateHeader ("Expires", 0); //prevents caching at the proxy server
 %>
 <%-- Displays the Capabilities document in XML.
      Data (models) passed in to this page:
-         config     = Configuration of this server (uk.ac.rdg.resc.ncwms.config.Config)
-         datasets   = collection of datasets to display in this Capabilities document (Collection<Dataset>)
+         config     = Configuration of this server (uk.ac.rdg.resc.ncwms.wms.ServerConfig)
+         datasets   = collection of datasets to display in this Capabilities document (Set<uk.ac.rdg.resc.ncwms.wms.Dataset>)
          lastUpdate = Last update time of the dataset(s) displayed in this document (org.joda.time.DateTime)
          wmsBaseUrl = Base URL of this server (java.lang.String)
          supportedCrsCodes = List of Strings of supported Coordinate Reference System codes
@@ -29,28 +29,28 @@ response.setDateHeader ("Expires", 0); //prevents caching at the proxy server
         
     <Service>
         <Name>WMS</Name>
-        <Title><c:out value="${config.server.title}"/></Title>
-        <Abstract><c:out value="${config.server.abstract}"/></Abstract>
+        <Title><c:out value="${config.title}"/></Title>
+        <Abstract><c:out value="${config.abstract}"/></Abstract>
         <KeywordList>
             <%-- forEach recognizes that keywords is a comma-delimited String --%>
-            <c:forEach var="keyword" items="${config.server.keywords}">
+            <c:forEach var="keyword" items="${config.keywords}">
             <Keyword>${keyword}</Keyword>
             </c:forEach>
         </KeywordList>
-        <OnlineResource xlink:type="simple" xlink:href="<c:out value="${config.server.url}"/>"/>
+        <OnlineResource xlink:type="simple" xlink:href="<c:out value="${config.serviceProviderUrl}"/>"/>
         <ContactInformation>
             <ContactPersonPrimary>
-                <ContactPerson><c:out value="${config.contact.name}"/></ContactPerson>
-                <ContactOrganization><c:out value="${config.contact.org}"/></ContactOrganization>
+                <ContactPerson><c:out value="${config.contactName}"/></ContactPerson>
+                <ContactOrganization><c:out value="${config.contactOrganization}"/></ContactOrganization>
             </ContactPersonPrimary>
-            <ContactVoiceTelephone><c:out value="${config.contact.tel}"/></ContactVoiceTelephone>
-            <ContactElectronicMailAddress><c:out value="${config.contact.email}"/></ContactElectronicMailAddress>
+            <ContactVoiceTelephone><c:out value="${config.contactTelephone}"/></ContactVoiceTelephone>
+            <ContactElectronicMailAddress><c:out value="${config.contactEmail}"/></ContactElectronicMailAddress>
         </ContactInformation>
         <Fees>none</Fees>
         <AccessConstraints>none</AccessConstraints>
         <LayerLimit>${layerLimit}</LayerLimit>
-        <MaxWidth>${config.server.maxImageWidth}</MaxWidth>
-        <MaxHeight>${config.server.maxImageHeight}</MaxHeight>
+        <MaxWidth>${config.maxImageWidth}</MaxWidth>
+        <MaxHeight>${config.maxImageHeight}</MaxHeight>
     </Service>
     <Capability>
         <Request>
@@ -64,20 +64,18 @@ response.setDateHeader ("Expires", 0); //prevents caching at the proxy server
                 </c:forEach>
                 <DCPType><HTTP><Get><OnlineResource xlink:type="simple" xlink:href="<c:out value="${wmsBaseUrl}"/>"/></Get></HTTP></DCPType>
             </GetMap>
-            <c:if test="${config.server.allowFeatureInfo}">
             <GetFeatureInfo>
                 <c:forEach var="mimeType" items="${featureInfoFormats}">
                 <Format>${mimeType}</Format>
                 </c:forEach>
                 <DCPType><HTTP><Get><OnlineResource xlink:type="simple" xlink:href="<c:out value="${wmsBaseUrl}"/>"/></Get></HTTP></DCPType>
             </GetFeatureInfo>
-            </c:if>
         </Request>
         <Exception>
             <Format>XML</Format>
         </Exception>
         <Layer>
-            <Title><c:out value="${config.server.title}"/></Title><%-- Use of c:out escapes XML --%>
+            <Title><c:out value="${config.title}"/></Title><%-- Use of c:out escapes XML --%>
             <c:forEach var="crsCode" items="${supportedCrsCodes}">
             <CRS>${crsCode}</CRS>
             </c:forEach>
@@ -86,16 +84,16 @@ response.setDateHeader ("Expires", 0); //prevents caching at the proxy server
             <Layer>
                 <Title><c:out value="${dataset.title}"/></Title>
                 <c:forEach var="layer" items="${dataset.layers}">
-                <Layer<c:if test="${config.server.allowFeatureInfo and layer.queryable}"> queryable="1"</c:if>>
+                <Layer<c:if test="${layer.queryable}"> queryable="1"</c:if>>
                     <Name>${layer.layerName}</Name>
                     <Title><c:out value="${layer.title}"/></Title>
                     <Abstract><c:out value="${layer.abstract}"/></Abstract>
                     <c:set var="bbox" value="${layer.bbox}"/>
                     <EX_GeographicBoundingBox>
-                        <westBoundLongitude>${bbox[0]}</westBoundLongitude>
-                        <eastBoundLongitude>${bbox[2]}</eastBoundLongitude>
-                        <southBoundLatitude>${bbox[1]}</southBoundLatitude>
-                        <northBoundLatitude>${bbox[3]}</northBoundLatitude>
+                        <westBoundLongitude>${bbox.westBoundLongitude}</westBoundLongitude>
+                        <eastBoundLongitude>${bbox.eastBoundLongitude}</eastBoundLongitude>
+                        <southBoundLatitude>${bbox.southBoundLatitude}</southBoundLatitude>
+                        <northBoundLatitude>${bbox.northBoundLatitude}</northBoundLatitude>
                     </EX_GeographicBoundingBox>
                     <BoundingBox CRS="CRS:84" minx="${bbox[0]}" maxx="${bbox[2]}" miny="${bbox[1]}" maxy="${bbox[3]}"/>
                     <c:if test="${layer.zaxisPresent}">
@@ -129,7 +127,7 @@ response.setDateHeader ("Expires", 0); //prevents caching at the proxy server
                 </Layer>
                 </c:forEach> <%-- End loop through variables --%>
             </Layer>
-            </c:if> <%-- End if dataset is ready for display --%>
+            </c:if> <%-- End if dataset is ready --%>
             </c:forEach> <%-- End loop through datasets --%>
         </Layer>
     </Capability>
