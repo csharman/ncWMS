@@ -23,8 +23,9 @@
     <!-- Configuration of this ncWMS server.  This gets the location of the 
          config file from the ncwmsContext. -->
     <bean id="config" class="uk.ac.rdg.resc.ncwms.config.Config"
-           factory-method="readConfig">
+           factory-method="readConfig" destroy-method="close">
         <constructor-arg ref="ncwmsContext"/>
+        <constructor-arg ref="credentialsProvider"/>
     </bean>
     
     <!-- A cache for image data arrays -->

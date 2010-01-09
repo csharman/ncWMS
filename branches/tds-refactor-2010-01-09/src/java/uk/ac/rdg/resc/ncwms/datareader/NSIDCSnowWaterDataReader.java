@@ -44,8 +44,8 @@ import org.slf4j.LoggerFactory;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.coordsys.LonLatPosition;
 import uk.ac.rdg.resc.ncwms.metadata.Layer;
-import uk.ac.rdg.resc.ncwms.metadata.LayerImpl;
-import uk.ac.rdg.resc.ncwms.metadata.TimestepInfo;
+import uk.ac.rdg.resc.ncwms.config.LayerImpl;
+import uk.ac.rdg.resc.ncwms.config.TimestepInfo;
 
 /**
  * DataReader for NSIDC snow/water data.  This is an example of how to create

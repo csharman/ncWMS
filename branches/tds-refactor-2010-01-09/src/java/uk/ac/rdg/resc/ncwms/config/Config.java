@@ -29,6 +29,8 @@
 package uk.ac.rdg.resc.ncwms.config;
 
 import java.io.File;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -54,6 +56,9 @@ import org.simpleframework.xml.load.Validate;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
+import ucar.nc2.dataset.NetcdfDataset;
+import ucar.unidata.io.RandomAccessFile;
+import uk.ac.rdg.resc.ncwms.datareader.NcwmsCredentialsProvider;
 import uk.ac.rdg.resc.ncwms.exceptions.LayerNotDefinedException;
 import uk.ac.rdg.resc.ncwms.security.Users;
 import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
@@ -98,9 +103,12 @@ public class Config implements ServerConfig, ApplicationContextAware
     
     // Time of the last update to this configuration or any of the contained
     // metadata
-    private DateTime lastUpdateTime = new DateTime();
+    private DateTime lastUpdateTime;
     
     private File configFile; // Location of the file from which this information has been read
+    
+    // Will be injected by Spring: handles authenticated OPeNDAP calls
+    private NcwmsCredentialsProvider credentialsProvider;
     
     /**
      * This contains the map of dataset IDs to Dataset objects.  We use a 
@@ -125,8 +133,10 @@ public class Config implements ServerConfig, ApplicationContextAware
      * provided Context object
      * @param ncwmsContext object containing the context of this ncWMS application
      * (including the location of the config file)
+     * @param credentialsProvider object that handles authenticated calls to OPeNDAP servers
      */
-    public static Config readConfig(NcwmsContext ncwmsContext) throws Exception
+    public static Config readConfig(NcwmsContext ncwmsContext,
+            NcwmsCredentialsProvider credentialsProvider) throws Exception
     {
         Config config;
         File configFile = ncwmsContext.getConfigFile();
@@ -146,9 +156,33 @@ public class Config implements ServerConfig, ApplicationContextAware
                 configFile.getPath());
         }
 
+        config.lastUpdateTime = new DateTime();
+        config.credentialsProvider = credentialsProvider;
+
+        // Initialize the cache of NetcdfDatasets.  Hold between 50 and 500
+        // datasets, clearing out the cache every 5 minutes.  If the number of
+        // individual files in the cache exceeds the limit, the least-recently-used
+        // files will be closed in the clearout process.
+        // **NOTE** the age of the files in the cache is not taken into account,
+        // therefore the cache could hold on to files forever.  The only way
+        // to expire out-of-date information is to set a recheckEvery parameter
+        // in an NcML aggregation.  It is not possible currently to expire
+        // information based on time for single NetCDF files or OPeNDAP datasets.
+        // Therefore the DefaultDataReader only uses this cache for NcML aggregations.
+        // TODO: move the initialization of the cache to the DefaultDataReader?
+        NetcdfDataset.initNetcdfFileCache(50, 500, 500, 5 * 60);
+        logger.debug("NetcdfDatasetCache initialized");
+        if (logger.isDebugEnabled())
+        {
+            // Allows us to see how many RAFs are in the NetcdfFileCache at
+            // any one time
+            RandomAccessFile.setDebugLeaks(true);
+        }
+
         // Set up background threads to reload dataset metadata
         for (Dataset ds : config.datasets.values())
         {
+            ds.setConfig(config);
             config.scheduleReloading(ds);
         }
         
@@ -206,7 +240,7 @@ public class Config implements ServerConfig, ApplicationContextAware
         }
     }
     
-    public void setLastUpdateTime(DateTime date)
+    void setLastUpdateTime(DateTime date)
     {
         if (date.isAfter(this.lastUpdateTime))
         {
@@ -220,7 +254,11 @@ public class Config implements ServerConfig, ApplicationContextAware
     private void scheduleReloading(final Dataset ds)
     {
         Runnable reloader = new Runnable() {
-            @Override public void run() { ds.loadLayers(); }
+            @Override public void run() {
+                ds.loadLayers();
+                // Here we're checking for leaks of open file handles
+                logger.debug("num RAFs open = {}", RandomAccessFile.getOpenFiles().size());
+            }
         };
         ScheduledFuture<?> future = this.scheduler.scheduleWithFixedDelay(
             reloader,            // The reloading task to run
@@ -239,8 +277,6 @@ public class Config implements ServerConfig, ApplicationContextAware
     @Override
     public DateTime getLastUpdateTime()
     {
-        ensure revisit: how does this get updated?  Should we search all the
-        datasets each time, or allow datasets to update this value?
         return this.lastUpdateTime;
     }
 
@@ -341,6 +377,7 @@ public class Config implements ServerConfig, ApplicationContextAware
     
     public synchronized void addDataset(Dataset ds)
     {
+        ds.setConfig(this);
         this.datasetList.add(ds);
         this.datasets.put(ds.getId(), ds);
         this.scheduleReloading(ds);
@@ -377,6 +414,56 @@ public class Config implements ServerConfig, ApplicationContextAware
         if (s == null) return " ";
         s = s.trim();
         return s.equals("") ? " " : s;
+    }
+    
+    /**
+     * If the given dataset is an OPeNDAP location, this looks for
+     * a username and password and, if it finds one, updates the
+     * credentials provider.  This is called whenever a dataset's metadata is
+     * being loaded (i.e. by {@link Dataset#loadLayers()}.  We must keep checking
+     * the dataset location in case it has been changed by the admin app.
+     */
+    void updateCredentialsProvider(Dataset ds)
+    {
+        logger.debug("Called updateCredentialsProvider, {}", ds.getLocation());
+        if (WmsUtils.isOpendapLocation(ds.getLocation()))
+        {
+            // Make sure the URL starts with "http://" or the
+            // URL parsing might not work
+            // (TODO: register dods:// as a valid protocol?)
+            String newLoc = "http" + ds.getLocation().substring(4);
+            try
+            {
+                URL url = new URL(newLoc);
+                String userInfo = url.getUserInfo();
+                logger.debug("user info = {}", userInfo);
+                if (userInfo != null)
+                {
+                    this.credentialsProvider.addCredentials(
+                        url.getHost(),
+                        url.getPort() >= 0 ? url.getPort() : url.getDefaultPort(),
+                        userInfo);
+                }
+                // Change the location to "dods://..." so that the Java NetCDF
+                // library knows to use the OPeNDAP protocol rather than plain
+                // http
+                ds.setLocation("dods" + newLoc.substring(4));
+            }
+            catch(MalformedURLException mue)
+            {
+                logger.warn(newLoc + " is not a valid url");
+            }
+        }
+    }
+
+    /**
+     * Called by the Spring framework to clean up this object
+     */
+    public void close()
+    {
+        this.scheduler.shutdown();
+        NetcdfDataset.shutdown();
+        logger.info("Cleaned up Config object");
     }
 
     @Override

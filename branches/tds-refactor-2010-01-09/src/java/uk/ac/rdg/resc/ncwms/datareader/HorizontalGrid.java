@@ -37,7 +37,7 @@ import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPositionImpl;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidCrsException;
 
 /**
- * A Grid of points onto which data is to be projected.  This is the grid that
+ * A Grid of points onto which data are to be projected.  This is the grid that
  * is defined by the request CRS, the width, height and bounding box.
  *
  * @author Jon Blower
@@ -139,6 +139,7 @@ public class HorizontalGrid extends PointList
         return this.yAxisValues;
     }
 
+    @Override
     public int size()
     {
         return this.width * this.height;
@@ -153,6 +154,7 @@ public class HorizontalGrid extends PointList
         return this.crsHelper.isLatLon();
     }
 
+    @Override
     public CrsHelper getCrsHelper()
     {
         return this.crsHelper;

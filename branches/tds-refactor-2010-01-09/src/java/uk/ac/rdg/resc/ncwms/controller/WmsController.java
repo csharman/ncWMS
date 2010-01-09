@@ -93,7 +93,6 @@ import uk.ac.rdg.resc.ncwms.exceptions.WmsException;
 import uk.ac.rdg.resc.ncwms.graphics.ImageFormat;
 import uk.ac.rdg.resc.ncwms.graphics.KmzFormat;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogger;
-import uk.ac.rdg.resc.ncwms.config.MetadataStore;
 import uk.ac.rdg.resc.ncwms.config.TimestepInfo;
 import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
 import uk.ac.rdg.resc.ncwms.styles.ColorPalette;
@@ -109,8 +108,8 @@ import uk.ac.rdg.resc.ncwms.wms.ServerConfig;
  * (GetMap, GetCapabilities, GetFeatureInfo).  Only one WmsController object 
  * is created.  Spring manages the creation of this object and the injection 
  * of the objects that it needs (i.e. its dependencies), such as the
- * {@linkplain MetadataStore store of metadata} and the
- * {@linkplain ServerConfig configuration object}.  The Spring configuration file <tt>web/WEB-INF/WMS-servlet.xml</tt>
+ * {@linkplain ServerConfig configuration object}.
+ * The Spring configuration file <tt>web/WEB-INF/WMS-servlet.xml</tt>
  * defines all this information and also defines that this Controller will handle
  * all requests to the URI pattern <tt>/wms</tt>.  (See the SimpleUrlHandlerMapping
  * in <tt>web/WEB-INF/WMS-servlet.xml</tt>).</p>
@@ -409,7 +408,7 @@ public class WmsController extends AbstractController {
      * <ol>
      * <li>Creates a {@link GetMapRequest} object from the given {@link RequestParams}.
      * This parses the parameters and checks their validity.</li>
-     * <li>Finds the relevant {@link Layer} object from the {@link MetadataStore}.</li>
+     * <li>Finds the relevant {@link Layer} object from the config system.</li>
      * <li>Creates a {@link HorizontalGrid} object that represents the grid on
      * which the final image will sit (based on the requested CRS and image
      * width/height).</li>

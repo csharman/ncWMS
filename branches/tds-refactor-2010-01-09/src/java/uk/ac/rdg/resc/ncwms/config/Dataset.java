@@ -33,6 +33,7 @@ import java.io.FilenameFilter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -48,7 +49,9 @@ import org.simpleframework.xml.Root;
 import org.simpleframework.xml.load.Commit;
 import org.simpleframework.xml.load.PersistenceException;
 import org.simpleframework.xml.load.Validate;
+import uk.ac.rdg.resc.ncwms.coordsys.CrsHelper;
 import uk.ac.rdg.resc.ncwms.datareader.DataReader;
+import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 
@@ -103,6 +106,8 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
     // The real set of all variables is in the variables Map.
     @ElementList(name="variables", type=Variable.class, required=false)
     private ArrayList<Variable> variableList = new ArrayList<Variable>();
+
+    private Config config;
     
     private State state = State.NEEDS_REFRESH;     // State of this dataset.
     
@@ -115,10 +120,6 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
      * LinkedHashMap so that the order of datasets in the Map is preserved.
      */
     private Map<String, Variable> variables = new LinkedHashMap<String, Variable>();
-
-    /** The object that will be used for reading metadata (Layers) and data
-     * from the source files */
-    private DataReader dataReader;
 
     /** The time at which this dataset's stored Layers were last updated, or
      * null if the Layers have not yet been loaded */
@@ -183,6 +184,15 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
     public void setLocation(String location)
     {
         this.location = location.trim();
+    }
+
+    /**
+     * Called when a new dataset is created to set up a back-link to the
+     * {@link Config} object.  This is only called by {@link Config}.
+     */
+    void setConfig(Config config)
+    {
+        this.config = config;
     }
     
     /**
@@ -376,7 +386,7 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
     {
         return this.loadingProgress.toString();
     }
-
+    
     /**
      * Gets the configuration information for all the {@link Variable}s in this
      * dataset.  This information allows the system administrator to manually
@@ -428,9 +438,18 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
         {
             // if lastUpdateTime == null, this dataset has never previously been loaded.
             this.state = this.lastUpdateTime == null ? State.LOADING : State.UPDATING;
+
             this.doLoadLayers();
+
+            // Update the state of this dataset
             this.state = State.READY;
             this.lastUpdateTime = new DateTime();
+
+            logger.debug("Loaded metadata for {}", this.id);
+            
+            // Update the state of the config object
+            this.config.setLastUpdateTime(this.lastUpdateTime);
+            this.config.save();
         }
         catch (Exception e)
         {
@@ -483,24 +502,33 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
     private void doLoadLayers() throws Exception
     {
         // Get the filenames that comprise this dataset, expanding any glob expressions
-        List<String> filenames = this.getFiles();
+        /*List<String> filenames = this.getFiles();
         if (filenames.size() == 0)
         {
             throw new Exception(this.location + " does not match any files");
-        }
+        }*/
 
-        // Now extract the data for each individual file
-        // LinkedHashMaps preserve the order of insertion
-        Map<String, LayerImpl> layers = new LinkedHashMap<String, LayerImpl>();
-        for (String filename : filenames)
+        // Get a DataReader object of the correct type
+        logger.debug("Getting data reader of type {}", this.dataReaderClass);
+        DataReader dr = DataReader.forName(this.dataReaderClass);
+        // Look for OPeNDAP datasets and update the credentials provider accordingly
+        this.config.updateCredentialsProvider(this);
+        // Read the metadata
+        Map<String, LayerImpl> newLayers = dr.getAllLayers(this);
+        for (LayerImpl layer : newLayers.values())
         {
-            // Read the metadata from the file and update the Map.
-            // TODO: only do this if the file's last modified date has changed?
-            // This would require us to keep the previous metadata...
-            this.dataReader.findAndUpdateLayers(filename, layers);
-
-            // Follow the steps in MetadataLoader, updating the progress information
+            layer.setDataset(this);
         }
+        this.loadingProgress.append("loaded layers");
+        // Search for vector quantities (e.g. northward/eastward_sea_water_velocity)
+        this.findVectorQuantities(newLayers);
+        this.loadingProgress.append("found vector quantities");
+        // Look for overriding attributes in the configuration
+        this.readLayerConfig(newLayers);
+        this.loadingProgress.append("attributes overridden");
+        // Update the metadata store
+        this.layers = newLayers;
+        this.loadingProgress.append("Finished loading metadata");
     }
 
     /**
@@ -588,6 +616,134 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
             if (path.isFile()) filePaths.add(path.getPath());
         }
         return filePaths;
+    }
+
+    /**
+     * Searches through the collection of Layer objects, looking for
+     * pairs of quantities that represent the components of a vector, e.g.
+     * northward/eastward_sea_water_velocity.  Modifies the given Map
+     * in-place.
+     * @todo Only works for northward/eastward so far
+     */
+    private void findVectorQuantities(Map<String, LayerImpl> layers)
+    {
+        // This hashtable will store pairs of components in eastward-northward
+        // order, keyed by the standard name for the vector quantity
+        Map<String, LayerImpl[]> components = new HashMap<String, LayerImpl[]>();
+        for (LayerImpl layer : layers.values())
+        {
+            if (layer.getTitle().contains("eastward"))
+            {
+                String vectorKey = layer.getTitle().replaceFirst("eastward_", "");
+                // Look to see if we've already found the northward component
+                if (!components.containsKey(vectorKey))
+                {
+                    // We haven't found the northward component yet
+                    components.put(vectorKey, new LayerImpl[2]);
+                }
+                components.get(vectorKey)[0] = layer;
+            }
+            else if (layer.getTitle().contains("northward"))
+            {
+                String vectorKey = layer.getTitle().replaceFirst("northward_", "");
+                // Look to see if we've already found the eastward component
+                if (!components.containsKey(vectorKey))
+                {
+                    // We haven't found the eastward component yet
+                    components.put(vectorKey, new LayerImpl[2]);
+                }
+                components.get(vectorKey)[1] = layer;
+            }
+        }
+
+        // Now add the vector quantities to the collection of Layer objects
+        for (String key : components.keySet())
+        {
+            LayerImpl[] comps = components.get(key);
+            if (comps[0] != null && comps[1] != null)
+            {
+                comps[0].setDataset(this);
+                comps[1].setDataset(this);
+                // We've found both components.  Create a new Layer object
+                LayerImpl vec = new VectorLayerImpl(key, comps[0], comps[1]);
+                // Use the title as the unique ID for this variable
+                vec.setId(key);
+                layers.put(key, vec);
+            }
+        }
+    }
+
+    /**
+     * Read the configuration information from individual layers from the
+     * config file.
+     */
+    private void readLayerConfig(Map<String, LayerImpl> layers)
+    {
+        for (LayerImpl layer : layers.values())
+        {
+            // Load the Variable object from the config file or create a new
+            // one if it doesn't exist.
+            Variable var = this.getVariables().get(layer.getId());
+            if (var == null)
+            {
+                var = new Variable();
+                var.setId(layer.getId());
+                this.addVariable(var);
+            }
+
+            // If there is no title set for this layer in the config file, we
+            // use the title that was read by the DataReader.
+            if (var.getTitle() == null) var.setTitle(layer.getTitle());
+
+            // Set the colour scale range.  If this isn't specified in the
+            // config information, load an "educated guess" at the scale range
+            // from the source data.
+            if (var.getColorScaleRange() == null)
+            {
+                this.loadingProgress.append("Reading min-max data for layer " + layer.getName());
+                float[] minMax;
+                try
+                {
+                    // Set the scale range for each variable by reading a 100x100
+                    // chunk of data and finding the min and max values of this chunk.
+                    HorizontalGrid grid = new HorizontalGrid(CrsHelper.PLATE_CARREE_CRS_CODE, 100, 100, layer.getBbox());
+                    // Read from the first t and z indices
+                    int tIndex = layer.isTaxisPresent() ? 0 : -1;
+                    int zIndex = layer.isZaxisPresent() ? 0 : -1;
+                    minMax = new float[]{-50.0f, 50.0f};
+                            //MetadataController.findMinMax(layer, tIndex,
+                        //zIndex, grid, null);
+                    if (Float.isNaN(minMax[0]) || Float.isNaN(minMax[1]))
+                    {
+                        // Just guess at a scale
+                        minMax = new float[]{-50.0f, 50.0f};
+                    }
+                    else if (minMax[0] == minMax[1])
+                    {
+                        // This happens occasionally if the above algorithm happens
+                        // to hit an area of uniform data.  We make sure that
+                        // the max is greater than the min.
+                        minMax[1] = minMax[0] + 1.0f;
+                    }
+                    else
+                    {
+                        // Set the scale range of the layer, factoring in a 10% expansion
+                        // to deal with the fact that the sample data we read might
+                        // not be representative
+                        float diff = minMax[1] - minMax[0];
+                        minMax = new float[]{minMax[0] - 0.05f * diff,
+                            minMax[1] + 0.05f * diff};
+                    }
+                }
+                catch(Exception e)
+                {
+                    logger.error("Error reading min-max from layer " + layer.getId()
+                        + " in dataset " + this.id, e);
+                    minMax = new float[]{-50.0f, 50.0f};
+                }
+                var.setColorScaleRange(minMax);
+            }
+        }
     }
 
     /**

@@ -58,19 +58,20 @@ public abstract class DataReader
     protected DataReader(){}
     
     /**
-     * Gets a DataReader for the given dataset.  Note that DataReader objects
-     * may be shared among datasets.
-     * @param dataset The dataset for which the DataReader is to be retrieved
-     * @return a DataReader that can read data for the given layer
-     * @throws Exception if there was an error retrieving the layer
+     * Gets a DataReader of the given class.  Only one instance of each class
+     * will be returned, hence subclasses of DataReader must be thread-safe.
+     * @param dataReaderClassName The name of the subclass of DataReader
+     * @throws Exception if there was an error creating the DataReader
+     * @throws ClassCastException if {@code dataReaderClassName} isn't the name
+     * of a valid DataReader subclass
      */
-    public static DataReader forDataset(Dataset ds) throws Exception
+    public static DataReader forName(String dataReaderClassName)
+            throws Exception
     {
-        String className = ds.getDataReaderClass();
         String clazz = DefaultDataReader.class.getName();
-        if (className != null && !className.trim().equals(""))
+        if (dataReaderClassName != null && !dataReaderClassName.trim().equals(""))
         {
-            clazz = className;
+            clazz = dataReaderClassName;
         }
         // TODO make this thread safe.  Can this be done without explicit locking?
         // See Bloch, Effective Java.
