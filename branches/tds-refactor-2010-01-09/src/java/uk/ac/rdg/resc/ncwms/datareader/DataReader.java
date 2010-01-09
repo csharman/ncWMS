@@ -35,7 +35,7 @@ import java.util.Map;
 import uk.ac.rdg.resc.ncwms.config.Dataset;
 import uk.ac.rdg.resc.ncwms.coordsys.LonLatPosition;
 import uk.ac.rdg.resc.ncwms.metadata.Layer;
-import uk.ac.rdg.resc.ncwms.metadata.LayerImpl;
+import uk.ac.rdg.resc.ncwms.config.LayerImpl;
 
 /**
  * Abstract superclass for classes that read data and metadata from datasets.

@@ -30,9 +30,17 @@ package uk.ac.rdg.resc.ncwms.config;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,22 +54,23 @@ import org.simpleframework.xml.load.Validate;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
-import uk.ac.rdg.resc.ncwms.config.Dataset.State;
 import uk.ac.rdg.resc.ncwms.exceptions.LayerNotDefinedException;
-import uk.ac.rdg.resc.ncwms.metadata.Layer;
 import uk.ac.rdg.resc.ncwms.security.Users;
+import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
+import uk.ac.rdg.resc.ncwms.wms.Layer;
+import uk.ac.rdg.resc.ncwms.wms.ServerConfig;
 
 /**
- * Configuration of the server.  We use Simple XML Serialization
- * (http://simple.sourceforge.net/) to convert to and from XML.
+ * <p>Configuration of the ncWMS server.  We use Simple XML Serialization
+ * (http://simple.sourceforge.net/) to convert to and from XML.</p>
+ * <p>This implements {@link ServerConfig}, which is the general interface
+ * for providing access to server metadata and data.  (ServerConfig can be
+ * implemented by other configuration systems and catalogs, e.g. THREDDS.)</p>
  *
  * @author Jon Blower
- * $Revision$
- * $Date$
- * $Log$
  */
 @Root(name="config")
-public class Config implements ApplicationContextAware
+public class Config implements ServerConfig, ApplicationContextAware
 {
     private static final Logger logger = LoggerFactory.getLogger(Config.class);
     
@@ -93,13 +102,17 @@ public class Config implements ApplicationContextAware
     
     private File configFile; // Location of the file from which this information has been read
     
-    private MetadataStore metadataStore; // Gives access to metadata
-    
     /**
      * This contains the map of dataset IDs to Dataset objects.  We use a 
      * LinkedHashMap so that the order of datasets in the Map is preserved.
      */
     private Map<String, Dataset> datasets = new LinkedHashMap<String, Dataset>();
+
+    /** The scheduler that will handle the background (re)loading of datasets */
+    private ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(4);
+    /** Contains handles to background threads that can be used to cancel reloading of datasets.
+      * Maps dataset Ids to Future objects*/
+    private Map<String, ScheduledFuture<?>> futures = new HashMap<String, ScheduledFuture<?>>();
     
     /**
      * Private constructor.  This prevents other classes from creating
@@ -112,12 +125,8 @@ public class Config implements ApplicationContextAware
      * provided Context object
      * @param ncwmsContext object containing the context of this ncWMS application
      * (including the location of the config file)
-     * @param metadataStore object that is used to read metadata from a store.
-     * We need this here to set the state of each Dataset, based upon the last
-     * update time.
      */
-    public static Config readConfig(NcwmsContext ncwmsContext,
-        MetadataStore metadataStore) throws Exception
+    public static Config readConfig(NcwmsContext ncwmsContext) throws Exception
     {
         Config config;
         File configFile = ncwmsContext.getConfigFile();
@@ -136,31 +145,13 @@ public class Config implements ApplicationContextAware
             logger.debug("Created new configuration object and saved to {}",
                 configFile.getPath());
         }
-        
-        // Now set the state of each Dataset, based on the last update time in
-        // the metadata store
-        for (Dataset ds : config.getDatasets().values())
+
+        // Set up background threads to reload dataset metadata
+        for (Dataset ds : config.datasets.values())
         {
-            // Read the time at which this dataset was last updated from the
-            // metadata store
-            DateTime lastUpdate = metadataStore.getLastUpdateTime(ds.getId());
-            if (lastUpdate == null)
-            {
-                // The dataset has never been loaded
-                ds.setState(State.NEEDS_REFRESH);
-            }
-            else
-            {
-                // The metadata are already present in the database. We say that this
-                // dataset is ready for use, allowing the periodic reloader
-                // (see MetadataLoader) to refresh the metadata when necessary.
-                ds.setState(State.READY);
-            }
+            config.scheduleReloading(ds);
         }
         
-        // Set the reference to the metadata store, which is needed by the
-        // Dataset object to read metadata
-        config.metadataStore = metadataStore;
         return config;
     }
     
@@ -202,17 +193,15 @@ public class Config implements ApplicationContextAware
     
     /**
      * Called when we have checked that the configuration is valid.  Populates
-     * the datasets hashmap, loads the datasets from the THREDDS catalog and 
-     * populates the hashmap of third-party layer providers.
+     * the datasets hashmap.
+     * @todo load the datasets from the THREDDS catalog and
+     * populate the hashmap of third-party layer providers.)
      */
     @Commit
     public void build()
     {
         for (Dataset ds : this.datasetList)
         {
-            ds.setConfig(this);
-            // The state of the datasets is set based on the contents of the
-            // metadata store: see MetadataStore.init()
             this.datasets.put(ds.getId(), ds);
         }
     }
@@ -224,12 +213,34 @@ public class Config implements ApplicationContextAware
             this.lastUpdateTime = date;
         }
     }
+
+    /**
+     * Schedules the regular reloading of the given dataset
+     */
+    private void scheduleReloading(final Dataset ds)
+    {
+        Runnable reloader = new Runnable() {
+            @Override public void run() { ds.loadLayers(); }
+        };
+        ScheduledFuture<?> future = this.scheduler.scheduleWithFixedDelay(
+            reloader,            // The reloading task to run
+            0,                   // Schedule the first run immediately
+            1, TimeUnit.SECONDS  // Schedule each subsequent run 1 second after
+                                 // the previous one finished.
+        );
+        // We need to keep a handle to the Future object so we can cancel it
+        this.futures.put(ds.getId(), future);
+        logger.debug("Scheduled auto-reloading of dataset {}", ds.getId());
+    }
     
     /**
      * @return the time at which this configuration was last updated
      */
+    @Override
     public DateTime getLastUpdateTime()
     {
+        ensure revisit: how does this get updated?  Should we search all the
+        datasets each time, or allow datasets to update this value?
         return this.lastUpdateTime;
     }
 
@@ -264,64 +275,178 @@ public class Config implements ApplicationContextAware
     }
 
     /**
-     * Gets a Layer object with the given unique name.
+     * Gets the Layer object with the given unique name.
+     * @throws LayerNotDefinedException if the given name does not match a layer
+     * on this server
      */
+    @Override
     public Layer getLayerByUniqueName(String uniqueLayerName)
-        throws LayerNotDefinedException, Exception
+        throws LayerNotDefinedException
     {
-        return this.metadataStore.getLayerByUniqueName(uniqueLayerName);
+        try
+        {
+            String[] els = WmsUtils.parseUniqueLayerName(uniqueLayerName);
+            Dataset ds = this.datasets.get(els[0]);
+            if (ds == null) throw new NullPointerException();
+            Layer layer = ds.getLayer(els[1]);
+            if (layer == null) throw new NullPointerException();
+            return layer;
+        }
+        catch(Exception e)
+        {
+            throw new LayerNotDefinedException(uniqueLayerName);
+        }
     }
-    
-    public Map<String, Dataset> getDatasets()
+
+    /**
+     * Gets a Map of dataset IDs to Dataset objects for all datasets on this
+     * server, whether or not they are ready for use.  This operation is used
+     * only by the ncWMS configuration system, and hence does not appear in the
+     * {@link ServerConfig} interface.
+     */
+    Map<String, Dataset> getAllDatasets()
     {
         return this.datasets;
+    }
+
+    /**
+     * Returns an unmodifiable {@link Set} of all the {@link Dataset}s on this server that are
+     * ready for use.  (Note that implementations may have other datasets
+     * in the system that are not ready for use, perhaps because a lengthy
+     * metadata-loading operation is in progress.  Such datasets would not
+     * appear in this Set.)
+     * @return a {@link Set} of all the {@link Dataset}s on this server that are
+     * ready for use.
+     * @todo changing to a collection would be more convenient!
+     */
+    @Override
+    public synchronized Set<uk.ac.rdg.resc.ncwms.wms.Dataset> getDatasets()
+    {
+        // preserve iteration order in the set with a LinkedHashSet
+        Set<uk.ac.rdg.resc.ncwms.wms.Dataset> dss =
+            new LinkedHashSet<uk.ac.rdg.resc.ncwms.wms.Dataset>();
+        for (Dataset ds : this.datasets.values()) dss.add(ds);
+        return Collections.unmodifiableSet(dss);
+    }
+
+    /**
+     * Returns the dataset with the given ID, or null if there is no available
+     * dataset with the given id.
+     */
+    @Override
+    public Dataset getDatasetById(String datasetId)
+    {
+        return this.datasets.get(datasetId);
     }
     
     public synchronized void addDataset(Dataset ds)
     {
-        ds.setConfig(this);
         this.datasetList.add(ds);
         this.datasets.put(ds.getId(), ds);
+        this.scheduleReloading(ds);
     }
     
     public synchronized void removeDataset(Dataset ds)
     {
         this.datasetList.remove(ds);
         this.datasets.remove(ds.getId());
+        // Cancel the auto-reloading of this dataset
+        ScheduledFuture<?> future = this.futures.remove(ds.getId());
+        // We allow the reloading task to be interrupted
+        if (future != null) future.cancel(true);
     }
     
     public synchronized void changeDatasetId(Dataset ds, String newId)
     {
-        this.datasets.remove(ds.getId());
+        String oldId = ds.getId();
+        this.datasets.remove(oldId);
+        ScheduledFuture<?> future = this.futures.remove(oldId);
         ds.setId(newId);
         this.datasets.put(newId, ds);
+        this.futures.put(newId, future);
+        logger.debug("Changed dataset with ID {} to {}", oldId, newId);
     }
     
     /**
-     * Used by Dataset to provide a method to get variables
-     */
-    MetadataStore getMetadataStore()
-    {
-        return this.metadataStore;
-    }
-    
-    /**
-     * If s is whitespace only or empty, returns a space, otherwise returns s.
+     * If s is whitespace-only or empty, returns a space, otherwise returns s.
      * This is to work around problems with the Simple XML software, which throws
      * an Exception if it tries to read an empty field from an XML file.
      */
-    public static String checkEmpty(String s)
+    static String checkEmpty(String s)
     {
         if (s == null) return " ";
         s = s.trim();
         return s.equals("") ? " " : s;
     }
-    
+
+    @Override
+    public String getTitle() {
+        return this.server.getTitle();
+    }
+
+    @Override
+    public String getAbstract() {
+        return this.server.getAbstract();
+    }
+
+    @Override
+    public int getMaxImageWidth() {
+        return this.server.getMaxImageWidth();
+    }
+
+    @Override
+    public int getMaxImageHeight() {
+        return this.server.getMaxImageHeight();
+    }
+
+    @Override
+    public Set<String> getKeywords() {
+        String[] keysArray = this.server.getKeywords().split(",");
+        // preserves iteration order
+        Set<String> keywords = new LinkedHashSet<String>(keysArray.length);
+        for (String keyword : keysArray) {
+            keywords.add(keyword);
+        }
+        return keywords;
+    }
+
+    @Override
+    public boolean getAllowsGlobalCapabilities() {
+        return this.server.isAllowGlobalCapabilities();
+    }
+
+    @Override
+    public String getServiceProviderUrl() {
+        return this.server.getUrl();
+    }
+
+    @Override
+    public String getContactName() {
+        return this.contact.getName();
+    }
+
+    @Override
+    public String getContactEmail() {
+        return this.contact.getEmail();
+    }
+
+    @Override
+    public String getContactOrganization() {
+        return this.contact.getOrg();
+    }
+
+    @Override
+    public String getContactTelephone() {
+        return this.contact.getTel();
+    }
+
+    /** Not used. */
     public String getThreddsCatalogLocation()
     {
         return this.threddsCatalogLocation;
     }
-    
+
+    /** Not used. */
     public void setThreddsCatalogLocation(String threddsCatalogLocation)
     {
         this.threddsCatalogLocation = checkEmpty(threddsCatalogLocation);

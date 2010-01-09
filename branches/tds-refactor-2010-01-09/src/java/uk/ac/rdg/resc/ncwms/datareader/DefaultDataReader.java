@@ -58,8 +58,8 @@ import ucar.unidata.geoloc.LatLonRect;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalCoordSys;
 import uk.ac.rdg.resc.ncwms.coordsys.LonLatPosition;
 import uk.ac.rdg.resc.ncwms.metadata.Layer;
-import uk.ac.rdg.resc.ncwms.metadata.LayerImpl;
-import uk.ac.rdg.resc.ncwms.metadata.TimestepInfo;
+import uk.ac.rdg.resc.ncwms.config.LayerImpl;
+import uk.ac.rdg.resc.ncwms.config.TimestepInfo;
 import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
 
 /**
@@ -140,7 +140,7 @@ public class DefaultDataReader extends DataReader
             // Get a GridDataset object, since we know this is a grid
             GridDataset gd = (GridDataset)TypedDatasetFactory.open(FeatureType.GRID, nc, null, null);
             
-            logger.debug("Getting GeoGrid with id {}", layer.getId());
+            logger.debug("Getting GridDatatype with id {}", layer.getId());
             GridDatatype gridData = gd.findGridDatatype(layer.getId());
             logger.debug("filename = {}, gg = {}", filename, gridData.toString());
             
@@ -330,10 +330,6 @@ public class DefaultDataReader extends DataReader
             {
                 GridCoordSystem coordSys = gridset.getGeoCoordSystem();
                 
-                // Compute TimestepInfo objects for this file
-                logger.debug("Computing TimestepInfo objects");
-                List<TimestepInfo> timesteps = getTimesteps(location, coordSys);
-                
                 // Look for new variables in this coordinate system.
                 List<GridDatatype> grids = gridset.getGrids();
                 List<GridDatatype> newGrids = new ArrayList<GridDatatype>();
@@ -384,7 +380,7 @@ public class DefaultDataReader extends DataReader
                         {
                             layer.setZunits(zAxis.getUnitsString());
                             layer.setZpositive(zPositive);
-                            layer.setZvalues(zValues);
+                            layer.setElevationValues(zValues);
                         }
 
                         // Add this layer to the Map
@@ -393,6 +389,8 @@ public class DefaultDataReader extends DataReader
                 }
                 // Now we add the new timestep information for all grids
                 // in this Gridset
+                logger.debug("Computing TimestepInfo objects");
+                List<TimestepInfo> timesteps = getTimesteps(location, coordSys);
                 for (GridDatatype grid : grids)
                 {
                     if (this.includeGrid(grid))

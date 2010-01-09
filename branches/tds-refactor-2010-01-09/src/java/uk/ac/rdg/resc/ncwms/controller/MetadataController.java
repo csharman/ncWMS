@@ -46,13 +46,13 @@ import org.joda.time.Period;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.servlet.ModelAndView;
-import uk.ac.rdg.resc.ncwms.config.Config;
 import uk.ac.rdg.resc.ncwms.exceptions.MetadataException;
 import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
-import uk.ac.rdg.resc.ncwms.metadata.Layer;
 import uk.ac.rdg.resc.ncwms.styles.ColorPalette;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry;
 import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
+import uk.ac.rdg.resc.ncwms.wms.Layer;
+import uk.ac.rdg.resc.ncwms.wms.ServerConfig;
 
 /**
  * Controller that handles all requests for non-standard metadata by the
@@ -74,11 +74,11 @@ public class MetadataController
 {
     private static final Logger log = LoggerFactory.getLogger(MetadataController.class);
 
-    private Config config;
+    private ServerConfig serverConfig;
 
-    public MetadataController(Config config)
+    public MetadataController(ServerConfig serverConfig)
     {
-        this.config = config;
+        this.serverConfig = serverConfig;
     }
     
     public ModelAndView handleRequest(HttpServletRequest request,
@@ -108,24 +108,21 @@ public class MetadataController
             }
             else if (item.equals("layerDetails"))
             {
-                return this.showLayerDetails(request, usageLogEntry);
+                //return this.showLayerDetails(request, usageLogEntry);
             }
             else if (item.equals("timesteps"))
             {
-                return this.showTimesteps(request);
+                //return this.showTimesteps(request);
             }
             else if (item.equals("minmax"))
             {
-                return this.showMinMax(request, usageLogEntry);
+                //return this.showMinMax(request, usageLogEntry);
             }
             else if (item.equals("animationTimesteps"))
             {
-                return this.showAnimationTimesteps(request);
+                //return this.showAnimationTimesteps(request);
             }
-            else
-            {
-                throw new Exception("Invalid value for ITEM parameter");
-            }
+            throw new Exception("Invalid value for ITEM parameter");
         }
         catch(Exception e)
         {
@@ -205,6 +202,8 @@ public class MetadataController
         throws Exception
     {
         String menu = "default";
+        // Let's see if the client has requested a specific menu.  If so, we'll
+        // construct the menu based on the appropriate JSP.
         String menuFromRequest = request.getParameter("menu");
         if (menuFromRequest != null && !menuFromRequest.trim().equals(""))
         {
@@ -212,8 +211,8 @@ public class MetadataController
         }
         usageLogEntry.setMenu(menu);
         Map<String, Object> models = new HashMap<String, Object>();
-        models.put("serverTitle", this.config.getServer().getTitle());
-        models.put("datasets", this.config.getDatasets());
+        models.put("serverTitle", this.serverConfig.getTitle());
+        models.put("datasets", this.serverConfig.getDatasets());
         return new ModelAndView(menu + "Menu", models);
     }
     
@@ -221,7 +220,7 @@ public class MetadataController
      * Shows an JSON document containing the details of the given variable (units,
      * zvalues, tvalues etc).  See showLayerDetails.jsp.
      */
-    private ModelAndView showLayerDetails(HttpServletRequest request,
+    /*private ModelAndView showLayerDetails(HttpServletRequest request,
         UsageLogEntry usageLogEntry) throws Exception
     {
         Layer layer = this.getLayer(request);
@@ -288,7 +287,7 @@ public class MetadataController
         // because there might be several menu JSPs.
         models.put("paletteNames", ColorPalette.getAvailablePaletteNames());
         return new ModelAndView("showLayerDetails", models);
-    }
+    }*/
     
     /**
      * @return the Layer that the user is requesting, throwing an
@@ -302,7 +301,7 @@ public class MetadataController
         {
             throw new Exception("Must provide a value for the layerName parameter");
         }
-        Layer layer = this.config.getLayerByUniqueName(layerName);
+        Layer layer = this.serverConfig.getLayerByUniqueName(layerName);
         if (layer == null)
         {
             throw new Exception("There is no layer with the name " + layerName);
@@ -314,7 +313,7 @@ public class MetadataController
      * Finds all the timesteps that occur on the given date, which will be provided
      * in the form "2007-10-18".
      */
-    private ModelAndView showTimesteps(HttpServletRequest request)
+    /*private ModelAndView showTimesteps(HttpServletRequest request)
         throws Exception
     {
         Layer layer = getLayer(request);
@@ -339,7 +338,7 @@ public class MetadataController
         }
         
         return new ModelAndView("showTimesteps", "timesteps", timesteps);
-    }
+    }*/
     
     /**
      * @return true if the two given DateTimes fall on the same day.
@@ -361,7 +360,7 @@ public class MetadataController
      * Shows an XML document containing the minimum and maximum values for the
      * tile given in the parameters.
      */
-    private ModelAndView showMinMax(HttpServletRequest request,
+    /*private ModelAndView showMinMax(HttpServletRequest request,
         UsageLogEntry usageLogEntry) throws Exception
     {
         RequestParams params = new RequestParams(request.getParameterMap());
@@ -373,7 +372,7 @@ public class MetadataController
         // TODO: some of the code below is repetitive of WmsController: refactor?
         
         // Get the variable we're interested in
-        Layer layer = this.config.getLayerByUniqueName(dataRequest.getLayers()[0]);
+        Layer layer = this.serverConfig.getLayerByUniqueName(dataRequest.getLayers()[0]);
         
         // Get the grid onto which the data is being projected
         HorizontalGrid grid = new HorizontalGrid(dataRequest);
@@ -388,7 +387,7 @@ public class MetadataController
         float[] minMax = findMinMax(layer, tIndex, zIndex, grid, usageLogEntry);
         
         return new ModelAndView("showMinMax", "minMax", minMax);
-    }
+    }*/
     
     /**
      * Finds the minimum and maximum values of data in the given arrays.
@@ -403,7 +402,7 @@ public class MetadataController
      * in the grid are missing
      * @throws Exception if there was an error reading the data
      */
-    public static float[] findMinMax(Layer layer, int tIndex, int zIndex,
+    /*public static float[] findMinMax(Layer layer, int tIndex, int zIndex,
         HorizontalGrid grid, UsageLogEntry usageLogEntry)
         throws Exception
     {
@@ -431,7 +430,7 @@ public class MetadataController
         }
         log.debug("Got min-max: {},{}", min, max);
         return new float[]{min, max};
-    }
+    }*/
 
     /**
      * Calculates the TIME strings necessary to generate animations for the
@@ -440,7 +439,7 @@ public class MetadataController
      * @return
      * @throws java.lang.Exception
      */
-    private ModelAndView showAnimationTimesteps(HttpServletRequest request)
+    /*private ModelAndView showAnimationTimesteps(HttpServletRequest request)
         throws Exception
     {
         Layer layer = this.getLayer(request);
@@ -473,7 +472,7 @@ public class MetadataController
         addTimeString("Yearly", timeStrings, tValues, startIndex, endIndex, new Period().withYears(1));
 
         return new ModelAndView("showAnimationTimesteps", "timeStrings", timeStrings);
-    }
+    }*/
 
     private static void addTimeString(String label, Map<String, String> timeStrings,
         List<DateTime> tValues, int startIndex, int endIndex, Period resolution)

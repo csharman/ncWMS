@@ -26,18 +26,45 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+package uk.ac.rdg.resc.ncwms.config;
+
+import java.util.HashMap;
+import java.util.Map;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.mvc.AbstractController;
+import uk.ac.rdg.resc.ncwms.graphics.ImageFormat;
+
 /**
- * <p><b>TODO: rework this!  The classes have been refactored!</b></p>
- * <p>This package contains the Controllers of ncWMS, which are the classes that
- * handle user requests (these are the main entry points to the ncWMS application
- * from the point of view of the end user).  The {@link uk.ac.rdg.resc.ncwms.controller.WmsController}
- * handles the requests for WMS operations (GetCapabilities, GetMap, GetFeatureInfo).
- * The {@link uk.ac.rdg.resc.ncwms.controller.AdminController} handles the administrative
- * web application.  The {@link uk.ac.rdg.resc.ncwms.controller.MetadataController}
- * handles requests for metadata from the Godiva2 website (for which the Capabilities
- * document is not suitable).  The {@link uk.ac.rdg.resc.ncwms.controller.FrontPageController}
- * handles requests for the ncWMS "Front Page", which is a simple diagnostic page that
- * provides links to the Capabilities document, the Godiva2 application, the admin
- * application and sample GetMap and GetFeatureInfo requests.</p>
+ * Displays the front page of the ncWMS application (i.e. jsp/index.jsp).
+ *
+ * @author Jon Blower
  */
-package uk.ac.rdg.resc.ncwms.controller;
+public class FrontPageController extends AbstractController
+{
+    // These objects will be injected by Spring
+    private Config config;
+    
+    /**
+     * Entry point
+     */
+    @Override
+    protected ModelAndView handleRequestInternal(HttpServletRequest httpServletRequest,
+        HttpServletResponse httpServletResponse) throws Exception
+    {
+        Map<String, Object> models = new HashMap<String, Object>();
+        models.put("config", this.config);
+        models.put("supportedImageFormats", ImageFormat.getSupportedMimeTypes());
+        return new ModelAndView("index", models); // results in display of jsp/index.jsp
+    }
+
+    /**
+     * Called by the Spring framework to inject the config object
+     */
+    public void setConfig(Config config)
+    {
+        this.config = config;
+    }
+    
+}

@@ -37,12 +37,13 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import javax.imageio.ImageIO;
@@ -73,8 +74,6 @@ import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.AbstractController;
 import uk.ac.rdg.resc.ncwms.cache.TileCache;
 import uk.ac.rdg.resc.ncwms.cache.TileCacheKey;
-import uk.ac.rdg.resc.ncwms.config.Config;
-import uk.ac.rdg.resc.ncwms.config.Dataset;
 import uk.ac.rdg.resc.ncwms.coordsys.CrsHelper;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.coordsys.LonLatPosition;
@@ -94,14 +93,16 @@ import uk.ac.rdg.resc.ncwms.exceptions.WmsException;
 import uk.ac.rdg.resc.ncwms.graphics.ImageFormat;
 import uk.ac.rdg.resc.ncwms.graphics.KmzFormat;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogger;
-import uk.ac.rdg.resc.ncwms.metadata.Layer;
 import uk.ac.rdg.resc.ncwms.config.MetadataStore;
-import uk.ac.rdg.resc.ncwms.metadata.TimestepInfo;
-import uk.ac.rdg.resc.ncwms.metadata.VectorLayer;
+import uk.ac.rdg.resc.ncwms.config.TimestepInfo;
+import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
 import uk.ac.rdg.resc.ncwms.styles.ColorPalette;
 import uk.ac.rdg.resc.ncwms.styles.ImageProducer;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry;
 import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
+import uk.ac.rdg.resc.ncwms.wms.Dataset;
+import uk.ac.rdg.resc.ncwms.wms.Layer;
+import uk.ac.rdg.resc.ncwms.wms.ServerConfig;
 
 /**
  * <p>This Controller is the entry point for all standard WMS operations
@@ -109,7 +110,7 @@ import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
  * is created.  Spring manages the creation of this object and the injection 
  * of the objects that it needs (i.e. its dependencies), such as the
  * {@linkplain MetadataStore store of metadata} and the
- * {@linkplain Config configuration object}.  The Spring configuration file <tt>web/WEB-INF/WMS-servlet.xml</tt>
+ * {@linkplain ServerConfig configuration object}.  The Spring configuration file <tt>web/WEB-INF/WMS-servlet.xml</tt>
  * defines all this information and also defines that this Controller will handle
  * all requests to the URI pattern <tt>/wms</tt>.  (See the SimpleUrlHandlerMapping
  * in <tt>web/WEB-INF/WMS-servlet.xml</tt>).</p>
@@ -138,7 +139,7 @@ public class WmsController extends AbstractController {
     private MetadataController metadataController;
 
     // These objects will be injected by Spring
-    private Config config;
+    private ServerConfig serverConfig;
     private UsageLogger usageLogger;
     private TileCache tileCache;
 
@@ -148,7 +149,7 @@ public class WmsController extends AbstractController {
      */
     public void init() {
         // Create a MetadataController for handling non-standard metadata request
-        this.metadataController = new MetadataController(this.config);
+        this.metadataController = new MetadataController(this.serverConfig);
 
         // We initialize the ColorPalettes.  We need to do this from here
         // because we need a way to find out the real path of the 
@@ -203,11 +204,11 @@ public class WmsController extends AbstractController {
             usageLogEntry.setWmsOperation(request);
             if (request.equals("GetCapabilities")) {
                 return getCapabilities(params, httpServletRequest, usageLogEntry);
-            } else if (request.equals("GetMap")) {
+            /*} else if (request.equals("GetMap")) {
                 return getMap(params, httpServletResponse, usageLogEntry);
             } else if (request.equals("GetFeatureInfo")) {
                 return getFeatureInfo(params, httpServletRequest, httpServletResponse,
-                        usageLogEntry);
+                        usageLogEntry);*/
             }
             // The REQUESTs below are non-standard and could be refactored into
             // a different servlet endpoint
@@ -217,11 +218,11 @@ public class WmsController extends AbstractController {
                 // Delegate to the MetadataController
                 return this.metadataController.handleRequest(httpServletRequest,
                         httpServletResponse, usageLogEntry);
-            } else if (request.equals("GetLegendGraphic")) {
+            /*} else if (request.equals("GetLegendGraphic")) {
                 // This is a request for an image that contains the colour scale
                 // and range for a given layer
-                return getLegendGraphic(params, httpServletResponse);
-            } else if (request.equals("GetKML")) {
+                return getLegendGraphic(params, httpServletResponse);*/
+            /*} else if (request.equals("GetKML")) {
                 // This is a request for a KML document that allows the selected
                 // layer(s) to be displayed in Google Earth in a manner that 
                 // supports region-based overlays.  Note that this is distinct
@@ -233,9 +234,9 @@ public class WmsController extends AbstractController {
             } else if (request.equals("GetKMLRegion")) {
                 // This is a request for a particular sub-region from Google Earth.
                 logUsage = false; // We don't log usage for this operation
-                return getKMLRegion(params, httpServletRequest);
-            } else if (request.equals("GetTransect")) {
-                return getTransect(params, httpServletResponse, usageLogEntry);
+                return getKMLRegion(params, httpServletRequest); */
+            /*} else if (request.equals("GetTransect")) {
+                return getTransect(params, httpServletResponse, usageLogEntry);*/
             } else {
                 throw new OperationNotSupportedException(request);
             }
@@ -250,12 +251,15 @@ public class WmsController extends AbstractController {
                 throw new Wms1_1_1Exception(wmse);
             }
             throw wmse;
-        } catch (IOException ioe) {
+        /*} catch (IOException ioe) {
             // Filter out IOExceptions, otherwise the log gets full of
             // them.  These most commonly occur when the client disconnects
             // part-way through an image download, very common when the user is
             // panning and zooming in a tile-based visualization client).
-            return null;
+            // TODO: we could detect a Tomcat ClientAbortException without a
+            // compile-time dependency on the class by doing a string comparison
+            // on the class name.
+            return null;*/
         } catch (Exception e) {
             // An unexpected (internal) error has occurred
             usageLogEntry.setException(e);
@@ -299,32 +303,34 @@ public class WmsController extends AbstractController {
         // The DATASET parameter is an optional parameter that allows a 
         // Capabilities document to be generated for a single dataset only
         String datasetId = params.getString("dataset");
-        Collection<Dataset> datasets;
+        Set<Dataset> datasets;
         DateTime lastUpdate;
         if (datasetId == null || datasetId.trim().equals("")) {
             // No specific dataset has been chosen so we create a Capabilities
             // document including every dataset.
             // First we check to see that the system admin has allowed us to
             // create a global Capabilities doc (this can be VERY large)
-            if (this.config.getServer().isAllowGlobalCapabilities()) {
-                datasets = this.config.getDatasets().values();
+            if (this.serverConfig.getAllowsGlobalCapabilities()) {
+                datasets = this.serverConfig.getDatasets();
             } else {
-                throw new WmsException("Cannot create a Capabilities document " + "that includes all datasets on this server. " + "You must specify a dataset identifier with &amp;DATASET=");
+                throw new WmsException("Cannot create a Capabilities document "
+                        + "that includes all datasets on this server. "
+                        + "You must specify a dataset identifier with &amp;DATASET=");
             }
             // The last update time for the Capabilities doc is the last time
             // any of the datasets were updated
-            lastUpdate = this.config.getLastUpdateTime();
+            lastUpdate = this.serverConfig.getLastUpdateTime();
         } else {
             // Look for this dataset
-            Dataset ds = this.config.getDatasets().get(datasetId);
+            Dataset ds = this.serverConfig.getDatasetById(datasetId);
             if (ds == null) {
                 throw new WmsException("There is no dataset with ID " + datasetId);
             }
-            datasets = new ArrayList<Dataset>(1);
+            datasets = new HashSet<Dataset>(1);
             datasets.add(ds);
             // The last update time for the Capabilities doc is the last time
             // this particular dataset was updated
-            lastUpdate = ds.getLastUpdate();
+            lastUpdate = ds.getLastUpdateTime();
         }
 
         // Do UPDATESEQUENCE negotiation according to WMS 1.3.0 spec (sec 7.2.3.5)
@@ -352,7 +358,7 @@ public class WmsController extends AbstractController {
         }
 
         Map<String, Object> models = new HashMap<String, Object>();
-        models.put("config", this.config);
+        models.put("config", this.serverConfig);
         models.put("datasets", datasets);
         models.put("lastUpdate", lastUpdate);
         models.put("wmsBaseUrl", httpServletRequest.getRequestURL().toString());
@@ -425,7 +431,7 @@ public class WmsController extends AbstractController {
      * @see uk.ac.rdg.resc.ncwms.datareader.DefaultDataReader#read DefaultDataReader.read()
      * @todo Separate Model and View code more cleanly
      */
-    protected ModelAndView getMap(RequestParams params,
+    /*protected ModelAndView getMap(RequestParams params,
             HttpServletResponse httpServletResponse, UsageLogEntry usageLogEntry)
             throws WmsException, Exception {
         // Parse the URL parameters
@@ -444,15 +450,15 @@ public class WmsController extends AbstractController {
                     WmsController.LAYER_LIMIT + " layer(s) simultaneously from this server");
         }
         // TODO: support more than one layer (superimposition, difference, mask)
-        Layer layer = this.config.getLayerByUniqueName(layers[0]);
+        Layer layer = this.serverConfig.getLayerByUniqueName(layers[0]);
         usageLogEntry.setLayer(layer);
 
         // Check the dimensions of the image
-        if (dr.getHeight() > this.config.getServer().getMaxImageHeight() ||
-            dr.getWidth()  > this.config.getServer().getMaxImageWidth()) {
+        if (dr.getHeight() > this.serverConfig.getMaxImageHeight() ||
+            dr.getWidth()  > this.serverConfig.getMaxImageWidth()) {
             throw new WmsException("Requested image size exceeds the maximum of "
-                    + this.config.getServer().getMaxImageWidth() + "x"
-                    + this.config.getServer().getMaxImageHeight());
+                    + this.serverConfig.getMaxImageWidth() + "x"
+                    + this.serverConfig.getMaxImageHeight());
         }
 
         // Get the grid onto which the data will be projected
@@ -518,7 +524,7 @@ public class WmsController extends AbstractController {
                 grid.getBbox(), legend);
 
         return null;
-    }
+    }*/
 
     /** Simple class to hold a filename and a time index in the file */
     private static final class FilenameAndTindex
@@ -533,7 +539,7 @@ public class WmsController extends AbstractController {
      * Given a layer and an index along the layer's time axis, this method
      * returns the exact file and the time index that must be read from the file.
      */
-    private static FilenameAndTindex getFilenameAndTindex(Layer layer, int tIndexInLayer) throws Exception {
+    /*private static FilenameAndTindex getFilenameAndTindex(Layer layer, int tIndexInLayer) throws Exception {
         FilenameAndTindex ft = new FilenameAndTindex();
         if (tIndexInLayer >= 0) {
             TimestepInfo tInfo = layer.getTimesteps().get(tIndexInLayer);
@@ -550,7 +556,7 @@ public class WmsController extends AbstractController {
             ft.tIndexInFile = tIndexInLayer;
         }
         return ft;
-    }
+    }*/
 
     /**
      * Reads data from the given variable, from a single timestep,
@@ -558,7 +564,7 @@ public class WmsController extends AbstractController {
      * This List will have a single element if the variable is scalar, or two
      * elements if the variable is a vector
      */
-    static List<float[]> readData(Layer layer, int tIndexInLayer, int zIndex,
+    /*static List<float[]> readData(Layer layer, int tIndexInLayer, int zIndex,
             PointList pointList, TileCache tileCache, UsageLogEntry usageLogEntry)
             throws Exception {
         List<float[]> picData = new ArrayList<float[]>();
@@ -573,7 +579,7 @@ public class WmsController extends AbstractController {
                     usageLogEntry));
         }
         return picData;
-    }
+    }*/
 
     /**
      * Reads an array of data from a Layer that is <b>not</b> a VectorLayer.
@@ -581,7 +587,7 @@ public class WmsController extends AbstractController {
      * about the usage of this WMS (may be null, e.g. if this is being called
      * from the MetadataLoader).
      */
-    private static float[] readDataArray(Layer layer, int tIndexInLayer, int zIndex,
+    /*private static float[] readDataArray(Layer layer, int tIndexInLayer, int zIndex,
             PointList pointList, TileCache tileCache, UsageLogEntry usageLogEntry)
             throws Exception {
         // Get a DataReader object for reading the data
@@ -616,7 +622,7 @@ public class WmsController extends AbstractController {
         }
 
         return data;
-    }
+    }*/
 
     /**
      * Executes the GetFeatureInfo operation
@@ -624,7 +630,7 @@ public class WmsController extends AbstractController {
      * @throws Exception if an internal error occurs
      * @todo Separate Model and View code more cleanly
      */
-    protected ModelAndView getFeatureInfo(RequestParams params,
+    /*protected ModelAndView getFeatureInfo(RequestParams params,
             HttpServletRequest httpServletRequest,
             HttpServletResponse httpServletResponse,
             UsageLogEntry usageLogEntry)
@@ -655,7 +661,7 @@ public class WmsController extends AbstractController {
 
         // Get the layer we're interested in
         String layerName = dataRequest.getLayers()[0];
-        Layer layer = this.config.getLayerByUniqueName(layerName);
+        Layer layer = this.serverConfig.getLayerByUniqueName(layerName);
         usageLogEntry.setLayer(layer);
         if (!layer.isQueryable() || !this.config.getServer().isAllowFeatureInfo()) {
             throw new LayerNotQueryableException(layerName);
@@ -750,7 +756,7 @@ public class WmsController extends AbstractController {
                     chart, 400, 300);
             return null;
         }
-    }
+    }*/
 
     /**
      * Reads timeseries data from the given variable from a single point,
@@ -760,7 +766,7 @@ public class WmsController extends AbstractController {
      * an array of floats, representing the timeseries data.  The length of each
      * array will equal tIndices.size().
      */
-    private static List<float[]> readTimeseriesData(Layer layer,
+    /*private static List<float[]> readTimeseriesData(Layer layer,
             LonLatPosition lonLat, List<Integer> tIndices, int zIndex)
             throws Exception {
         List<float[]> tsData = new ArrayList<float[]>();
@@ -774,12 +780,12 @@ public class WmsController extends AbstractController {
             tsData.add(readTimeseriesDataArray(layer, lonLat, tIndices, zIndex));
         }
         return tsData;
-    }
+    }*/
 
     /**
      * Reads a timeseries of data from a Layer that is <b>not</b> a VectorLayer.
      */
-    private static float[] readTimeseriesDataArray(Layer layer,
+    /*private static float[] readTimeseriesDataArray(Layer layer,
             LonLatPosition lonLat, List<Integer> tIndices, int zIndex)
             throws Exception {
 
@@ -827,13 +833,13 @@ public class WmsController extends AbstractController {
         }
 
         return arr;
-    }
+    }*/
 
     /**
      * Creates and returns a PNG image with the colour scale and range for 
      * a given Layer
      */
-    private ModelAndView getLegendGraphic(RequestParams params,
+    /*private ModelAndView getLegendGraphic(RequestParams params,
             HttpServletResponse httpServletResponse) throws Exception {
         BufferedImage legend;
 
@@ -856,7 +862,7 @@ public class WmsController extends AbstractController {
             // We're creating a legend with supporting text so we need to know
             // the colour scale range and the layer in question
             String layerName = params.getMandatoryString("layer");
-            Layer layer = this.config.getLayerByUniqueName(layerName);
+            Layer layer = this.serverConfig.getLayerByUniqueName(layerName);
 
             // We default to the layer's default palette if none is specified
             if (paletteName == null) {
@@ -878,7 +884,9 @@ public class WmsController extends AbstractController {
                 scaleMin = scaleRange[0];
                 scaleMax = scaleRange[1];
             } else if (colorScaleRange.isAuto()) {
-                throw new WmsException("Cannot automatically create a colour scale " + "for a legend graphic.  Use COLORSCALERANGE=default or specify " + "the scale extremes explicitly.");
+                throw new WmsException("Cannot automatically create a colour scale "
+                    + "for a legend graphic.  Use COLORSCALERANGE=default or specify "
+                    + "the scale extremes explicitly.");
             } else {
                 scaleMin = colorScaleRange.getScaleMin();
                 scaleMax = colorScaleRange.getScaleMax();
@@ -891,16 +899,17 @@ public class WmsController extends AbstractController {
         ImageIO.write(legend, "png", httpServletResponse.getOutputStream());
 
         return null;
-    }
+    }*/
 
-    private ModelAndView getKML(RequestParams params,
+    // This doesn't really work well so we're commenting it out for now.
+    /*private ModelAndView getKML(RequestParams params,
             HttpServletRequest httpServletRequest) throws Exception {
         // Get the Layer objects that we are to include in the KML.  The layer
         // objects are bundled with information about the top-level tiles that
         // need to be created in the top-level KML
         List<TiledLayer> tiledLayers = new ArrayList<TiledLayer>();
         for (String layerName : params.getMandatoryString("layers").split(",")) {
-            Layer layer = this.config.getLayerByUniqueName(layerName);
+            Layer layer = this.serverConfig.getLayerByUniqueName(layerName);
             // The data will be displayed on Google Earth using tiles.  To take
             // best advantage of the tile cache, we want to make sure that the
             // tiles match those that will be generated by the Godiva2 site.
@@ -969,15 +978,15 @@ public class WmsController extends AbstractController {
 
         Map<String, Object> models = new HashMap<String, Object>();
         models.put("tiledLayers", tiledLayers);
-        models.put("title", this.config.getServer().getTitle());
-        models.put("description", this.config.getServer().getAbstract());
+        models.put("title", this.serverConfig.getTitle());
+        models.put("description", this.serverConfig.getAbstract());
         models.put("wmsBaseUrl", httpServletRequest.getRequestURL().toString());
         return new ModelAndView("topLevelKML", models);
     }
 
     private ModelAndView getKMLRegion(RequestParams params,
             HttpServletRequest httpServletRequest) throws Exception {
-        Layer layer = this.config.getLayerByUniqueName(params.getMandatoryString("layer"));
+        Layer layer = this.serverConfig.getLayerByUniqueName(params.getMandatoryString("layer"));
         double[] dbox = WmsUtils.parseBbox(params.getMandatoryString("dbox"));
         // Calculate the bounding boxes of all the four sub-regions
         double[][] regionDBoxes = new double[4][4];
@@ -1013,19 +1022,19 @@ public class WmsController extends AbstractController {
         models.put("regionDBoxes", regionDBoxes);
         models.put("wmsBaseUrl", httpServletRequest.getRequestURL().toString());
         return new ModelAndView("regionBasedOverlay", models);
-    }
+    }*/
 
     /**
      * Outputs a transect (data value versus distance along a path) in PNG or
      * XML format.
      * @todo this method is too long, refactor!
      */
-    private ModelAndView getTransect(RequestParams params, HttpServletResponse response,
+    /*private ModelAndView getTransect(RequestParams params, HttpServletResponse response,
             UsageLogEntry usageLogEntry) throws Exception {
 
         // Parse the request parameters
         String layerStr = params.getMandatoryString("layer");
-        Layer layer = this.config.getLayerByUniqueName(layerStr);
+        Layer layer = this.serverConfig.getLayerByUniqueName(layerStr);
         String crsCode = params.getMandatoryString("crs");
         String lineString = params.getMandatoryString("linestring");
         String outputFormat = params.getMandatoryString("format");
@@ -1087,8 +1096,8 @@ public class WmsController extends AbstractController {
 
             XYPlot plot = chart.getXYPlot();
             plot.getRenderer().setSeriesPaint(0, Color.RED);
-            if (layer.getCopyrightStatement() != null) {
-                final TextTitle textTitle = new TextTitle(layer.getCopyrightStatement());
+            if (layer.getDataset().getCopyrightStatement() != null) {
+                final TextTitle textTitle = new TextTitle(layer.getDataset().getCopyrightStatement());
                 textTitle.setFont(new Font("SansSerif", Font.PLAIN, 10));
                 textTitle.setPosition(RectangleEdge.BOTTOM);
                 textTitle.setHorizontalAlignment(HorizontalAlignment.RIGHT);
@@ -1148,7 +1157,7 @@ public class WmsController extends AbstractController {
             return new ModelAndView("showTransect_xml", models);
         }
         return null;
-    }
+    }*/
 
     /**
      * Prints a double-precision number to 2 decimal places
@@ -1176,7 +1185,7 @@ public class WmsController extends AbstractController {
      * @return a PointList that contains (near) the minimum necessary number of
      * points to sample a layer's source grid of data.
      */
-    private static PointList getOptimalTransectPointList(Layer layer,
+    /*private static PointList getOptimalTransectPointList(Layer layer,
             LineString transect) throws Exception {
         // We need to work out how many points we need to include in order to
         // completely sample the data grid (i.e. we need the resolution of the
@@ -1210,7 +1219,7 @@ public class WmsController extends AbstractController {
                 return pointList;
             }
         }
-    }
+    }*/
 
     /**
      * @return the index on the z axis of the requested Z value.  Returns 0 (the
@@ -1220,7 +1229,7 @@ public class WmsController extends AbstractController {
      * @throws InvalidDimensionValueException if the provided z value is not
      * a valid floating-point number or if it is not a valid value for this axis.
      */
-    static int getZIndex(String zValue, Layer layer) throws InvalidDimensionValueException 
+    /*static int getZIndex(String zValue, Layer layer) throws InvalidDimensionValueException
     {
         if (!layer.isZaxisPresent()) return -1;
         
@@ -1236,14 +1245,14 @@ public class WmsController extends AbstractController {
         }
 
         return layer.findZIndex(zValue);
-    }
+    }*/
 
     /**
      * @return a List of indices along the time axis corresponding with the
      * requested TIME parameter.  If there is no time axis, this will return
      * a List with a single value of -1.
      */
-    static List<Integer> getTIndices(String timeString, Layer layer)
+    /*static List<Integer> getTIndices(String timeString, Layer layer)
             throws InvalidDimensionValueException {
 
         // The variable has no time axis.  We ignore any provided TIME value.
@@ -1268,7 +1277,7 @@ public class WmsController extends AbstractController {
             }
         }
         return tIndices;
-    }
+    }*/
 
     /**
      * Called by Spring to inject the metadata controller
@@ -1278,10 +1287,11 @@ public class WmsController extends AbstractController {
     }
 
     /**
-     * Called by the Spring framework to inject the config object
+     * Called by the Spring framework to inject the object that represents the
+     * server's configuration.
      */
-    public void setConfig(Config config) {
-        this.config = config;
+    public void setServerConfig(ServerConfig serverConfig) {
+        this.serverConfig = serverConfig;
     }
 
     /**

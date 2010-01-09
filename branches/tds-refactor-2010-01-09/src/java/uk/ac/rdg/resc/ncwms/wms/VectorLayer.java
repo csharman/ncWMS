@@ -26,18 +26,15 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+package uk.ac.rdg.resc.ncwms.wms;
+
 /**
- * <p><b>TODO: rework this!  The classes have been refactored!</b></p>
- * <p>This package contains the Controllers of ncWMS, which are the classes that
- * handle user requests (these are the main entry points to the ncWMS application
- * from the point of view of the end user).  The {@link uk.ac.rdg.resc.ncwms.controller.WmsController}
- * handles the requests for WMS operations (GetCapabilities, GetMap, GetFeatureInfo).
- * The {@link uk.ac.rdg.resc.ncwms.controller.AdminController} handles the administrative
- * web application.  The {@link uk.ac.rdg.resc.ncwms.controller.MetadataController}
- * handles requests for metadata from the Godiva2 website (for which the Capabilities
- * document is not suitable).  The {@link uk.ac.rdg.resc.ncwms.controller.FrontPageController}
- * handles requests for the ncWMS "Front Page", which is a simple diagnostic page that
- * provides links to the Capabilities document, the Godiva2 application, the admin
- * application and sample GetMap and GetFeatureInfo requests.</p>
+ * A displayable Layer that is made up of two vector components (e.g. northward
+ * and eastward velocities).
+ * @author Jon
  */
-package uk.ac.rdg.resc.ncwms.controller;
+public interface VectorLayer extends Layer
+{
+    public Layer getEastwardComponent();
+    public Layer getNorthwardComponent();
+}

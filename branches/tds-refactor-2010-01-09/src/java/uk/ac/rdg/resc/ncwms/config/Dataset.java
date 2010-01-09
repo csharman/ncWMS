@@ -34,8 +34,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.oro.io.GlobFilenameFilter;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
@@ -46,32 +48,22 @@ import org.simpleframework.xml.Root;
 import org.simpleframework.xml.load.Commit;
 import org.simpleframework.xml.load.PersistenceException;
 import org.simpleframework.xml.load.Validate;
-import uk.ac.rdg.resc.ncwms.metadata.Layer;
+import uk.ac.rdg.resc.ncwms.datareader.DataReader;
 import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
+import uk.ac.rdg.resc.ncwms.wms.Layer;
 
 /**
- * A dataset Java bean: contains a number of Layer objects.
+ * A dataset object in the ncWMS configuration system: contains a number of
+ * Layer objects, which are held in memory and loaded periodically, triggered
+ * by the {@link MetadataLoader}.
  *
  * @author Jon Blower
- * $Revision$
- * $Date$
- * $Log$
+ * @todo A lot of these methods can be made package-private
  */
 @Root(name="dataset")
-public class Dataset
+public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
 {
     private static final Logger logger = LoggerFactory.getLogger(Dataset.class);
-    
-    /**
-     * The state of a Dataset.
-     * NEEDS_REFRESH: Dataset is new or has changed and needs to be loaded
-     * SCHEDULED: Needs to be loaded and is in the queue
-     * LOADING: In the process of loading
-     * READY: Ready for use
-     * UPDATING: A previously-ready dataset is synchronizing with the disk
-     * ERROR: An error occurred when loading the dataset.
-     */
-    public static enum State { NEEDS_REFRESH, SCHEDULED, LOADING, READY, UPDATING, ERROR  };
     
     @Attribute(name="id")
     private String id; // Unique ID for this dataset
@@ -112,18 +104,30 @@ public class Dataset
     @ElementList(name="variables", type=Variable.class, required=false)
     private ArrayList<Variable> variableList = new ArrayList<Variable>();
     
-    private State state;     // State of this dataset.  Will be set in Config.readConfig()
+    private State state = State.NEEDS_REFRESH;     // State of this dataset.
     
     private Exception err;   // Set if there is an error loading the dataset
-    private StringBuffer loadingProgress = new StringBuffer(); // Used to express progress with loading
+    private StringBuilder loadingProgress = new StringBuilder(); // Used to express progress with loading
                                          // the metadata for this dataset
-    private Config config;   // The Config object to which this belongs
 
     /**
-     * This contains the map of dataset IDs to Dataset objects.  We use a
+     * This contains the map of variable IDs to Variable objects.  We use a
      * LinkedHashMap so that the order of datasets in the Map is preserved.
      */
     private Map<String, Variable> variables = new LinkedHashMap<String, Variable>();
+
+    /** The object that will be used for reading metadata (Layers) and data
+     * from the source files */
+    private DataReader dataReader;
+
+    /** The time at which this dataset's stored Layers were last updated, or
+     * null if the Layers have not yet been loaded */
+    private DateTime lastUpdateTime = null;
+
+    /** The Layers that belong to this dataset.  This will be loaded through the
+     * {@link #loadLayers()} method, which is called periodically by the
+     * {@link MetadataLoader}. */
+    private Map<String, Layer> layers;
 
     /**
      * Checks that the data we have read are valid.  Checks that there are no
@@ -160,6 +164,7 @@ public class Dataset
         }
     }
 
+    @Override
     public String getId()
     {
         return this.id;
@@ -183,22 +188,44 @@ public class Dataset
     /**
      * @return true if this dataset is ready for use
      */
+    @Override
     public synchronized boolean isReady()
     {
-        return this.disabled == false &&
-            (this.state == State.READY || this.state == State.UPDATING);
+        return !this.isDisabled() &&
+               (this.state == State.READY ||
+                this.state == State.UPDATING);
     }
 
     /**
-     * @return true if this dataset is in the process of being loaded
+     * @return true if this dataset is not ready because it is being loaded
      */
+    @Override
     public synchronized boolean isLoading()
     {
         return !this.isDisabled() &&
                (this.state == State.NEEDS_REFRESH ||
-                this.state == State.SCHEDULED ||
-                this.state == State.LOADING ||
-                this.state == State.UPDATING);
+                this.state == State.LOADING);
+    }
+
+    @Override
+    public boolean isError()
+    {
+        return this.state == State.ERROR;
+    }
+
+    /**
+     * If this Dataset has not been loaded correctly, this returns the Exception
+     * that was thrown.  If the dataset has no errors, this returns null.
+     */
+    @Override
+    public Exception getException()
+    {
+        return this.state == State.ERROR ? this.err : null;
+    }
+
+    public State getState()
+    {
+        return this.state;
     }
     
     /**
@@ -217,6 +244,7 @@ public class Dataset
     /**
      * @return the human-readable Title of this dataset
      */
+    @Override
     public String getTitle()
     {
         return this.title;
@@ -225,76 +253,6 @@ public class Dataset
     public void setTitle(String title)
     {
         this.title = title;
-    }
-    
-    /**
-     * @return true if the metadata from this dataset needs to be reloaded
-     * automatically via the periodic reloader in MetadataLoader.  Note that this
-     * does something more sophisticated than simply checking that
-     * this.state == NEEDS_REFRESH!
-     */
-    public boolean needsRefresh()
-    {
-        DateTime lastUpdate = this.getLastUpdate();
-        logger.debug("Last update time for dataset {} is {}", this.id, lastUpdate);
-        logger.debug("State of dataset {} is {}", this.id, this.state);
-        logger.debug("Disabled = {}", this.disabled);
-        if (this.disabled || this.state == State.SCHEDULED ||
-            this.state == State.LOADING || this.state == State.UPDATING)
-        {
-            return false;
-        }
-        else if (this.state == State.ERROR || this.state == State.NEEDS_REFRESH
-            || lastUpdate == null)
-        {
-            return true;
-        }
-        else if (this.updateInterval < 0)
-        {
-            return false; // We never update this dataset
-        }
-        else
-        {
-            // State = READY.  Check the age of the metadata
-            // Return true if we are after the next scheduled update
-            return new DateTime().isAfter(lastUpdate.plusMinutes(this.updateInterval));
-        }
-    }
-    
-    /**
-     * @return true if there is an error with this dataset
-     */
-    public boolean isError()
-    {
-        return this.state == State.ERROR;
-    }
-    
-    /**
-     * If this Dataset has not been loaded correctly, this returns the Exception
-     * that was thrown.  If the dataset has no errors, this returns null.
-     */
-    public Exception getException()
-    {
-        return this.state == State.ERROR ? this.err : null;
-    }
-    
-    /**
-     * Called by the MetadataReloader to set the error associated with this
-     * dataset
-     */
-    public void setException(Exception e)
-    {
-        this.err = e;
-    }
-    
-    public State getState()
-    {
-        return this.state;
-    }
-    
-    public void setState(State state)
-    {
-        this.state = state;
     }
     
     @Override
@@ -308,7 +266,7 @@ public class Dataset
         return dataReaderClass;
     }
 
-    public void setDataReaderClass(String dataReaderClass)
+    void setDataReaderClass(String dataReaderClass)
     {
         this.dataReaderClass = dataReaderClass;
     }
@@ -324,49 +282,71 @@ public class Dataset
     /**
      * Sets the update interval for this dataset in minutes
      */
-    public void setUpdateInterval(int updateInterval)
+    void setUpdateInterval(int updateInterval)
     {
         this.updateInterval = updateInterval;
     }
-
-    public void setConfig(Config config)
+    
+    /**
+     * @return a DateTime object representing the time at which this dataset was
+     * last updated, or the present time if this is unknown.  This is only used
+     * in the generation of Capabilities documents.
+     */
+    @Override
+    public DateTime getLastUpdateTime()
     {
-        this.config = config;
+        return this.lastUpdateTime == null ? new DateTime() : this.lastUpdateTime;
+    }
+
+    /**
+     * Returns the layer in this dataset with the given id, or null if there is
+     * no layer in this dataset with the given id.
+     * @param layerId The layer identifier, unique within this dataset.  Note that
+     * this is distinct from the layer name, which is unique on the server.
+     * @return the layer in this dataset with the given id, or null if there is
+     * no layer in this dataset with the given id.
+     */
+    Layer getLayer(String layerId)
+    {
+        return this.layers.get(layerId);
     }
     
     /**
-     * @return a Date object representing the time at which this dataset was
-     * last updated, or null if this dataset has never been updated.  Delegates
-     * to {@link uk.ac.rdg.resc.ncwms.metadata.MetadataStore#getLastUpdateTime}
-     * (because the last update time is 
-     * stored with the metadata - which may or may not be persistent across
-     * server reboots, depending on the type of MetadataStore).
+     * @return a Set of all the layers in this dataset.
      */
-    public DateTime getLastUpdate()
+    @Override
+    public Set<Layer> getLayers()
     {
-        return this.config.getMetadataStore().getLastUpdateTime(this.id);
-    }
-    
-    /**
-     * @return a Collection of all the layers in this dataset.  A convenience
-     * method that reads from the metadata store.
-     * @throws Exception if there was an error reading from the store.
-     */
-    public Collection<? extends Layer> getLayers() throws Exception
-    {
-        return this.config.getMetadataStore().getLayersInDataset(this.id);
+        Collection<Layer> layersInDataset = this.layers.values();
+        Set<Layer> layerSet = new LinkedHashSet<Layer>(layersInDataset.size());
+        for (Layer layerInDataset : layersInDataset) {
+            layerSet.add(layerInDataset);
+        }
+        return layerSet;
     }
 
+    /**
+     * Returns true if this dataset has been disabled, which will make it
+     * invisible to the outside world.
+     * @return true if this dataset has been disabled
+     */
+    @Override
     public boolean isDisabled()
     {
         return disabled;
     }
 
+    /**
+     * Called by the admin application to hide a dataset completely from public
+     * view
+     * @param disabled
+     */
     public void setDisabled(boolean disabled)
     {
         this.disabled = disabled;
     }
 
+    @Override
     public String getCopyrightStatement()
     {
         return copyrightStatement;
@@ -377,7 +357,8 @@ public class Dataset
         this.copyrightStatement = copyrightStatement;
     }
 
-    public String getMoreInfo()
+    @Override
+    public String getMoreInfoUrl()
     {
         return moreInfo;
     }
@@ -394,25 +375,6 @@ public class Dataset
     public String getLoadingProgress()
     {
         return this.loadingProgress.toString();
-    }
-
-    /**
-     * Sets an explanation of the current progress with loading this dataset.
-     * Will be displayed in the admin application when isLoading() == true.
-     * Also logs the progress string to the debug stream.
-     */
-    public void setLoadingProgress(String progress)
-    {
-        this.loadingProgress = new StringBuffer(progress);
-    }
-
-    /**
-     * Adds a newline to the end of the {@link #getLoadingProgress() current
-     * loading progress} and appends the given string.
-     */
-    public void appendLoadingProgress(String progressUpdate)
-    {
-        this.loadingProgress.append("\n" + progressUpdate);
     }
 
     /**
@@ -436,6 +398,112 @@ public class Dataset
     }
 
     /**
+     * Forces this dataset to be refreshed the next time it has an opportunity
+     */
+    void forceRefresh()
+    {
+        this.state = State.NEEDS_REFRESH;
+    }
+
+    /**
+     * Called by the scheduled reloader in the {@link Config} object to load
+     * the Layers from the data files and store them in memory.  This method
+     * is called periodially by the config object and is not called by any
+     * other client.  This is also the only method that can update the
+     * {@link #getState()} of the dataset.  Therefore we know that multiple
+     * threads will not be calling this method simultaneously and we don't
+     * have to synchronize anything.
+     */
+    void loadLayers()
+    {
+        // Include the id of the dataset in the thread for debugging purposes
+        // Comment this out to use the default thread names (e.g. "pool-2-thread-1")
+        Thread.currentThread().setName("load-metadata-" + this.id);
+
+        // Check to see if this dataset needs to have its metadata refreshed
+        if (!this.needsRefresh()) return;
+
+        // Now load the layers and manage the state of the dataset
+        try
+        {
+            // if lastUpdateTime == null, this dataset has never previously been loaded.
+            this.state = this.lastUpdateTime == null ? State.LOADING : State.UPDATING;
+            this.doLoadLayers();
+            this.state = State.READY;
+            this.lastUpdateTime = new DateTime();
+        }
+        catch (Exception e)
+        {
+            this.state = State.ERROR;
+            // Reduce logging volume by only logging the error if it's a new
+            // type of exception.
+            if (this.err == null || this.err.getClass() != e.getClass())
+            {
+                logger.error(e.getClass().getName() + " loading metadata for dataset "
+                    + this.id, e);
+            }
+            this.err = e;
+        }
+    }
+    
+    /**
+     * @return true if the metadata from this dataset needs to be reloaded.
+     */
+    private boolean needsRefresh()
+    {
+        // We don't use getLastUpdateTime(), because the dataset might not ever
+        // have been loaded, and so lastUpdate might be null. (getLastUpdateTime()
+        // is defined never to return null.)
+        logger.debug("Last update time for dataset {} is {}", this.id, this.lastUpdateTime);
+        logger.debug("State of dataset {} is {}", this.id, this.state);
+        logger.debug("Disabled = {}", this.disabled);
+        if (this.disabled || this.state == State.LOADING || this.state == State.UPDATING)
+        {
+            return false;
+        }
+        else if (this.state == State.NEEDS_REFRESH || this.state == State.ERROR)
+        {
+            return true;
+        }
+        else if (this.updateInterval < 0)
+        {
+            return false; // We never update this dataset
+        }
+        else
+        {
+            // State = READY.  Check the age of the metadata
+            // Return true if we are after the next scheduled update
+            return new DateTime().isAfter(this.lastUpdateTime.plusMinutes(this.updateInterval));
+        }
+    }
+
+    /**
+     * Does the job of loading the metadata from this dataset.
+     */
+    private void doLoadLayers() throws Exception
+    {
+        // Get the filenames that comprise this dataset, expanding any glob expressions
+        List<String> filenames = this.getFiles();
+        if (filenames.size() == 0)
+        {
+            throw new Exception(this.location + " does not match any files");
+        }
+
+        // Now extract the data for each individual file
+        // LinkedHashMaps preserve the order of insertion
+        Map<String, LayerImpl> layers = new LinkedHashMap<String, LayerImpl>();
+        for (String filename : filenames)
+        {
+            // Read the metadata from the file and update the Map.
+            // TODO: only do this if the file's last modified date has changed?
+            // This would require us to keep the previous metadata...
+            this.dataReader.findAndUpdateLayers(filename, layers);
+
+            // Follow the steps in MetadataLoader, updating the progress information
+        }
+    }
+
+    /**
      * Gets a List of the files that comprise this dataset; if this dataset's
      * location is a glob expression, this will be expanded.  This method
      * recursively searches directories, allowing for glob expressions like
@@ -448,7 +516,7 @@ public class Dataset
      * path
      * @author Mike Grant, Plymouth Marine Labs; Jon Blower
      */
-    public List<String> getFiles() throws Exception
+    private List<String> getFiles() throws Exception
     {
         if (WmsUtils.isOpendapLocation(this.location)) return Arrays.asList(this.location);
         // Check that the glob expression is an absolute path.  Relative paths
@@ -521,4 +589,26 @@ public class Dataset
         }
         return filePaths;
     }
+
+    /**
+     * The state of a Dataset.
+     */
+    public static enum State {
+
+        /** Dataset is new or has changed and needs to be loaded */
+        NEEDS_REFRESH,
+
+        /** In the process of loading */
+        LOADING,
+
+        /** Ready for use */
+        READY,
+
+        /** Dataset is ready but is internally sychronizing its metadata */
+        UPDATING,
+
+        /** An error occurred when loading the dataset. */
+        ERROR;
+
+    };
 }

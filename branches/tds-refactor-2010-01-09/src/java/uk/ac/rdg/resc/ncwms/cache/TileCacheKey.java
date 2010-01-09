@@ -33,7 +33,7 @@ import java.io.Serializable;
 import java.util.Arrays;
 import uk.ac.rdg.resc.ncwms.coordsys.CrsHelper;
 import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
-import uk.ac.rdg.resc.ncwms.metadata.Layer;
+import uk.ac.rdg.resc.ncwms.wms.Layer;
 import uk.ac.rdg.resc.ncwms.coordsys.Longitude;
 import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
 
@@ -110,7 +110,7 @@ public class TileCacheKey implements Serializable
         {
             // This is an OPeNDAP dataset or NcML aggregation, so we need
             // to store the last-modified time of the relevant Dataset
-            this.datasetLastModified = layer.getDataset().getLastUpdate().getMillis();
+            this.datasetLastModified = layer.getDataset().getLastUpdateTime().getMillis();
         }
         this.tIndex = tIndex;
         this.zIndex = zIndex;

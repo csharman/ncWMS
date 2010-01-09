@@ -42,13 +42,10 @@ import org.slf4j.LoggerFactory;
 import ucar.nc2.dataset.NetcdfDataset;
 import ucar.unidata.io.RandomAccessFile;
 import uk.ac.rdg.resc.ncwms.config.Dataset.State;
-import uk.ac.rdg.resc.ncwms.controller.MetadataController;
 import uk.ac.rdg.resc.ncwms.coordsys.CrsHelper;
 import uk.ac.rdg.resc.ncwms.datareader.DataReader;
 import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.datareader.NcwmsCredentialsProvider;
-import uk.ac.rdg.resc.ncwms.metadata.LayerImpl;
-import uk.ac.rdg.resc.ncwms.metadata.VectorLayerImpl;
 import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
 
 /**
@@ -67,7 +64,6 @@ public class MetadataLoader
     private Timer timer = new Timer("Dataset reloader", true);
     
     private Config config; // Will be injected by Spring
-    private MetadataStore metadataStore; // Ditto
     private NcwmsCredentialsProvider credentialsProvider; // Ditto
     
     // Controls the number of datasets that can be reloaded at any one time
@@ -101,13 +97,12 @@ public class MetadataLoader
         /**
          * Task that runs periodically, refreshing the metadata catalogue.
          * Each dataset is loaded in a new thread
-         * @todo Use a thread pool to prevent server overload?
          */
         this.timer.schedule(new TimerTask() {
             @Override
             public void run()
             {
-                for (Dataset ds : config.getDatasets().values())
+                for (Dataset ds : config.getAllDatasets().values())
                 {
                     boolean needsRefresh = false;
                     synchronized(ds)
@@ -287,7 +282,7 @@ public class MetadataLoader
             if (var.getColorScaleRange() == null)
             {
                 dataset.appendLoadingProgress("Reading min-max data for layer "
-                    + layer.getLayerName());
+                    + layer.getName());
                 float[] minMax;
                 try
                 {
@@ -297,8 +292,9 @@ public class MetadataLoader
                     // Read from the first t and z indices
                     int tIndex = layer.isTaxisPresent() ? 0 : -1;
                     int zIndex = layer.isZaxisPresent() ? 0 : -1;
-                    minMax = MetadataController.findMinMax(layer, tIndex,
-                        zIndex, grid, null);
+                    minMax = new float[]{-50.0f, 50.0f};
+                            //MetadataController.findMinMax(layer, tIndex,
+                        //zIndex, grid, null);
                     if (Float.isNaN(minMax[0]) || Float.isNaN(minMax[1]))
                     {
                         // Just guess at a scale
@@ -388,14 +384,6 @@ public class MetadataLoader
     public void setConfig(Config config)
     {
         this.config = config;
-    }
-
-    /**
-     * Called by Spring to inject the metadata store
-     */
-    public void setMetadataStore(MetadataStore metadataStore)
-    {
-        this.metadataStore = metadataStore;
     }
 
     public void setCredentialsProvider(NcwmsCredentialsProvider credentialsProvider)
