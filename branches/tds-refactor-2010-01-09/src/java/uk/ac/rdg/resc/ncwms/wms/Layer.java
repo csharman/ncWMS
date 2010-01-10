@@ -41,6 +41,9 @@ import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
  * @todo allow for "stepless" time and elevation axes, plus regularly-spaced
  * ones that could save space in Capabilities docs.
  * @todo make generic on the data type e.g. Float, Double
+ * @todo factor out a Dimension class, which could hold the values of a dimension,
+ * the default value, any operations to find indices along the axis, plus how
+ * the values can be rendered in a Capabilities doc (e.g. if regularly-spaced).
  * @author Jon
  */
 public interface Layer
@@ -94,12 +97,32 @@ public interface Layer
     public List<DateTime> getTimeValues();
 
     /**
-     * Returns the list of elevation values that are valid for this layer as an
-     * ordered list, or an empty list if this Layer does not have a vertical axis.
-     * @return the list of elevation values that are valid for this layer as an
-     * ordered list, or an empty list if this Layer does not have a vertical axis.
+     * Get the time value that will be used by default if a client does not
+     * explicitly provide a time parameter in a request ({@literal e.g. GetMap}),
+     * or null if this layer does not support a default time value (or does not
+     * have a time axis).
+     * @return the default time value or null
+     */
+    public DateTime getDefaultTimeValue();
+
+    /**
+     * Returns the list of elevation values that are valid for this layer, or
+     * an empty list if this Layer does not have a vertical axis.  Note that the
+     * values in this list do not have to be ordered (although they usually will
+     * be).  Clients must make no assumptions about ordering.
+     * @return the list of elevation values that are valid for this layer, or
+     * an empty list if this Layer does not have a vertical axis.
      */
     public List<Double> getElevationValues();
+
+    /**
+     * Get the elevation value that will be used by default if a client does not
+     * explicitly provide an elevation parameter in a request ({@literal e.g. GetMap}),
+     * or {@link Double#NaN} if this layer does not support a default elevation
+     * value (or does not have an elevation axis).
+     * @return the default elevation value or {@link Double#NaN}
+     */
+    public double getDefaultElevationValue();
 
     /**
      * Returns the units of the vertical axis

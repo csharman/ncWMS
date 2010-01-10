@@ -28,6 +28,7 @@
 
 package uk.ac.rdg.resc.ncwms.wms;
 
+import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -39,9 +40,9 @@ import org.slf4j.LoggerFactory;
  * Brings time aggregation capabilities to the {@link AbstractLayer} class.
  * This class allows for the fact that different timesteps might be contained
  * within different files within the {@link #getDataset() dataset}.  If two files
- * contain information for the same time, the file with the shortest forecast time
- * is chosen, which is more likely to be the "more accurate" data.  This logic
- * implements the "best estimate" timeseries of a forecast model run collection.
+ * contain information for the same time, the file with the shorter forecast time
+ * is chosen, because this is more likely to be the "more accurate" data.  This
+ * logic implements the "best estimate" timeseries of a forecast model run collection.
  * @author Jon
  */
 public abstract class AbstractTimeAggregatedLayer extends AbstractLayer
@@ -50,6 +51,20 @@ public abstract class AbstractTimeAggregatedLayer extends AbstractLayer
 
     /** These are sorted into ascending order of time */
     private final List<TimestepInfo> timesteps = new ArrayList<TimestepInfo>();
+
+    /**
+     * A view of the {@link #timesteps} as an unmodifiable List of DateTimes,
+     * for the {@link #getTimeValues()} method.
+     */
+    private final List<DateTime> dateTimes = 
+        new AbstractList<DateTime>() {
+            @Override public DateTime get(int index) {
+                return timesteps.get(index).getDateTime();
+            }
+            @Override public int size() {
+                return timesteps.size();
+            }
+        };
     
     /**
      * Creates an AbstractTimeAggregatedLayer with a bounding box that covers
@@ -64,21 +79,22 @@ public abstract class AbstractTimeAggregatedLayer extends AbstractLayer
     }
 
     /**
-     * Returns the list of time instants that are valid for this layer, in
-     * chronological order, or an empty list if this Layer does not have a time axis.
+     * <p>Returns the list of time instants that are valid for this layer, in
+     * chronological order, or an empty list if this Layer does not have a time axis.</p>
+     * <p>Note that this implementation returns an unmodifiable <i>view</i> on
+     * the internal list of TimestepInfo objects, therefore if
+     * {@link #addTimestepInfo(org.joda.time.DateTime, java.lang.String, int) addTimestepInfo()}
+     * is called when iterating over the List returned by this method, undefined
+     * behaviour might result.  However, this Layer will usually be constructed
+     * during a metadata-reading operation and then will be treated as a read-only
+     * object, so this conflict will not occur in typical usage.</p>
      * @return the list of time instants that are valid for this layer, in
      * chronological order, or an empty list if this Layer does not have a time axis.
      */
     @Override
     public List<DateTime> getTimeValues()
     {
-        List<DateTime> tVals = new ArrayList<DateTime>(this.timesteps.size());
-        synchronized(this.timesteps) {
-            for (TimestepInfo tInfo : this.timesteps) {
-                tVals.add(tInfo.getDateTime());
-            }
-        }
-        return tVals;
+        return this.dateTimes;
     }
 
     /**
@@ -123,12 +139,12 @@ public abstract class AbstractTimeAggregatedLayer extends AbstractLayer
 
     /**
      * Finds and returns the {@link TimestepInfo} object with the given
-     * timestep.
+     * timestep, or null if the given target does not exist in this layer.
      */
     protected TimestepInfo findTimestepInfo(DateTime target)
     {
         int index = this.findTimestepInfoIndex(target);
-        
+        return index >= 0 ? this.timesteps.get(index) : null;
     }
 
     /**

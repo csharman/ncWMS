@@ -42,6 +42,9 @@ import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
  * Partial implementation of the {@link Layer} interface, providing convenience
  * methods and default implementations of some methods.  Most properties are
  * set through the provided setter methods.
+ * @todo implement a makeImmutable() method, which prevents futher changes?
+ * This could be called by the metadata-reading operation to ensure that
+ * all future operations are read-only.
  * @author Jon
  */
 public abstract class AbstractLayer implements Layer
@@ -110,6 +113,63 @@ public abstract class AbstractLayer implements Layer
 
     @Override public Dataset getDataset() { return this.dataset; }
     public void setDataset(Dataset dataset) { this.dataset = dataset; }
+    
+    /**
+     * Gets the time value that will be used by default if a client does not
+     * explicitly provide a time parameter in a request ({@literal e.g. GetMap}),
+     * or null if this layer does not have a time axis.  This returns the time
+     * value that is closest to the current time.
+     */
+    @Override
+    public DateTime getDefaultTimeValue()
+    {
+        int currentTimeIndex = this.getCurrentTimeIndex();
+        if (currentTimeIndex < 0) return null; // this layer doesn't have a time axis
+        return this.getTimeValues().get(currentTimeIndex);
+    }
+
+    /**
+     * Gets the index in the {@link #getTimeValues() list of valid timesteps}
+     * of the timestep that is closest to the current time, or -1 if this layer
+     * does not have a time axis.
+     * @return the index in the {@link #getTimeValues() list of valid timesteps}
+     * of the timestep that is closest to the current time, or -1 if this layer
+     * does not have a time axis.
+     * @todo should this always be a time in the past or present (not the future)
+     * unless all the values are in the future?
+     */
+    protected int getCurrentTimeIndex()
+    {
+        if (this.getTimeValues().size() == 0) return -1;
+        // TODO: we need to specify a Comparator to use binarySearch
+        // TODO could move findTIndex to this class and share the code, remembering
+        // that this method mustn't throw an exception if the current time isn't
+        // precisely found.
+    }
+
+    /**
+     * Finds the index of a certain z value (within the {@link #zValues list
+     * of elevation values}) by brute-force search.  We can afford
+     * to be inefficient here because z axes are not likely to be large.
+     * @param targetVal Value to search for
+     * @return the z index corresponding with the given targetVal
+     * @throws InvalidDimensionValueException if targetVal could not be found
+     * within zValues
+     */
+    protected int findElevationIndex(double targetVal) throws InvalidDimensionValueException
+    {
+        for (int i = 0; i < this.zValues.size(); i++)
+        {
+            // The fuzzy comparison fails for zVal == 0.0 so we do a direct
+            // comparison too
+            if (this.zValues.get(i) == targetVal ||
+                Math.abs((this.zValues.get(i) - targetVal) / targetVal) < 1e-5)
+            {
+                return i;
+            }
+        }
+        throw new InvalidDimensionValueException("elevation", "" + targetVal);
+    }
 
     /**
      * <p>Simple but naive implementation of

@@ -28,10 +28,7 @@
 
 package uk.ac.rdg.resc.ncwms.config;
 
-import java.io.File;
-import java.io.FilenameFilter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -39,7 +36,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.oro.io.GlobFilenameFilter;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,7 +48,6 @@ import org.simpleframework.xml.load.Validate;
 import uk.ac.rdg.resc.ncwms.coordsys.CrsHelper;
 import uk.ac.rdg.resc.ncwms.datareader.DataReader;
 import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
-import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 
 /**
@@ -357,9 +352,22 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
     }
 
     @Override
+
+    /**
+     * Gets the copyright statement for this layer, replacing ${year} as
+     * appropriate with the current year.
+     * @return The copyright statement, or the empty string if no copyright
+     * statement has been set.
+     */
     public String getCopyrightStatement()
     {
-        return copyrightStatement;
+        if (this.copyrightStatement == null || this.copyrightStatement.trim().equals(""))
+        {
+            return "";
+        }
+        int currentYear = new DateTime().getYear();
+        // Don't forget to escape dollar signs and backslashes in the regexp
+        return this.copyrightStatement.replaceAll("\\$\\{year\\}", "" + currentYear);
     }
 
     public void setCopyrightStatement(String copyrightStatement)

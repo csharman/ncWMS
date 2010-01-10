@@ -29,7 +29,6 @@
 package uk.ac.rdg.resc.ncwms.config;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
@@ -39,15 +38,15 @@ import uk.ac.rdg.resc.ncwms.datareader.DataReader;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.styles.Style;
 import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
-import uk.ac.rdg.resc.ncwms.wms.Layer;
+import uk.ac.rdg.resc.ncwms.wms.AbstractTimeAggregatedLayer;
 
 /**
- * Concrete implementation of the Layer interface.  Stores the metadata for
- * a layer in the WMS
+ * A concrete Layer implementation that supports  time aggregation through the
+ * {@link AbstractTimeAggregatedLayer} superclass.
  *
  * @author Jon Blower
  */
-public class LayerImpl implements Layer
+public class LayerImpl extends AbstractTimeAggregatedLayer
 {
     private static final Logger logger = LoggerFactory.getLogger(LayerImpl.class);
     
@@ -58,10 +57,11 @@ public class LayerImpl implements Layer
     
     /**
      * Creates a new Layer using a default bounding box (covering the whole 
-     * earth) and with a default boxfill style
+     * earth), with the given id and with a default boxfill style
      */
-    public LayerImpl()
+    public LayerImpl(String id)
     {
+        super(id);
         this.supportedStyles.add(Style.BOXFILL);
     }
 
@@ -70,7 +70,6 @@ public class LayerImpl implements Layer
      * title for this layer in the config file, this title will be returned.
      * If not, the title that was read in the relevant {@link DataReader} will
      * be used.
-     * @return
      */
     @Override
     public String getTitle()
@@ -153,36 +152,6 @@ public class LayerImpl implements Layer
         }
         return tIndices;
     }
-    
-    /**
-     * Finds the index of a certain z value by brute-force search.  We can afford
-     * to be inefficient here because z axes are not likely to be large.
-     * @param targetVal Value to search for
-     * @return the z index corresponding with the given targetVal
-     * @throws InvalidDimensionValueException if targetVal could not be found
-     * within zValues
-     */
-    public int findZIndex(String targetVal) throws InvalidDimensionValueException
-    {
-        try
-        {
-            double zVal = Double.parseDouble(targetVal);
-            for (int i = 0; i < this.zValues.size(); i++)
-            {
-                // The fuzzy comparison fails for zVal == 0.0 so we do a direct
-                // comparison too
-                if (this.zValues.get(i) == zVal || Math.abs((this.zValues.get(i) - zVal) / zVal) < 1e-5)
-                {
-                    return i;
-                }
-            }
-            throw new InvalidDimensionValueException("elevation", targetVal);
-        }
-        catch(NumberFormatException nfe)
-        {
-            throw new InvalidDimensionValueException("elevation", targetVal);
-        }
-    }
 
     /**
      * @return List of styles that this layer can be rendered in.
@@ -231,6 +200,7 @@ public class LayerImpl implements Layer
      * @return the index of the default value on the z axis (i.e. the index of
      * the z value that will be used if the user does not specify an explicit
      * z value in a GetMap request).
+     * @todo should be the index of the z value that is closest to zero
      */
     public int getDefaultZIndex()
     {
@@ -247,46 +217,6 @@ public class LayerImpl implements Layer
     }
     
     /**
-     * @return the last index on the t axis
-     */
-    public int getLastTIndex()
-    {
-        return this.timesteps.size() - 1;
-    }
-    
-    /**
-     * @return the index of the default value of the t axis (i.e. the t value that will be
-     * used if the user does not specify an explicit t value in a GetMap request),
-     * as a TimestepInfo object.  This currently returns the last value along
-     * the time axis, but should probably return the value closest to now.
-     */
-    public final int getDefaultTIndex()
-    {
-        return this.getLastTIndex();
-    }
-    
-    /**
-     * @return the default value of the t axis (i.e. the t value that will be
-     * used if the user does not specify an explicit t value in a GetMap request),
-     * in milliseconds since the epoch.  This currently returns the last value along
-     * the time axis, but should probably return the value closest to now.
-     */
-    public final DateTime getDefaultTValue()
-    {
-        return this.getTimeValues().get(this.getLastTIndex());
-    }
-    
-    /**
-     * @return a unique identifier string for this LayerImpl object (used
-     * in the display of Layers in a Capabilities document).
-     */
-    @Override
-    public String getName()
-    {
-        return WmsUtils.createUniqueLayerName(this.dataset.getId(), this.id);
-    }
-    
-    /**
      * @return true if this variable can be queried through the GetFeatureInfo
      * function.  Delegates to Dataset.isQueryable().
      */
@@ -294,38 +224,6 @@ public class LayerImpl implements Layer
     public boolean isQueryable()
     {
         return this.dataset.isQueryable();
-    }
-
-    /**
-     * Gets the copyright statement for this layer, replacing ${year} as 
-     * appropriate with the year range that this layer covers.
-     * @return The copyright statement, or the empty string if no copyright
-     * statement has been set.
-     */
-    public String getCopyrightStatement()
-    {
-        String copyright = this.dataset.getCopyrightStatement();
-        if (copyright == null || copyright.trim().equals(""))
-        {
-            return "";
-        }
-        else if (!this.isTaxisPresent())
-        {
-            return copyright;
-        }
-        // We (might) need to use the year range of the layer to generate
-        // the final copyright statement.
-        int startYear = this.timesteps.get(0).getDateTime().getYear();
-        int endYear = this.timesteps.get(this.timesteps.size() - 1).getDateTime().getYear();
-        String yearStr = startYear == endYear
-            ? "" + startYear
-            : startYear + "-" + endYear;
-        // Don't forget to escape dollar signs and backslashes in the regexp
-        return copyright.replaceAll("\\$\\{year\\}", yearStr);
-    }
-
-    public String getMoreInfo() {
-        return this.dataset.getMoreInfoUrl();
     }
 
     /**
