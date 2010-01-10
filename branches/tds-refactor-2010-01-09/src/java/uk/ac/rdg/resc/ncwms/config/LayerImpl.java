@@ -31,9 +31,7 @@ package uk.ac.rdg.resc.ncwms.config;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import org.geotoolkit.metadata.iso.extent.DefaultGeographicBoundingBox;
 import org.joda.time.DateTime;
-import org.opengis.metadata.extent.GeographicBoundingBox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalCoordSys;
@@ -48,29 +46,15 @@ import uk.ac.rdg.resc.ncwms.wms.Layer;
  * a layer in the WMS
  *
  * @author Jon Blower
- * $Revision$
- * $Date$
- * $Log$
  */
 public class LayerImpl implements Layer
 {
     private static final Logger logger = LoggerFactory.getLogger(LayerImpl.class);
     
-    protected String id;
-    protected String title = null;
-    protected String abstr = null; // "abstract" is a reserved word in Java
-    protected String units;
-    protected String zUnits;
-    protected List<Double> zValues;
     protected boolean zPositive;
-    protected GeographicBoundingBox bbox = DefaultGeographicBoundingBox.WORLD;
     protected HorizontalCoordSys horizCoordSys;
-    protected transient Dataset dataset; // Not stored in the metadata database
-    // Sorted in ascending order of time
-    protected List<TimestepInfo> timesteps = new ArrayList<TimestepInfo>();
     // Stores the keys of the styles that this variable supports
     protected List<Style> supportedStyles = new ArrayList<Style>();
-    protected Object attachment;
     
     /**
      * Creates a new Layer using a default bounding box (covering the whole 
@@ -96,78 +80,6 @@ public class LayerImpl implements Layer
         else return this.title;
     }
 
-    public void setTitle(String title)
-    {
-        this.title = title;
-    }
-
-    @Override
-    public String getAbstract()
-    {
-        return abstr;
-    }
-
-    public void setAbstract(String abstr)
-    {
-        this.abstr = abstr;
-    }
-
-    @Override
-    public String getElevationUnits()
-    {
-        return zUnits;
-    }
-
-    public void setZunits(String zUnits)
-    {
-        this.zUnits = zUnits;
-    }
-
-    @Override
-    public List<Double> getElevationValues()
-    {
-        return zValues;
-    }
-
-    public void setElevationValues(double[] zValues)
-    {
-        // TODO check array is ordered
-        List<Double> zVals = new ArrayList(zValues.length);
-        for (double zVal : zValues)
-        {
-            zVals.add(zVal);
-        }
-        this.zValues = Collections.unmodifiableList(zVals);
-    }
-
-    /**
-     * @return array of timestep values
-     */
-    @Override
-    public synchronized List<DateTime> getTimeValues()
-    {
-        List<DateTime> tVals = new ArrayList<DateTime>(this.timesteps.size());
-        for (TimestepInfo tInfo : timesteps)
-        {
-            tVals.add(tInfo.getDateTime());
-        }
-        return tVals;
-    }
-
-    @Override
-    public GeographicBoundingBox getGeographicBoundingBox()
-    {
-        return bbox;
-    }
-
-    /** bbox = [minx, miny, maxx, maxy] */
-    public void setBbox(double[] bbox)
-    {
-        if (bbox == null) throw new NullPointerException();
-        if (bbox.length != 4) throw new IllegalArgumentException("Bounding box must have four elements");
-        this.bbox = new DefaultGeographicBoundingBox(bbox[0], bbox[2], bbox[1], bbox[3]);
-    }
-
     public boolean isZpositive()
     {
         return zPositive;
@@ -177,18 +89,6 @@ public class LayerImpl implements Layer
     {
         this.zPositive = zPositive;
     }
-
-    @Override
-    public String getId()
-    {
-        return id;
-    }
-
-    public void setId(String id)
-    {
-        this.id = id;
-    }
-    
     /**
      * @return array of two doubles, representing the min and max of the scale range
      * Note that this is not the same as a "valid_max" for the dataset.  This is
@@ -198,85 +98,6 @@ public class LayerImpl implements Layer
     public float[] getColorScaleRange()
     {
         return this.getVariable().getColorScaleRange();
-    }
-
-    @Override
-    public String getUnits()
-    {
-        return units;
-    }
-
-    public void setUnits(String units)
-    {
-        this.units = units;
-    }
-
-    @Override
-    public Dataset getDataset()
-    {
-        return this.dataset;
-    }
-
-    public void setDataset(Dataset dataset)
-    {
-        this.dataset = dataset;
-    }
-    
-    /**
-     * Adds a new TimestepInfo to this metadata object.  If a TimestepInfo object
-     * already exists for this timestep, the TimestepInfo object with the lower
-     * indexInFile value is chosen (this is most likely to be the result of a
-     * shorter forecast lead time and therefore more accurate).
-     */
-    public synchronized void addTimestepInfo(TimestepInfo tInfo)
-    {
-        // Find the insertion point in the List of timesteps
-        int index = Collections.binarySearch(this.timesteps, tInfo);
-        if (index >= 0)
-        {
-            // We already have a timestep for this time
-            TimestepInfo existingTStep = this.timesteps.get(index);
-            if (tInfo.getIndexInFile() < existingTStep.getIndexInFile())
-            {
-                // The new info probably has a shorter forecast time and so we
-                // replace the existing version with this one
-                existingTStep = tInfo;
-            }
-        }
-        else
-        {
-            // We need to insert the TimestepInfo object into the list at the
-            // correct location to ensure that the list is sorted in ascending
-            // order of time.
-            int insertionPoint = -(index + 1); // see docs for Collections.binarySearch()
-            this.timesteps.add(insertionPoint, tInfo);
-        }
-    }
-    
-    /**
-     * @return the index of the TimestepInfo object corresponding with the given
-     * date-time, or -1 if there is no TimestepInfo object corresponding with the
-     * given date.  Uses binary search for efficiency.
-     */
-    private int findTIndex(DateTime target)
-    {
-        logger.debug("Looking for {} in layer {}", target, this.id);
-        // Adapted from Collections.binarySearch()
-        int low = 0;
-        int high = this.timesteps.size() - 1;
-
-        while (low <= high)
-        {
-            int mid = (low + high) >>> 1;
-            DateTime midVal = this.timesteps.get(mid).getDateTime();
-            if (midVal.isBefore(target)) low = mid + 1;
-            else if (midVal.isAfter(target)) high = mid - 1;
-            else return mid; // key found
-        }
-
-        // The given time doesn't match any axis value
-        logger.debug("{} not found", target);
-        return -1;
     }
     
     /**
@@ -474,14 +295,6 @@ public class LayerImpl implements Layer
     {
         return this.dataset.isQueryable();
     }
-    
-    /**
-     * @return all the timesteps in this variable
-     */
-    public List<TimestepInfo> getTimesteps()
-    {
-        return timesteps;
-    }
 
     /**
      * Gets the copyright statement for this layer, replacing ${year} as 
@@ -513,14 +326,6 @@ public class LayerImpl implements Layer
 
     public String getMoreInfo() {
         return this.dataset.getMoreInfoUrl();
-    }
-
-    public Object getAttachment() {
-        return this.attachment;
-    }
-    
-    public void setAttachment(Object attachment) {
-        this.attachment = attachment;
     }
 
     /**

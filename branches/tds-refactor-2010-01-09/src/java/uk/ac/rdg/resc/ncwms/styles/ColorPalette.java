@@ -45,7 +45,7 @@ import java.util.Set;
 import java.util.StringTokenizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import uk.ac.rdg.resc.ncwms.metadata.Layer;
+import uk.ac.rdg.resc.ncwms.wms.Layer;
 
 /**
  * A palette of colours that is used by an {@link ImageProducer} to render 

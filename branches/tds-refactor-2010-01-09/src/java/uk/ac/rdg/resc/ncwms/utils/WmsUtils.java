@@ -29,9 +29,13 @@
 package uk.ac.rdg.resc.ncwms.utils;
 
 import java.io.File;
+import java.io.FilenameFilter;
 import java.text.ParseException;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import org.apache.oro.io.GlobFilenameFilter;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormatter;
@@ -136,7 +140,7 @@ public class WmsUtils
     /**
      * Creates a unique name for a Layer (for display in the Capabilities
      * document) based on a dataset ID and a Layer ID that is unique within a
-     * dataset.  Matches up with parseUniqueLayerName.
+     * dataset.  Matches up with {@link #parseUniqueLayerName(java.lang.String)}.
      */
     public static String createUniqueLayerName(String datasetId, String layerId)
     {
@@ -146,8 +150,9 @@ public class WmsUtils
     /**
      * Parses a unique layer name and returns a two-element String array containing
      * the dataset id (first element) and the layer id (second element).  Matches
-     * up with getUniqueLayerName().  This method does not check for the existence
-     * or otherwise of the dataset or layer.
+     * up with {@link #createUniqueLayerName(java.lang.String, java.lang.String)}.
+     * This method does not check for the existence or otherwise of the dataset
+     * or layer.
      * @throws ParseException if the provided layer name is not in the correct
      * format.
      */
@@ -156,11 +161,11 @@ public class WmsUtils
     {
         String[] els = new String[2];
         
-        if(uniqueLayerName.lastIndexOf("/") > 0)
+        int slashIndex = uniqueLayerName.lastIndexOf("/");
+        if(slashIndex > 0)
         {
-            els[0] = uniqueLayerName.substring(0, uniqueLayerName.lastIndexOf("/"));
-            els[1] = uniqueLayerName.substring(uniqueLayerName.lastIndexOf("/") + 1, uniqueLayerName.length());
-            
+            els[0] = uniqueLayerName.substring(0, slashIndex);
+            els[1] = uniqueLayerName.substring(slashIndex + 1);
             return els;
         }
         else
@@ -222,6 +227,87 @@ public class WmsUtils
     public static boolean isNcmlAggregation(String location)
     {
         return location.endsWith(".xml") || location.endsWith(".ncml");
+    }
+
+    /**
+     * Expands a glob expression to give a List of absolute paths to files.  This
+     * method recursively searches directories, allowing for glob expressions like
+     * {@code "c:\\data\\200[6-7]\\*\\1*\\A*.nc"}.
+     * @return a a List of absolute paths to files matching the given glob
+     * expression
+     * @throws IllegalArgumentException if the glob expression does not represent
+     * an absolute path (according to {@code new File(globExpression).isAbsolute()}).
+     * @author Mike Grant, Plymouth Marine Labs; Jon Blower
+     */
+    public static List<File> expandGlobExpression(String globExpression)
+    {
+        // Check that the glob expression represents an absolute path.  Relative
+        // paths would cause unpredictable and platform-dependent behaviour so
+        // we disallow them.
+        File globFile = new File(globExpression);
+        if (!globFile.isAbsolute())
+        {
+            throw new IllegalArgumentException("Dataset location must be an absolute path");
+        }
+
+        // Break glob pattern into path components.  To do this in a reliable
+        // and platform-independent way we use methods of the File class, rather
+        // than String.split().
+        List<String> pathComponents = new ArrayList<String>();
+        while (globFile != null)
+        {
+            // We "pop off" the last component of the glob pattern and place
+            // it in the first component of the pathComponents List.  We therefore
+            // ensure that the pathComponents end up in the right order.
+            File parent = globFile.getParentFile();
+            // For a top-level directory, getName() returns an empty string,
+            // hence we use getPath() in this case
+            String pathComponent = parent == null ? globFile.getPath() : globFile.getName();
+            pathComponents.add(0, pathComponent);
+            globFile = parent;
+        }
+
+        // We must have at least two path components: one directory and one
+        // filename or glob expression
+        List<File> searchPaths = new ArrayList<File>();
+        searchPaths.add(new File(pathComponents.get(0)));
+        int i = 1; // Index of the glob path component
+
+        while(i < pathComponents.size())
+        {
+            FilenameFilter globFilter = new GlobFilenameFilter(pathComponents.get(i));
+            List<File> newSearchPaths = new ArrayList<File>();
+            // Look for matches in all the current search paths
+            for (File dir : searchPaths)
+            {
+                if (dir.isDirectory())
+                {
+                    // Workaround for automounters that don't make filesystems
+                    // appear unless they're poked
+                    // do a listing on searchpath/pathcomponent whether or not
+                    // it exists, then discard the results
+                    new File(dir, pathComponents.get(i)).list();
+
+                    for (File match : dir.listFiles(globFilter))
+                    {
+                        newSearchPaths.add(match);
+                    }
+                }
+            }
+            // Next time we'll search based on these new matches and will use
+            // the next globComponent
+            searchPaths = newSearchPaths;
+            i++;
+        }
+
+        // Now we've done all our searching, we'll only retain the files from
+        // the list of search paths
+        List<File> files = new ArrayList<File>();
+        for (File path : searchPaths)
+        {
+            if (path.isFile()) files.add(path);
+        }
+        return files;
     }
     
 }

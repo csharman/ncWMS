@@ -47,7 +47,7 @@ import uk.ac.rdg.resc.ncwms.controller.GetMapDataRequest;
 import uk.ac.rdg.resc.ncwms.controller.GetMapRequest;
 import uk.ac.rdg.resc.ncwms.controller.GetMapStyleRequest;
 import uk.ac.rdg.resc.ncwms.exceptions.StyleNotDefinedException;
-import uk.ac.rdg.resc.ncwms.metadata.Layer;
+import uk.ac.rdg.resc.ncwms.wms.Layer;
 
 /**
  * An object that is used to render data into images.

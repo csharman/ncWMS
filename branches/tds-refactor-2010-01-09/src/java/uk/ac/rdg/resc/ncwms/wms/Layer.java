@@ -87,17 +87,17 @@ public interface Layer
 
     /**
      * Returns the list of time instants that are valid for this layer, in
-     * chronological order, or null if this Layer does not have a time axis.
+     * chronological order, or an empty list if this Layer does not have a time axis.
      * @return the list of time instants that are valid for this layer, in
-     * chronological order, or null if this Layer does not have a time axis.
+     * chronological order, or an empty list if this Layer does not have a time axis.
      */
     public List<DateTime> getTimeValues();
 
     /**
      * Returns the list of elevation values that are valid for this layer as an
-     * ordered list, or null if this Layer does not have a vertical axis.
+     * ordered list, or an empty list if this Layer does not have a vertical axis.
      * @return the list of elevation values that are valid for this layer as an
-     * ordered list, or null if this Layer does not have a vertical axis.
+     * ordered list, or an empty list if this Layer does not have a vertical axis.
      */
     public List<Double> getElevationValues();
 
@@ -118,7 +118,7 @@ public interface Layer
      * match a time instant in {@link #getTimeValues()} an {@link InvalidDimensionValueException}
      * will be thrown.  (If this Layer has no time axis, this parameter will be ignored.)
      * @param elevation The elevation for which we require data (in the
-     * {@link #getElevationUnits() units of this Layer's elevation axis).  If
+     * {@link #getElevationUnits() units of this Layer's elevation axis}).  If
      * this does not match a valid {@link #getElevationValues() elevation value}
      * in this Layer, this method will throw an {@link InvalidDimensionValueException}.
      * (If this Layer has no elevation axis, this parameter will be ignored.)
@@ -147,7 +147,7 @@ public interface Layer
      * match a time instant in {@link #getTimeValues()} an {@link InvalidDimensionValueException}
      * will be thrown.  (If this Layer has no time axis, this parameter will be ignored.)
      * @param elevation The elevation for which we require data (in the
-     * {@link #getElevationUnits() units of this Layer's elevation axis).  If
+     * {@link #getElevationUnits() units of this Layer's elevation axis}).  If
      * this does not match a valid {@link #getElevationValues() elevation value}
      * in this Layer, this method will throw an {@link InvalidDimensionValueException}.
      * (If this Layer has no elevation axis, this parameter will be ignored.)
@@ -169,7 +169,8 @@ public interface Layer
 
     /**
      * <p>Reads a timeseries of data at a single xyz point from this Layer.
-     * Missing values will be represented by Float.NaN.</p>
+     * Missing values (e.g. land pixels in oceanography data will be represented
+     * by Float.NaN.</p>
      * <p>This method will perform no interpolation in time or elevation, but
      * will perform nearest-neighbour interpolation in the horizontal, i.e. it
      * will extract data from the nearest grid point to {@code xy}.  If {@code xy}
@@ -177,10 +178,10 @@ public interface Layer
      * {@link Float#NaN}s, to retain consistency with other read...() methods
      * in this interface.</p>
      * @param times The list of time instants for which we require data.  If a
-     * value in this list is not found in {@link #getTimeValues()}, its corresponding
-     * value in the returned List will be {@link Float#NaN}.
+     * value in this list is not found in {@link #getTimeValues()}, this method
+     * will throw an {@link InvalidDimensionValueException}.
      * @param elevation The elevation for which we require data (in the
-     * {@link #getElevationUnits() units of this Layer's elevation axis).  If
+     * {@link #getElevationUnits() units of this Layer's elevation axis}).  If
      * this does not match a valid {@link #getElevationValues() elevation value}
      * in this Layer, this method will throw an {@link InvalidDimensionValueException}.
      * (If this Layer has no elevation axis, this parameter will be ignored.)
@@ -191,7 +192,8 @@ public interface Layer
      * {@code times}, in the same order.
      * @throws NullPointerException if {@code times} or {@code xy} is null
      * @throws InvalidDimensionValueException if {@code elevation} is not a valid
-     * elevation in this Layer.
+     * elevation in this Layer, or if any of the {@code times} are not valid
+     * times for this layer.
      * @todo what if this method is called on a Layer that has no time axis?
      */
     public List<Float> readTimeseries(List<DateTime> times, double elevation,

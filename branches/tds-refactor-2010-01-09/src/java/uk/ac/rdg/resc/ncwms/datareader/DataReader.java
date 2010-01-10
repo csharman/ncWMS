@@ -28,14 +28,16 @@
 
 package uk.ac.rdg.resc.ncwms.datareader;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import uk.ac.rdg.resc.ncwms.config.Dataset;
 import uk.ac.rdg.resc.ncwms.coordsys.LonLatPosition;
-import uk.ac.rdg.resc.ncwms.metadata.Layer;
 import uk.ac.rdg.resc.ncwms.config.LayerImpl;
+import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
+import uk.ac.rdg.resc.ncwms.wms.Layer;
 
 /**
  * Abstract superclass for classes that read data and metadata from datasets.
@@ -147,30 +149,34 @@ public abstract class DataReader
      * Reads and returns the metadata for all the layers (i.e. variables) in the
      * given {@link Dataset}.
      * @param location Location of the dataset's files, as set in the admin
-     * application
+     * application.  This can be a glob expression.
      * @return Map of layer IDs mapped to {@link LayerImpl} objects
      * @throws Exception if there was an error reading from the data source
      */
     public Map<String, LayerImpl> getAllLayers(final Dataset dataset)
         throws Exception
     {
-        // A list of names of files resulting from glob expansion
-        List<String> filenames = dataset.getFiles();
-        
-        if (filenames.size() == 0)
-        {
-            throw new Exception(dataset.getLocation() + " does not match any files");
-        }
-
-        // Now extract the data for each individual file
-        // LinkedHashMaps preserve the order of insertion
         Map<String, LayerImpl> layers = new LinkedHashMap<String, LayerImpl>();
-        for (String filename : filenames)
+        if (WmsUtils.isOpendapLocation(dataset.getLocation()))
         {
-            // Read the metadata from the file and update the Map.
-            // TODO: only do this if the file's last modified date has changed?
-            // This would require us to keep the previous metadata...
-            this.findAndUpdateLayers(filename, layers);
+            this.findAndUpdateLayers(dataset.getLocation(), layers);
+        }
+        else
+        {
+            // The dataset's location represents locally-held data so we do
+            // a glob expansion
+            List<File> files = WmsUtils.expandGlobExpression(dataset.getLocation());
+            if (files.size() == 0)
+            {
+                throw new Exception(dataset.getLocation() + " does not match any files");
+            }
+            for (File file : files)
+            {
+                // Read the metadata from the file and update the Map.
+                // TODO: only do this if the file's last modified date has changed?
+                // This would require us to keep the previous metadata...
+                this.findAndUpdateLayers(file.getPath(), layers);
+            }
         }
         return layers;
     }
