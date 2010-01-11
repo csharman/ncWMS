@@ -30,11 +30,8 @@ package uk.ac.rdg.resc.ncwms.wms;
 
 import java.util.AbstractList;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import org.joda.time.DateTime;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Brings time aggregation capabilities to the {@link AbstractLayer} class.
@@ -43,14 +40,13 @@ import org.slf4j.LoggerFactory;
  * contain information for the same time, the file with the shorter forecast time
  * is chosen, because this is more likely to be the "more accurate" data.  This
  * logic implements the "best estimate" timeseries of a forecast model run collection.
+ * @param <T> The type of the data values contained in this layer
  * @author Jon
  */
-public abstract class AbstractTimeAggregatedLayer extends AbstractLayer
+public abstract class AbstractTimeAggregatedLayer<T> extends AbstractLayer<T>
 {
-    private static final Logger logger = LoggerFactory.getLogger(AbstractTimeAggregatedLayer.class);
-
     /** These are sorted into ascending order of time */
-    private final List<TimestepInfo> timesteps = new ArrayList<TimestepInfo>();
+    protected final List<TimestepInfo> timesteps = new ArrayList<TimestepInfo>();
 
     /**
      * A view of the {@link #timesteps} as an unmodifiable List of DateTimes,
@@ -112,73 +108,35 @@ public abstract class AbstractTimeAggregatedLayer extends AbstractLayer
     public void addTimestepInfo(DateTime dt, String filename, int indexInFile)
     {
         TimestepInfo tInfo = new TimestepInfo(dt, filename, indexInFile);
-        synchronized(this.timesteps) {
-            // Find the insertion point in the List of timesteps
-            int index = Collections.binarySearch(this.timesteps, tInfo);
-            if (index >= 0)
-            {
-                // We already have a timestep for this time
-                TimestepInfo existingTStep = this.timesteps.get(index);
-                if (tInfo.getIndexInFile() < existingTStep.getIndexInFile())
-                {
-                    // The new info probably has a shorter forecast time and so we
-                    // replace the existing version with this one
-                    existingTStep = tInfo;
-                }
-            }
-            else
-            {
-                // We need to insert the TimestepInfo object into the list at the
-                // correct location to ensure that the list is sorted in ascending
-                // order of time.
-                int insertionPoint = -(index + 1); // see docs for Collections.binarySearch()
-                this.timesteps.add(insertionPoint, tInfo);
-            }
-        }
-    }
-
-    /**
-     * Finds and returns the {@link TimestepInfo} object with the given
-     * timestep, or null if the given target does not exist in this layer.
-     */
-    protected TimestepInfo findTimestepInfo(DateTime target)
-    {
-        int index = this.findTimestepInfoIndex(target);
-        return index >= 0 ? this.timesteps.get(index) : null;
-    }
-
-    /**
-     * Finds and returns the index of the {@link TimestepInfo} object with the
-     * given timestep, or -1 if the given timestep does not exist in this layer.
-     */
-    private int findTimestepInfoIndex(DateTime target)
-    {
-        logger.debug("Looking for {} in layer {}", target, this.id);
-        // Adapted from Collections.binarySearch()
-        int low = 0;
-        int high = this.timesteps.size() - 1;
-
-        while (low <= high)
+        // Find the insertion point in the List of timesteps
+        int index = this.findTimeIndex(dt);
+        if (index >= 0)
         {
-            int mid = (low + high) >>> 1;
-            DateTime midVal = this.timesteps.get(mid).getDateTime();
-            if (midVal.isBefore(target)) low = mid + 1;
-            else if (midVal.isAfter(target)) high = mid - 1;
-            else return mid; // key found
+            // We already have a timestep for this time
+            TimestepInfo existingTStep = this.timesteps.get(index);
+            if (tInfo.getIndexInFile() < existingTStep.getIndexInFile())
+            {
+                // The new info probably has a shorter forecast time and so we
+                // replace the existing version with this one
+                existingTStep = tInfo;
+            }
         }
-
-        // The given time doesn't match any axis value
-        logger.debug("{} not found", target);
-        return -1;
+        else
+        {
+            // We need to insert the TimestepInfo object into the list at the
+            // correct location to ensure that the list is sorted in ascending
+            // order of time.
+            int insertionPoint = -(index + 1); // see docs for Collections.binarySearch()
+            this.timesteps.add(insertionPoint, tInfo);
+        }
     }
 
     /**
      * Simple class that holds information about which files in an aggregation
-     * hold which timesteps for a variable.  Implements Comparable to allow
-     * collections of this class to be sorted in order of their timestep.
-     * Instances of this class are immutable.
+     * hold which timesteps for a variable.  Instances of this class are
+     * immutable.
      */
-    protected static class TimestepInfo implements Comparable<TimestepInfo>
+    protected static class TimestepInfo
     {
         private DateTime timestep;
         private String filename;
@@ -224,15 +182,6 @@ public abstract class AbstractTimeAggregatedLayer extends AbstractLayer
         public DateTime getDateTime()
         {
             return this.timestep;
-        }
-
-        /**
-         * Sorts based on the timestep only
-         */
-        @Override
-        public int compareTo(TimestepInfo otherInfo)
-        {
-            return this.timestep.compareTo(otherInfo.timestep);
         }
 
         /**

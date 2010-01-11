@@ -51,7 +51,7 @@ import uk.ac.rdg.resc.ncwms.coordsys.LonLatPosition;
  *    2. Transform these x-y coordinates into latitude and longitude
  *    3. Use the given {@link HorizontalCoordSys} to transform lat-lon into the
  *       index values (i and j) of the nearest cell in the source grid
- *    5. Add the mapping (point -> i,j) to the pixel map
+ *    4. Add the mapping (point -> i,j) to the pixel map
  * </pre>
  *
  * <p>(A more efficient algorithm is used for the special case in which both the
@@ -64,6 +64,8 @@ import uk.ac.rdg.resc.ncwms.coordsys.LonLatPosition;
  *
  * @author Jon Blower
  * @todo Perhaps we can think of a more appropriate name for this class?
+ * @todo equals() and hashCode(), particularly if we're going to cache instances
+ * of this class
  */
 public final class PixelMap
 {

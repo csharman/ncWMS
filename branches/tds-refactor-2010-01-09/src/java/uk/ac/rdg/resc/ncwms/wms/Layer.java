@@ -38,15 +38,15 @@ import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 
 /**
  * A displayable layer, contained within a {@link Dataset}.
+ * @param <T> The type of the data values contained in this layer
  * @todo allow for "stepless" time and elevation axes, plus regularly-spaced
  * ones that could save space in Capabilities docs.
- * @todo make generic on the data type e.g. Float, Double
  * @todo factor out a Dimension class, which could hold the values of a dimension,
  * the default value, any operations to find indices along the axis, plus how
  * the values can be rendered in a Capabilities doc (e.g. if regularly-spaced).
  * @author Jon
  */
-public interface Layer
+public interface Layer<T>
 {
     /** Returns the {@link Dataset} to which this layer belongs. */
     public Dataset getDataset();
@@ -98,7 +98,7 @@ public interface Layer
 
     /**
      * Get the time value that will be used by default if a client does not
-     * explicitly provide a time parameter in a request ({@literal e.g. GetMap}),
+     * explicitly provide a time parameter in a request ({@literal e.g.} GetMap),
      * or null if this layer does not support a default time value (or does not
      * have a time axis).
      * @return the default time value or null
@@ -117,7 +117,7 @@ public interface Layer
 
     /**
      * Get the elevation value that will be used by default if a client does not
-     * explicitly provide an elevation parameter in a request ({@literal e.g. GetMap}),
+     * explicitly provide an elevation parameter in a request ({@literal e.g.} GetMap),
      * or {@link Double#NaN} if this layer does not support a default elevation
      * value (or does not have an elevation axis).
      * @return the default elevation value or {@link Double#NaN}
@@ -132,8 +132,14 @@ public interface Layer
     public String getElevationUnits();
 
     /**
+     * Returns the runtime type of the data values in this Layer
+     * @return the runtime type of the data values in this Layer
+     */
+    public Class<T> getDataType();
+
+    /**
      * <p>Reads a single item of data from a point in space and time.  Returns
-     * {@link Float#NaN} for points outside the domain of the layer, or for
+     * null for points outside the domain of the layer, or for
      * missing values (e.g. land pixels in oceanography data).</p>
      * <p>This method will perform no interpolation in time or elevation, but
      * will perform nearest-neighbour interpolation in the horizontal.</p>
@@ -148,7 +154,7 @@ public interface Layer
      * @param xy The horizontal location from which this method will extract
      * data.  Data will be extracted from the nearest grid point to this location,
      * unless the point is outside the domain of the layer, in which case
-     * {@link Float#NaN} will be returned.
+     * null will be returned.
      * @return a single item of data from the given point in space and time
      * @throws NullPointerException if {@code xy} is null or if this
      * layer has a time axis and {@code time} is null.
@@ -156,14 +162,14 @@ public interface Layer
      * elevation in this Layer, or if {@code time} is not a valid time in this
      * Layer.
      */
-    public float readSinglePoint(DateTime time, double elevation, HorizontalPosition xy)
+    public T readSinglePoint(DateTime time, double elevation, HorizontalPosition xy)
         throws InvalidDimensionValueException;
     
     /**
      * <p>Reads data at a number of horizontal locations at a single time and
      * elevation.  This is the method to use for reading a {@link HorizontalGrid}
      * of data.  Missing values (e.g. land pixels in oceanography data) will
-     * be represented by Float.NaN.</p>
+     * be represented by null.</p>
      * <p>This method will perform no interpolation in time or elevation, but
      * will perform nearest-neighbour interpolation in the horizontal.</p>
      * @param time The time instant for which we require data.  If this does not
@@ -178,8 +184,8 @@ public interface Layer
      * read data.  The returned List of data values will contain one value for
      * each item in this list in the same order.  This method will extract data
      * from the nearest grid points to each item in this list, returning
-     * {@link Float#NaN} for any points outside the domain of this Layer.
-     * @return a List of floating-point data values, one for each point in
+     * null for any points outside the domain of this Layer.
+     * @return a List of data values, one for each point in
      * the {@code pointList}, in the same order.
      * @throws NullPointerException if {@code pointList} is null or if this 
      * layer has a time axis and {@code time} is null.
@@ -187,18 +193,18 @@ public interface Layer
      * elevation in this Layer, or if {@code time} is not a valid time in this
      * Layer.
      */
-    public List<Float> readPointList(DateTime time, double elevation, PointList pointList)
+    public List<T> readPointList(DateTime time, double elevation, PointList pointList)
         throws InvalidDimensionValueException;
 
     /**
      * <p>Reads a timeseries of data at a single xyz point from this Layer.
      * Missing values (e.g. land pixels in oceanography data will be represented
-     * by Float.NaN.</p>
+     * by null.</p>
      * <p>This method will perform no interpolation in time or elevation, but
      * will perform nearest-neighbour interpolation in the horizontal, i.e. it
      * will extract data from the nearest grid point to {@code xy}.  If {@code xy}
      * is outside the domain of this Layer, this method will return a List of
-     * {@link Float#NaN}s, to retain consistency with other read...() methods
+     * nulls, to retain consistency with other read...() methods
      * in this interface.</p>
      * @param times The list of time instants for which we require data.  If a
      * value in this list is not found in {@link #getTimeValues()}, this method
@@ -211,7 +217,7 @@ public interface Layer
      * @param xy The horizontal location from which this method will extract
      * data.  Data will be extracted from the nearest grid point to this location,
      * unless the point is outside the domain of the layer.
-     * @return a List of floating-point data values, one for each point in
+     * @return a List of data values, one for each point in
      * {@code times}, in the same order.
      * @throws NullPointerException if {@code times} or {@code xy} is null
      * @throws InvalidDimensionValueException if {@code elevation} is not a valid
@@ -219,7 +225,7 @@ public interface Layer
      * times for this layer.
      * @todo what if this method is called on a Layer that has no time axis?
      */
-    public List<Float> readTimeseries(List<DateTime> times, double elevation,
+    public List<T> readTimeseries(List<DateTime> times, double elevation,
         HorizontalPosition xy) throws InvalidDimensionValueException;
 
 }

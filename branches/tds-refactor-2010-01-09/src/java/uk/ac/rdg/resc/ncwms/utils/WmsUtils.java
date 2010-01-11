@@ -32,6 +32,8 @@ import java.io.File;
 import java.io.FilenameFilter;
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -64,14 +66,36 @@ public class WmsUtils
      */
     public static final Set<String> SUPPORTED_VERSIONS = new HashSet<String>();
 
-    private static DateTimeFormatter ISO_DATE_TIME_FORMATTER =
+    private static final DateTimeFormatter ISO_DATE_TIME_FORMATTER =
         ISODateTimeFormat.dateTime().withZone(DateTimeZone.UTC);
 
-    private static DateTimeFormatter ISO_DATE_TIME_PARSER =
+    private static final DateTimeFormatter ISO_DATE_TIME_PARSER =
         ISODateTimeFormat.dateTimeParser().withZone(DateTimeZone.UTC);
 
-    private static DateTimeFormatter ISO_TIME_FORMATTER =
+    private static final DateTimeFormatter ISO_TIME_FORMATTER =
         ISODateTimeFormat.time().withZone(DateTimeZone.UTC);
+
+    /**
+     * <p>A {@link Comparator} that compares {@link DateTime} objects based only
+     * on their millisecond instant values.  This can be used for
+     * {@link Collections#sort(java.util.List, java.util.Comparator) sorting} or
+     * {@link Collections#binarySearch(java.util.List, java.lang.Object,
+     * java.util.Comparator) searching} {@link List}s of {@link DateTime} objects.</p>
+     * <p>The ordering defined by this Comparator is <i>inconsistent with equals</i>
+     * because it ignores the Chronology of the DateTime instants.</p>
+     * <p><i>(Note: The DateTime object inherits from Comparable, not
+     * Comparable&lt;DateTime&gt;, so we can't use the methods in Collections
+     * directly.  However we can reuse the {@link DateTime#compareTo(java.lang.Object)}
+     * method.)</i></p>
+     */
+    public static final Comparator<DateTime> DATE_TIME_COMPARATOR =
+        new Comparator<DateTime>()
+    {
+        @Override
+        public int compare(DateTime dt1, DateTime dt2) {
+            return dt1.compareTo(dt2);
+        }
+    };
     
     static
     {

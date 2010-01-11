@@ -93,7 +93,6 @@ import uk.ac.rdg.resc.ncwms.exceptions.WmsException;
 import uk.ac.rdg.resc.ncwms.graphics.ImageFormat;
 import uk.ac.rdg.resc.ncwms.graphics.KmzFormat;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogger;
-import uk.ac.rdg.resc.ncwms.config.TimestepInfo;
 import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
 import uk.ac.rdg.resc.ncwms.styles.ColorPalette;
 import uk.ac.rdg.resc.ncwms.styles.ImageProducer;
@@ -203,9 +202,9 @@ public class WmsController extends AbstractController {
             usageLogEntry.setWmsOperation(request);
             if (request.equals("GetCapabilities")) {
                 return getCapabilities(params, httpServletRequest, usageLogEntry);
-            /*} else if (request.equals("GetMap")) {
+            } else if (request.equals("GetMap")) {
                 return getMap(params, httpServletResponse, usageLogEntry);
-            } else if (request.equals("GetFeatureInfo")) {
+            /*} else if (request.equals("GetFeatureInfo")) {
                 return getFeatureInfo(params, httpServletRequest, httpServletResponse,
                         usageLogEntry);*/
             }
@@ -430,7 +429,7 @@ public class WmsController extends AbstractController {
      * @see uk.ac.rdg.resc.ncwms.datareader.DefaultDataReader#read DefaultDataReader.read()
      * @todo Separate Model and View code more cleanly
      */
-    /*protected ModelAndView getMap(RequestParams params,
+    protected ModelAndView getMap(RequestParams params,
             HttpServletResponse httpServletResponse, UsageLogEntry usageLogEntry)
             throws WmsException, Exception {
         // Parse the URL parameters
@@ -446,7 +445,7 @@ public class WmsController extends AbstractController {
         String[] layers = dr.getLayers();
         if (layers.length > LAYER_LIMIT) {
             throw new WmsException("You may only request a maximum of " +
-                    WmsController.LAYER_LIMIT + " layer(s) simultaneously from this server");
+                WmsController.LAYER_LIMIT + " layer(s) simultaneously from this server");
         }
         // TODO: support more than one layer (superimposition, difference, mask)
         Layer layer = this.serverConfig.getLayerByUniqueName(layers[0]);
@@ -456,8 +455,8 @@ public class WmsController extends AbstractController {
         if (dr.getHeight() > this.serverConfig.getMaxImageHeight() ||
             dr.getWidth()  > this.serverConfig.getMaxImageWidth()) {
             throw new WmsException("Requested image size exceeds the maximum of "
-                    + this.serverConfig.getMaxImageWidth() + "x"
-                    + this.serverConfig.getMaxImageHeight());
+                + this.serverConfig.getMaxImageWidth() + "x"
+                + this.serverConfig.getMaxImageHeight());
         }
 
         // Get the grid onto which the data will be projected
@@ -481,7 +480,7 @@ public class WmsController extends AbstractController {
 
         // Cycle through all the provided timesteps, extracting data for each step
         List<String> tValues = new ArrayList<String>();
-        String timeString = getMapRequest.getDataRequest().getTimeString();
+        String timeString = dr.getTimeString();
         List<Integer> tIndices = getTIndices(timeString, layer);
         if (tIndices.size() > 1 && !imageFormat.supportsMultipleFrames()) {
             throw new WmsException("The image format " + mimeType +
@@ -517,13 +516,13 @@ public class WmsController extends AbstractController {
                     layer.getDataset().getId() + "_" + layer.getId() + ".kmz");
         }
 
-        // Send the images to the picMaker and write to the output
+        // Render the images and write to the output stream
         imageFormat.writeImage(imageProducer.getRenderedFrames(),
                 httpServletResponse.getOutputStream(), layer, tValues, zValue,
                 grid.getBbox(), legend);
 
         return null;
-    }*/
+    }
 
     /** Simple class to hold a filename and a time index in the file */
     private static final class FilenameAndTindex

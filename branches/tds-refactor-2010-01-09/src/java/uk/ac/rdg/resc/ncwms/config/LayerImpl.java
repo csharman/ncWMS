@@ -31,10 +31,11 @@ package uk.ac.rdg.resc.ncwms.config;
 import java.util.ArrayList;
 import java.util.List;
 import org.joda.time.DateTime;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import uk.ac.rdg.resc.ncwms.coordsys.CrsHelper;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalCoordSys;
+import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.datareader.DataReader;
+import uk.ac.rdg.resc.ncwms.datareader.PointList;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.styles.Style;
 import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
@@ -42,14 +43,14 @@ import uk.ac.rdg.resc.ncwms.wms.AbstractTimeAggregatedLayer;
 
 /**
  * A concrete Layer implementation that supports  time aggregation through the
- * {@link AbstractTimeAggregatedLayer} superclass.
+ * {@link AbstractTimeAggregatedLayer} superclass.  Data values are represented
+ * as floating-point numbers.
  *
  * @author Jon Blower
  */
-public class LayerImpl extends AbstractTimeAggregatedLayer
+public class LayerImpl extends AbstractTimeAggregatedLayer<Float>
 {
-    private static final Logger logger = LoggerFactory.getLogger(LayerImpl.class);
-    
+    protected Dataset dataset;
     protected boolean zPositive;
     protected HorizontalCoordSys horizCoordSys;
     // Stores the keys of the styles that this variable supports
@@ -77,6 +78,15 @@ public class LayerImpl extends AbstractTimeAggregatedLayer
         Variable var = this.getVariable();
         if (var != null && var.getTitle() != null) return var.getTitle();
         else return this.title;
+    }
+
+    @Override public Dataset getDataset() { return this.dataset; }
+    public void setDataset(Dataset dataset) { this.dataset = dataset; }
+
+    @Override
+    public Class<Float> getDataType()
+    {
+        return Float.class;
     }
 
     public boolean isZpositive()
@@ -181,42 +191,6 @@ public class LayerImpl extends AbstractTimeAggregatedLayer
     }
     
     /**
-     * @return true if this variable has a depth/elevation axis
-     */
-    public boolean isZaxisPresent()
-    {
-        return this.zValues != null && this.zValues.size() > 0;
-    }
-    
-    /**
-     * @return true if this variable has a time axis
-     */
-    public boolean isTaxisPresent()
-    {
-        return this.getTimesteps() != null && this.getTimesteps().size() > 0;
-    }
-    
-    /**
-     * @return the index of the default value on the z axis (i.e. the index of
-     * the z value that will be used if the user does not specify an explicit
-     * z value in a GetMap request).
-     * @todo should be the index of the z value that is closest to zero
-     */
-    public int getDefaultZIndex()
-    {
-        return 0;
-    }
-    
-    /**
-     * @return the default value of the z axis (i.e. the z value that will be
-     * used if the user does not specify an explicit z value in a GetMap request).
-     */
-    public final double getDefaultZValue()
-    {
-        return this.zValues.get(this.getDefaultZIndex());
-    }
-    
-    /**
      * @return true if this variable can be queried through the GetFeatureInfo
      * function.  Delegates to Dataset.isQueryable().
      */
@@ -263,5 +237,23 @@ public class LayerImpl extends AbstractTimeAggregatedLayer
     public void setHorizontalCoordSys(HorizontalCoordSys horizCoordSys)
     {
         this.horizCoordSys = horizCoordSys;
+    }
+
+    @Override
+    public Float readSinglePoint(DateTime time, double elevation, HorizontalPosition xy)
+        throws InvalidDimensionValueException
+    {
+        // Find and check the time and elevation values. Indices of -1 will be
+        // returned if this layer does not have a time/elevation axis
+        int tIndex = this.findAndCheckTimeIndex(time);
+        int zIndex = this.findAndCheckElevationIndex(elevation);
+
+        // Find which file we're reading from and the time index in the file
+        TimestepInfo tInfo = this.timesteps.get(tIndex);
+
+        PointList singlePoint = PointList.fromPoint(xy, CrsHelper.CRS_84);
+
+        DataReader dr = DataReader.forName("todo");
+        return dr.read(tInfo.getFilename(), this, tInfo.getIndexInFile(), zIndex, singlePoint)[0];
     }
 }

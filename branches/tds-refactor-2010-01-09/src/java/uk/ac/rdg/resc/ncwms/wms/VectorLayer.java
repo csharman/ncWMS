@@ -31,10 +31,12 @@ package uk.ac.rdg.resc.ncwms.wms;
 /**
  * A displayable Layer that is made up of two vector components (e.g. northward
  * and eastward velocities).
+ * @param <T> the type of data held by the component Layers.
  * @author Jon
  */
-public interface VectorLayer extends Layer
+public interface VectorLayer<T> extends Layer<VectorComponent<T>>
 {
-    public Layer getEastwardComponent();
-    public Layer getNorthwardComponent();
+    /** Returns the Layer representing the eastward component */
+    public Layer<T> getEastwardComponent();
+    public Layer<T> getNorthwardComponent();
 }

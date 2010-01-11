@@ -43,9 +43,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.coordsys.LonLatPosition;
-import uk.ac.rdg.resc.ncwms.metadata.Layer;
 import uk.ac.rdg.resc.ncwms.config.LayerImpl;
-import uk.ac.rdg.resc.ncwms.config.TimestepInfo;
 
 /**
  * DataReader for NSIDC snow/water data.  This is an example of how to create
@@ -54,9 +52,6 @@ import uk.ac.rdg.resc.ncwms.config.TimestepInfo;
  * this dataset.
  *
  * @author Jon Blower
- * $Revision$
- * $Date$
- * $Log$
  */
 public class NSIDCSnowWaterDataReader extends DataReader
 {
@@ -95,11 +90,10 @@ public class NSIDCSnowWaterDataReader extends DataReader
         LayerImpl layer = layers.get("swe");
         if (layer == null)
         {
-            layer = new LayerImpl();
-            layer.setId("swe");
+            layer = new LayerImpl("swe");
             layer.setTitle("snow_water_equivalent");
             layer.setUnits("mm");
-            layer.setBbox(new double[]{-180.0, 0.0, 180.0, 90.0});
+            layer.setGeographicBoundingBox(new double[]{-180.0, 0.0, 180.0, 90.0});
         }
         
         String filename = new File(location).getName();
@@ -117,7 +111,7 @@ public class NSIDCSnowWaterDataReader extends DataReader
             // TODO: not really an IOException
             throw new IOException("Error parsing filepath " + location);
         }
-        layer.addTimestepInfo(new TimestepInfo(new DateTime(timestep), location, 0));
+        layer.addTimestepInfo(new DateTime(timestep), location, 0);
         
         layers.put(layer.getId(), layer);
     }

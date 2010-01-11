@@ -29,6 +29,7 @@
 package uk.ac.rdg.resc.ncwms.wms;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.geotoolkit.metadata.iso.extent.DefaultGeographicBoundingBox;
 import org.joda.time.DateTime;
@@ -42,12 +43,13 @@ import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
  * Partial implementation of the {@link Layer} interface, providing convenience
  * methods and default implementations of some methods.  Most properties are
  * set through the provided setter methods.
+ * @param <T> The type of the data values contained in this layer
  * @todo implement a makeImmutable() method, which prevents futher changes?
  * This could be called by the metadata-reading operation to ensure that
  * all future operations are read-only.
  * @author Jon
  */
-public abstract class AbstractLayer implements Layer
+public abstract class AbstractLayer<T> implements Layer<T>
 {
     protected String id;
     protected String title = null;
@@ -56,7 +58,6 @@ public abstract class AbstractLayer implements Layer
     protected String zUnits;
     protected List<Double> zValues;
     protected GeographicBoundingBox bbox = DefaultGeographicBoundingBox.WORLD;
-    protected Dataset dataset;
 
     /**
      * Creates an AbstractLayer with a bounding box that covers the whole world
@@ -103,16 +104,27 @@ public abstract class AbstractLayer implements Layer
     @Override
     public GeographicBoundingBox getGeographicBoundingBox() { return this.bbox; }
     public void setGeographicBoundingBox(GeographicBoundingBox bbox) { this.bbox = bbox; }
-    /** bbox = [minx, miny, maxx, maxy] */
+    /** bbox = [minx, miny, maxx, maxy]. */
     public void setGeographicBoundingBox(double[] bbox)
     {
         if (bbox == null) throw new NullPointerException();
         if (bbox.length != 4) throw new IllegalArgumentException("Bounding box must have four elements");
+        // Note that these arguments are different from OGC BBOX order!
         this.bbox = new DefaultGeographicBoundingBox(bbox[0], bbox[2], bbox[1], bbox[3]);
     }
 
-    @Override public Dataset getDataset() { return this.dataset; }
-    public void setDataset(Dataset dataset) { this.dataset = dataset; }
+    /**
+     * Returns true if this layer has a time axis.  This is a convenience method
+     * that simply checks if the length of the list of timesteps is non-zero.
+     */
+    protected boolean hasTimeAxis() { return this.getTimeValues().size() > 0; }
+
+    /**
+     * Returns true if this layer has an elevation axis.  This is a convenience
+     * method that simply checks if the length of the list of elevation values is
+     * non-zero.
+     */
+    protected boolean hasElevationAxis() { return this.getElevationValues().size() > 0; }
     
     /**
      * Gets the time value that will be used by default if a client does not
@@ -130,8 +142,9 @@ public abstract class AbstractLayer implements Layer
 
     /**
      * Gets the index in the {@link #getTimeValues() list of valid timesteps}
-     * of the timestep that is closest to the current time, or -1 if this layer
-     * does not have a time axis.
+     * of the past or present timestep that is closest to the current time, or
+     * -1 if this layer does not have a time axis.  If all timesteps in this Layer
+     * are in the future then this will return 0.
      * @return the index in the {@link #getTimeValues() list of valid timesteps}
      * of the timestep that is closest to the current time, or -1 if this layer
      * does not have a time axis.
@@ -140,52 +153,138 @@ public abstract class AbstractLayer implements Layer
      */
     protected int getCurrentTimeIndex()
     {
-        if (this.getTimeValues().size() == 0) return -1;
-        // TODO: we need to specify a Comparator to use binarySearch
-        // TODO could move findTIndex to this class and share the code, remembering
-        // that this method mustn't throw an exception if the current time isn't
-        // precisely found.
+        if (this.getTimeValues().size() == 0) return -1; // no time axis
+        int index = findTimeIndex(new DateTime());
+        if (index >= 0) {
+            // Exact match.  Very unlikely!
+            return index;
+        } else {
+            // We can calculate the insertion point
+            int insertionPoint = -(index + 1); // see docs for Collections.binarySearch()
+            // We return the index of the most recent past time
+            if (insertionPoint > 0) return insertionPoint - 1; // The most recent past time
+            else return 0; // All DateTimes on the axis are in the future, so we take the earliest
+        }
     }
 
     /**
-     * Finds the index of a certain z value (within the {@link #zValues list
-     * of elevation values}) by brute-force search.  We can afford
+     * Searches the list of timesteps for the specified date-time using the binary
+     * search algorithm.  Matches are found based only upon the millisecond
+     * instant of the passed DateTime, not its Chronology.
+     * @param  target The timestep to search for.
+     * @return the index of the search key, if it is contained in the list;
+     *	       otherwise, <tt>(-(<i>insertion point</i>) - 1)</tt>.  The
+     *	       <i>insertion point</i> is defined as the point at which the
+     *	       key would be inserted into the list: the index of the first
+     *	       element greater than the key, or <tt>list.size()</tt> if all
+     *	       elements in the list are less than the specified key.  Note
+     *	       that this guarantees that the return value will be &gt;= 0 if
+     *	       and only if the key is found.  If this Layer does not have a time
+     *         axis this method will return -1.
+     */
+    protected int findTimeIndex(DateTime target)
+    {
+        return Collections.binarySearch(
+            this.getTimeValues(),         // The list of timesteps
+            target,                       // The target value
+            WmsUtils.DATE_TIME_COMPARATOR // Comparator based upon ms values only
+        );
+    }
+
+    /**
+     * Searches the list of timesteps for the specified date-time, returning
+     * the index of the date-time, or throwing an {@link InvalidDimensionValueException}
+     * if the specified date-time is not a valid timestep for this layer.  If
+     * this layer does not have an elevation axis, this will return -1.
+     */
+    protected int findAndCheckTimeIndex(DateTime target) throws InvalidDimensionValueException
+    {
+        if (!this.hasTimeAxis()) return -1;
+        int index = this.findTimeIndex(target);
+        if (index >= 0) return index;
+        throw new InvalidDimensionValueException("time", WmsUtils.dateTimeToISO8601(target));
+    }
+
+    /**
+     * <p>Gets the elevation value that will be used by default if a client does not
+     * explicitly provide an elevation parameter in a request ({@literal e.g. GetMap}),
+     * or {@link Double#NaN} if this layer does not support a default elevation
+     * value (or does not have an elevation axis).</p>
+     * <p>This implementation simply returns the value that is closest to zero
+     * (zero will usually be the surface), or NaN if this layer doesn't have
+     * an elevation axis.</p>
+     * @return the default elevation value or {@link Double#NaN}
+     */
+    @Override
+    public double getDefaultElevationValue()
+    {
+        // We must access this via the accessor method in case subclasses override it.
+        List<Double> zVals = this.getElevationValues();
+        if (zVals.size() == 0) return Double.NaN;
+        double minAbsValue = Double.MAX_VALUE;
+        for (double zVal : zVals)
+        {
+            minAbsValue = Math.min(minAbsValue, Math.abs(zVal));
+        }
+        return minAbsValue;
+    }
+
+    /**
+     * Finds the index of a certain z value (within the {@link #getElevationValues()
+     * list of elevation values}) by brute-force search.  We can afford
      * to be inefficient here because z axes are not likely to be large.
      * @param targetVal Value to search for
-     * @return the z index corresponding with the given targetVal
-     * @throws InvalidDimensionValueException if targetVal could not be found
-     * within zValues
+     * @return the z index corresponding with the given targetVal, or -1 if
+     * targetVal is not found in the list of elevation values, or if this
+     * layer does not have an elevation axis.
      */
-    protected int findElevationIndex(double targetVal) throws InvalidDimensionValueException
+    protected int findElevationIndex(double targetVal)
     {
-        for (int i = 0; i < this.zValues.size(); i++)
+        // We must access this via the accessor method in case subclasses override it.
+        List<Double> zVals = this.getElevationValues();
+        for (int i = 0; i < zVals.size(); i++)
         {
             // The fuzzy comparison fails for zVal == 0.0 so we do a direct
             // comparison too
-            if (this.zValues.get(i) == targetVal ||
-                Math.abs((this.zValues.get(i) - targetVal) / targetVal) < 1e-5)
+            if (zVals.get(i) == targetVal ||
+                Math.abs((zVals.get(i) - targetVal) / targetVal) < 1e-5)
             {
                 return i;
             }
         }
+        return -1;
+    }
+
+    /**
+     * Searches the list of elevation values for the specified value, returning
+     * the index of the elevation value, or throwing an {@link InvalidDimensionValueException}
+     * if the specified elevation is not valid for this layer.  If this layer
+     * does not have an elevation axis, this will return -1.
+     */
+    protected int findAndCheckElevationIndex(double targetVal) throws InvalidDimensionValueException
+    {
+        if (!this.hasElevationAxis()) return -1;
+        int index = this.findElevationIndex(targetVal);
+        if (index >= 0) return index;
         throw new InvalidDimensionValueException("elevation", "" + targetVal);
     }
 
     /**
      * <p>Simple but naive implementation of
      * {@link Layer#readPointList(org.joda.time.DateTime, double,
-     * uk.ac.rdg.resc.ncwms.datareader.PointList)} that makes repeated calls to
+     * uk.ac.rdg.resc.ncwms.datareader.PointList) Layer.readPointList()} that
+     * makes repeated calls to
      * {@link Layer#readSinglePoint(org.joda.time.DateTime, double,
-     * uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition)}.
+     * uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition) Layer.readSinglePoint()}.
      * This implementation is not expected to be maximally efficient and subclasses
      * are encouraged to override this.</p>
      * @return a List of data values
      */
     @Override
-    public List<Float> readPointList(DateTime time, double elevation, PointList pointList)
+    public List<T> readPointList(DateTime time, double elevation, PointList pointList)
             throws InvalidDimensionValueException
     {
-        List<Float> vals = new ArrayList<Float>(pointList.size());
+        List<T> vals = new ArrayList<T>(pointList.size());
         for (HorizontalPosition xy : pointList.asList()) {
             vals.add(this.readSinglePoint(time, elevation, xy));
         }
@@ -195,25 +294,25 @@ public abstract class AbstractLayer implements Layer
     /**
      * <p>Simple but naive implementation of
      * {@link Layer#readTimeseries(java.util.List, double,
-     * uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition)} that makes repeated calls to
-     * {@link Layer#readSinglePoint(org.joda.time.DateTime, double,
-     * uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition)}. This implementation
+     * uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition) Layer.readTimeseries()}
+     * that makes repeated
+     * calls to {@link Layer#readSinglePoint(org.joda.time.DateTime, double,
+     * uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition) Layer.readSinglePoint()}.
+     * This implementation
      * is not expected to be maximally efficient and subclasses are encouraged
      * to override this.</p>
      */
     @Override
-    public List<Float> readTimeseries(List<DateTime> times, double elevation,
+    public List<T> readTimeseries(List<DateTime> times, double elevation,
         HorizontalPosition xy) throws InvalidDimensionValueException
     {
         // TODO: could check validity of all the times before we start
         // potentially-lengthy data-reading operations
-        List<Float> vals = new ArrayList<Float>(times.size());
+        List<T> vals = new ArrayList<T>(times.size());
         for (DateTime time : times) {
             vals.add(this.readSinglePoint(time, elevation, xy));
         }
         return vals;
     }
-
-
-
+    
 }

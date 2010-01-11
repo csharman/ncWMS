@@ -351,14 +351,14 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
         this.disabled = disabled;
     }
 
-    @Override
 
     /**
-     * Gets the copyright statement for this layer, replacing ${year} as
+     * Gets the copyright statement for this dataset, replacing "${year}" as
      * appropriate with the current year.
      * @return The copyright statement, or the empty string if no copyright
      * statement has been set.
      */
+    @Override
     public String getCopyrightStatement()
     {
         if (this.copyrightStatement == null || this.copyrightStatement.trim().equals(""))
@@ -529,7 +529,7 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
         }
         this.loadingProgress.append("loaded layers");
         // Search for vector quantities (e.g. northward/eastward_sea_water_velocity)
-        this.findVectorQuantities(newLayers);
+        //this.findVectorQuantities(newLayers);
         this.loadingProgress.append("found vector quantities");
         // Look for overriding attributes in the configuration
         this.readLayerConfig(newLayers);
@@ -546,7 +546,7 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
      * in-place.
      * @todo Only works for northward/eastward so far
      */
-    private void findVectorQuantities(Map<String, LayerImpl> layers)
+    /*private void findVectorQuantities(Map<String, LayerImpl> layers)
     {
         // This hashtable will store pairs of components in eastward-northward
         // order, keyed by the standard name for the vector quantity
@@ -592,7 +592,7 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
                 layers.put(key, vec);
             }
         }
-    }
+    }*/
 
     /**
      * Read the configuration information from individual layers from the

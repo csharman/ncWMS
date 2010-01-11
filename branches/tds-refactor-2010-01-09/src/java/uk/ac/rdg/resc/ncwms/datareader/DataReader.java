@@ -184,8 +184,8 @@ public abstract class DataReader
     /**
      * Reads the metadata for all the variables in the dataset
      * at the given location, which is the location of a NetCDF file, NcML
-     * aggregation, or OPeNDAP location (i.e. one element resulting from the
-     * expansion of a glob aggregation).
+     * aggregation, or OPeNDAP location ({@literal i.e.} one element resulting
+     * from the expansion of a glob aggregation).
      * @param location Full path to the dataset
      * @param layers Map of Layer Ids to Layer objects to populate or update
      * @throws Exception if there was an error reading from the data source
