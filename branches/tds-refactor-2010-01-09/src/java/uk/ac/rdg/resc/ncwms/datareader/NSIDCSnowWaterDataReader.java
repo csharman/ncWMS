@@ -124,7 +124,7 @@ public class NSIDCSnowWaterDataReader extends DataReader
      * by Float.NaN.
      *
      * @param filename Location of the file, NcML aggregation or OPeNDAP URL
-     * @param layer {@link Layer} object representing the variable
+     * @param layer {@link LayerImpl} object representing the variable
      * @param tIndex The index along the time axis (or -1 if there is no time axis)
      * @param zIndex The index along the vertical axis (or -1 if there is no vertical axis)
      * @param pointList The list of real-world x-y points for which we need data
@@ -132,7 +132,8 @@ public class NSIDCSnowWaterDataReader extends DataReader
      * the {@code pointList}, in the same order.
      * @throws Exception if an error occurs
      */
-    public float[] read(String filename, Layer layer, int tIndex, int zIndex, PointList pointList)
+    @Override
+    public float[] read(String filename, LayerImpl layer, int tIndex, int zIndex, PointList pointList)
         throws Exception
     {
         // Find the file containing the data

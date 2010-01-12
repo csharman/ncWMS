@@ -36,7 +36,9 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.geotoolkit.metadata.iso.extent.DefaultGeographicBoundingBox;
 import org.joda.time.DateTime;
+import org.opengis.metadata.extent.GeographicBoundingBox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ucar.ma2.Array;
@@ -57,9 +59,7 @@ import ucar.unidata.geoloc.LatLonPoint;
 import ucar.unidata.geoloc.LatLonRect;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalCoordSys;
 import uk.ac.rdg.resc.ncwms.coordsys.LonLatPosition;
-import uk.ac.rdg.resc.ncwms.metadata.Layer;
 import uk.ac.rdg.resc.ncwms.config.LayerImpl;
-import uk.ac.rdg.resc.ncwms.config.TimestepInfo;
 import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
 
 /**
@@ -95,7 +95,7 @@ public class DefaultDataReader extends DataReader
      * populatePixelArray()}</p>
      *
      * @param filename Location of the file, NcML aggregation or OPeNDAP URL
-     * @param layer {@link Layer} object representing the variable
+     * @param layer {@link LayerImpl} object representing the variable
      * @param tIndex The index along the time axis (or -1 if there is no time axis)
      * @param zIndex The index along the vertical axis (or -1 if there is no vertical axis)
      * @param pointList The list of real-world x-y points for which we need data.
@@ -105,7 +105,7 @@ public class DefaultDataReader extends DataReader
      * @throws Exception if an error occurs
      */
     @Override
-    public float[] read(String filename, Layer layer, int tIndex, int zIndex,
+    public float[] read(String filename, LayerImpl layer, int tIndex, int zIndex,
         PointList pointList) throws Exception
     {
         NetcdfDataset nc = null;
@@ -215,7 +215,7 @@ public class DefaultDataReader extends DataReader
      * therefore expected to be more efficient, particularly when reading from
      * OPeNDAP servers.</p>
      * @param filename Location of the file, NcML aggregation or OPeNDAP URL
-     * @param layer {@link Layer} object representing the variable
+     * @param layer {@link LayerImpl} object representing the variable
      * @param tIndices the indices along the time axis within this file
      * @param zIndex The index along the vertical axis (or -1 if there is no vertical axis)
      * @param lonLat The longitude and latitude of the point
@@ -225,7 +225,7 @@ public class DefaultDataReader extends DataReader
      * @todo Validity checking on tIndices and layer.hasTAxis()?
      */
     @Override
-    public float[] readTimeseries(String filename, Layer layer,
+    public float[] readTimeseries(String filename, LayerImpl layer,
         List<Integer> tIndices, int zIndex, LonLatPosition lonLat)
         throws Exception
     {
@@ -359,26 +359,25 @@ public class DefaultDataReader extends DataReader
                     
                     boolean zPositive = this.isZPositive(coordSys);
                     CoordinateAxis1D zAxis = coordSys.getVerticalAxis();
-                    double[] zValues = this.getZValues(zAxis, zPositive);
+                    List<Double> zValues = this.getZValues(zAxis, zPositive);
 
                     // Get the bounding box
-                    double[] bbox = getBbox(coordSys);
+                    GeographicBoundingBox bbox = getBbox(coordSys);
 
                     // Now add every variable that has this coordinate system
                     for (GridDatatype grid : newGrids)
                     {
                         logger.debug("Creating new Layer object for {}", grid.getName());
-                        LayerImpl layer = new LayerImpl();
-                        layer.setId(grid.getName());
+                        LayerImpl layer = new LayerImpl(grid.getName());
                         layer.setTitle(getLayerTitle(grid.getVariable()));
                         layer.setAbstract(grid.getDescription());
                         layer.setUnits(grid.getUnitsString());
                         layer.setHorizontalCoordSys(horizCoordSys);
-                        layer.setBbox(bbox);
+                        layer.setGeographicBoundingBox(bbox);
 
                         if (zAxis != null)
                         {
-                            layer.setZunits(zAxis.getUnitsString());
+                            layer.setElevationUnits(zAxis.getUnitsString());
                             layer.setZpositive(zPositive);
                             layer.setElevationValues(zValues);
                         }
@@ -390,16 +389,16 @@ public class DefaultDataReader extends DataReader
                 // Now we add the new timestep information for all grids
                 // in this Gridset
                 logger.debug("Computing TimestepInfo objects");
-                List<TimestepInfo> timesteps = getTimesteps(location, coordSys);
+                List<DateTime> timesteps = getTimesteps(location, coordSys);
                 for (GridDatatype grid : grids)
                 {
                     if (this.includeGrid(grid))
                     {
                         logger.debug("Adding timestep info to {}", grid.getName());
                         LayerImpl layer = layers.get(grid.getName());
-                        for (TimestepInfo timestep : timesteps)
+                        for (int i = 0; i < timesteps.size(); i++)
                         {
-                            layer.addTimestepInfo(timestep);
+                            layer.addTimestepInfo(timesteps.get(i), location, i);
                         }
                     }
                 }
@@ -435,22 +434,16 @@ public class DefaultDataReader extends DataReader
     
     /**
      * @return the values on the z axis, with sign reversed if zPositive == false.
-     * Returns null if zAxis is null.
+     * Returns an empty list if zAxis is null.
      */
-    protected double[] getZValues(CoordinateAxis1D zAxis, boolean zPositive)
+    protected List<Double> getZValues(CoordinateAxis1D zAxis, boolean zPositive)
     {
-        double[] zValues = null;
+        List<Double> zValues = new ArrayList<Double>();
         if (zAxis != null)
         {
-            zValues = zAxis.getCoordValues();
-            if (!zPositive)
+            for (double zVal : zAxis.getCoordValues())
             {
-                double[] zVals = new double[zValues.length];
-                for (int i = 0; i < zVals.length; i++)
-                {
-                    zVals[i] = 0.0 - zValues[i];
-                }
-                zValues = zVals;
+                zValues.add(zPositive ? zVal : 0.0 - zVal);
             }
         }
         return zValues;
@@ -479,7 +472,7 @@ public class DefaultDataReader extends DataReader
      * Gets the latitude-longitude bounding box of the given coordinate system
      * in the form [minLon, minLat, maxLon, maxLat]
      */
-    private static double[] getBbox(GridCoordSystem coordSys)
+    private static GeographicBoundingBox getBbox(GridCoordSystem coordSys)
     {
         // TODO: should take into account the cell bounds
         LatLonRect latLonRect = coordSys.getLatLonBoundingBox();
@@ -507,28 +500,25 @@ public class DefaultDataReader extends DataReader
         minLat = Double.isNaN(minLat) ? -90.0  : minLat;
         maxLon = Double.isNaN(maxLon) ?  180.0 : maxLon;
         maxLat = Double.isNaN(maxLat) ?   90.0 : maxLat;
-        return new double[]{minLon, minLat, maxLon, maxLat};
+        return new DefaultGeographicBoundingBox(minLon, maxLon, minLat, maxLat);
     }
     
     /**
-     * Gets array of Dates representing the timesteps of the given coordinate system.
-     * @param filename The name of the file/dataset to which the coord sys belongs
+     * Gets List of DateTimes representing the timesteps of the given coordinate system.
      * @param coordSys The coordinate system containing the time information
-     * @return List of TimestepInfo objects
+     * @return List of TimestepInfo objects, or an empty list if the coordinate
+     * system has no time axis
      * @throws IOException if there was an error reading the timesteps data
      */
-    protected static List<TimestepInfo> getTimesteps(String filename, GridCoordSystem coordSys)
+    protected static List<DateTime> getTimesteps(String filename, GridCoordSystem coordSys)
         throws IOException
     {
-        List<TimestepInfo> timesteps = new ArrayList<TimestepInfo>();
+        List<DateTime> timesteps = new ArrayList<DateTime>();
         if (coordSys.hasTimeAxis1D())
         {
-            Date[] dates = coordSys.getTimeAxis1D().getTimeDates();
-            for (int i = 0; i < dates.length; i++)
+            for (Date date : coordSys.getTimeAxis1D().getTimeDates())
             {
-                DateTime dt = new DateTime(dates[i]);
-                TimestepInfo tInfo = new TimestepInfo(dt, filename, i);
-                timesteps.add(tInfo);
+                timesteps.add(new DateTime(date));
             }
         }
         return timesteps;
