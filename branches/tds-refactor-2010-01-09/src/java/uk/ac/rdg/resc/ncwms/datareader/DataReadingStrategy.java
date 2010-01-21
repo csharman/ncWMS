@@ -27,11 +27,13 @@
  */
 package uk.ac.rdg.resc.ncwms.datareader;
 
+import java.io.IOException;
 import java.util.Arrays;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ucar.ma2.Array;
 import ucar.ma2.Index;
+import ucar.ma2.InvalidRangeException;
 import ucar.ma2.Range;
 import ucar.nc2.dataset.VariableDS;
 import ucar.nc2.dt.GridDatatype;
@@ -99,8 +101,8 @@ public enum DataReadingStrategy {
      */
     SCANLINE {
         @Override
-        public void populatePixelArray(float[] picData, Range tRange, Range zRange,
-            PixelMap pixelMap, GridDatatype grid) throws Exception
+        protected void doPopulatePixelArray(float[] picData, Range tRange, Range zRange,
+            PixelMap pixelMap, GridDatatype grid) throws IOException, InvalidRangeException
         {
             logger.debug("Reading data using a scanline algorithm");
             // Cycle through the y indices, extracting a scanline of
@@ -150,8 +152,8 @@ public enum DataReadingStrategy {
      */
     BOUNDING_BOX {
         @Override
-        public void populatePixelArray(float[] picData, Range tRange, Range zRange,
-            PixelMap pixelMap, GridDatatype grid) throws Exception
+        protected void doPopulatePixelArray(float[] picData, Range tRange, Range zRange,
+            PixelMap pixelMap, GridDatatype grid) throws IOException, InvalidRangeException
         {
             logger.debug("Reading data using a bounding-box algorithm");
             // Read the whole chunk of x-y data
@@ -205,8 +207,8 @@ public enum DataReadingStrategy {
      */
     PIXEL_BY_PIXEL {
         @Override
-        public void populatePixelArray(float[] picData, Range tRange, Range zRange,
-            PixelMap pixelMap, GridDatatype grid) throws Exception
+        protected void doPopulatePixelArray(float[] picData, Range tRange, Range zRange,
+            PixelMap pixelMap, GridDatatype grid) throws IOException, InvalidRangeException
         {
             logger.debug("Reading data using a pixel-by-pixel algorithm");
             long start = System.currentTimeMillis();
@@ -241,8 +243,19 @@ public enum DataReadingStrategy {
      * Reads data from the given GridDatatype and populates the given pixel array.
      * @see PixelMap
      */
-    public abstract void populatePixelArray(float[] picData, Range tRange, Range zRange,
-        PixelMap pixelMap, GridDatatype grid) throws Exception;
+    public final void populatePixelArray(float[] picData, Range tRange, Range zRange,
+        PixelMap pixelMap, GridDatatype grid) throws IOException
+    {
+        try {
+            this.doPopulatePixelArray(picData, tRange, zRange, pixelMap, grid);
+        } catch (InvalidRangeException ire) {
+            // This is a programming error from which we can't recover
+            throw new IllegalStateException(ire);
+        }
+    }
+
+    protected abstract void doPopulatePixelArray(float[] picData, Range tRange, Range zRange,
+        PixelMap pixelMap, GridDatatype grid) throws IOException, InvalidRangeException;
 
     private static final Logger logger = LoggerFactory.getLogger(DataReadingStrategy.class);
 }

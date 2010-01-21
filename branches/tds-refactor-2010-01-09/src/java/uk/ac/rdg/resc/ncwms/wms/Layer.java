@@ -28,6 +28,7 @@
 
 package uk.ac.rdg.resc.ncwms.wms;
 
+import java.io.IOException;
 import java.util.List;
 import org.joda.time.DateTime;
 import org.opengis.metadata.extent.GeographicBoundingBox;
@@ -35,6 +36,7 @@ import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.datareader.PointList;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
+import uk.ac.rdg.resc.ncwms.util.Range;
 
 /**
  * A displayable layer, contained within a {@link Dataset}.
@@ -46,7 +48,7 @@ import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
  * the values can be rendered in a Capabilities doc (e.g. if regularly-spaced).
  * @author Jon
  */
-public interface Layer<T>
+public interface Layer<T extends Number & Comparable<? super T>>
 {
     /** Returns the {@link Dataset} to which this layer belongs. */
     public Dataset getDataset();
@@ -97,10 +99,22 @@ public interface Layer<T>
     public List<DateTime> getTimeValues();
 
     /**
-     * Get the time value that will be used by default if a client does not
+     * Get the time value that is nearest to the current time.  This will be
+     * used if the client specifies "TIME=current" in a request.  Implementations
+     * may choose to ensure that this only returns values in the past, which
+     * would tend to prevent this returning a time representing a forecast.
+     * @return the time value that is closest to the current time, or null if this
+     * layer doesn't have a time axis.
+     */
+    public DateTime getCurrentTimeValue();
+
+    /**
+     * <p>Get the time value that will be used by default if a client does not
      * explicitly provide a time parameter in a request ({@literal e.g.} GetMap),
      * or null if this layer does not support a default time value (or does not
-     * have a time axis).
+     * have a time axis).</p>
+     * <p>Note that this may frequently be the same as the {@link #getCurrentTimeValue()
+     * current time value}.</p>
      * @return the default time value or null
      */
     public DateTime getDefaultTimeValue();
@@ -132,6 +146,14 @@ public interface Layer<T>
     public String getElevationUnits();
 
     /**
+     * Returns an approximate range of values that this layer can take.  This
+     * is merely a hint, for example to suggest to clients sensible default
+     * values for choosing a colour scale.
+     * @return an approximate range of values that this layer can take.
+     */
+    public Range<T> getApproxValueRange();
+
+    /**
      * Returns the runtime type of the data values in this Layer
      * @return the runtime type of the data values in this Layer
      */
@@ -161,9 +183,10 @@ public interface Layer<T>
      * @throws InvalidDimensionValueException if {@code elevation} is not a valid
      * elevation in this Layer, or if {@code time} is not a valid time in this
      * Layer.
+     * @throws IOException if there was an error reading from the data source
      */
     public T readSinglePoint(DateTime time, double elevation, HorizontalPosition xy)
-        throws InvalidDimensionValueException;
+        throws InvalidDimensionValueException, IOException;
     
     /**
      * <p>Reads data at a number of horizontal locations at a single time and
@@ -192,9 +215,10 @@ public interface Layer<T>
      * @throws InvalidDimensionValueException if {@code elevation} is not a valid
      * elevation in this Layer, or if {@code time} is not a valid time in this
      * Layer.
+     * @throws IOException if there was an error reading from the data source
      */
     public List<T> readPointList(DateTime time, double elevation, PointList pointList)
-        throws InvalidDimensionValueException;
+        throws InvalidDimensionValueException, IOException;
 
     /**
      * <p>Reads a timeseries of data at a single xyz point from this Layer.
@@ -223,9 +247,10 @@ public interface Layer<T>
      * @throws InvalidDimensionValueException if {@code elevation} is not a valid
      * elevation in this Layer, or if any of the {@code times} are not valid
      * times for this layer.
+     * @throws IOException if there was an error reading from the data source
      * @todo what if this method is called on a Layer that has no time axis?
      */
     public List<T> readTimeseries(List<DateTime> times, double elevation,
-        HorizontalPosition xy) throws InvalidDimensionValueException;
+        HorizontalPosition xy) throws InvalidDimensionValueException, IOException;
 
 }

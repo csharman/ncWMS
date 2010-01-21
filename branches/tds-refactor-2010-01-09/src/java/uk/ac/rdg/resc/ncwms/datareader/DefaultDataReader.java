@@ -39,9 +39,11 @@ import java.util.Set;
 import org.geotoolkit.metadata.iso.extent.DefaultGeographicBoundingBox;
 import org.joda.time.DateTime;
 import org.opengis.metadata.extent.GeographicBoundingBox;
+import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ucar.ma2.Array;
+import ucar.ma2.InvalidRangeException;
 import ucar.ma2.Range;
 import ucar.nc2.Attribute;
 import ucar.nc2.constants.FeatureType;
@@ -60,15 +62,12 @@ import ucar.unidata.geoloc.LatLonRect;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalCoordSys;
 import uk.ac.rdg.resc.ncwms.coordsys.LonLatPosition;
 import uk.ac.rdg.resc.ncwms.config.LayerImpl;
-import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
+import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 
 /**
  * Default data reading class for CF-compliant NetCDF datasets.
  *
  * @author Jon Blower
- * $Revision$
- * $Date$
- * $Log$
  */
 public class DefaultDataReader extends DataReader
 {
@@ -102,11 +101,11 @@ public class DefaultDataReader extends DataReader
      * In the case of a GetMap operation this will usually be a {@link HorizontalGrid}.
      * @return an array of floating-point data values, one for each point in
      * the {@code pointList}, in the same order.
-     * @throws Exception if an error occurs
+     * @throws IOException if an input/output exception occurred when reading data
      */
     @Override
     public float[] read(String filename, LayerImpl layer, int tIndex, int zIndex,
-        PointList pointList) throws Exception
+        PointList pointList) throws IOException
     {
         NetcdfDataset nc = null;
         try
@@ -182,6 +181,20 @@ public class DefaultDataReader extends DataReader
             
             return picData;
         }
+        catch(InvalidRangeException ire)
+        {
+            // This is a programming error, and one from which we can't recover
+            throw new IllegalStateException(ire);
+        }
+        catch(TransformException te)
+        {
+            // This would only happen if there were an internal error transforming
+            // between coordinate systems in making the PixelMap.  There is
+            // nothing a client could do to recover from this so we turn it into
+            // a runtime exception
+            // TODO: think of a better exception type
+            throw new RuntimeException(te);
+        }
         finally
         {
             if (nc != null)
@@ -221,15 +234,14 @@ public class DefaultDataReader extends DataReader
      * @param lonLat The longitude and latitude of the point
      * @return an array of floating-point data values, one for each point in
      * {@code tIndices}, in the same order.
-     * @throws Exception if an error occurs
+     * @throws IOException if an input/output exception occurred when reading data
      * @todo Validity checking on tIndices and layer.hasTAxis()?
      */
     @Override
     public float[] readTimeseries(String filename, LayerImpl layer,
         List<Integer> tIndices, int zIndex, LonLatPosition lonLat)
-        throws Exception
+        throws IOException
     {
-
         int firstTIndex = tIndices.get(0);
         int lastTIndex = tIndices.get(tIndices.size() - 1);
         int[] gridCoords = layer.getHorizontalCoordSys().lonLatToGrid(lonLat);
@@ -264,7 +276,8 @@ public class DefaultDataReader extends DataReader
             // Check for consistency
             if (arr.getSize() != lastTIndex - firstTIndex + 1)
             {
-                throw new Exception("Unexpected array size (got " + arr.getSize()
+                // This is an internal error
+                throw new IllegalStateException("Unexpected array size (got " + arr.getSize()
                     + ", expected " + (lastTIndex - firstTIndex + 1) + ")");
             }
 
@@ -281,6 +294,11 @@ public class DefaultDataReader extends DataReader
                 tsData[i] = (float)var.convertScaleOffsetMissing(val);
             }
             return tsData;
+        }
+        catch(InvalidRangeException ire)
+        {
+            // This is a programming error, and one from which we can't recover
+            throw new IllegalStateException(ire);
         }
         finally
         {

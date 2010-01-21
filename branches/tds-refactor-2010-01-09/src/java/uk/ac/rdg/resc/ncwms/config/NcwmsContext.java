@@ -34,7 +34,7 @@ import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.core.io.Resource;
-import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
+import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import org.slf4j.LoggerFactory;
 import org.apache.log4j.PropertyConfigurator;
 

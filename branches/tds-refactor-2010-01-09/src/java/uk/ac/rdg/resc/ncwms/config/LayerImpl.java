@@ -28,6 +28,7 @@
 
 package uk.ac.rdg.resc.ncwms.config;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import org.joda.time.DateTime;
@@ -38,7 +39,7 @@ import uk.ac.rdg.resc.ncwms.datareader.DataReader;
 import uk.ac.rdg.resc.ncwms.datareader.PointList;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.styles.Style;
-import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
+import uk.ac.rdg.resc.ncwms.util.Range;
 import uk.ac.rdg.resc.ncwms.wms.AbstractTimeAggregatedLayer;
 
 /**
@@ -98,69 +99,17 @@ public class LayerImpl extends AbstractTimeAggregatedLayer<Float>
     {
         this.zPositive = zPositive;
     }
+    
     /**
-     * @return array of two doubles, representing the min and max of the scale range
-     * Note that this is not the same as a "valid_max" for the dataset.  This is
-     * simply a hint to visualization tools.  This implementation reads from
-     * the Config information (via the Dataset object).
+     * Returns an approximate range of values that this layer can take.  This
+     * is merely a hint, for example to suggest to clients sensible default
+     * values for choosing a colour scale.
+     * @return an approximate range of values that this layer can take.
      */
-    public float[] getColorScaleRange()
+    @Override
+    public Range<Float> getApproxValueRange()
     {
         return this.getVariable().getColorScaleRange();
-    }
-    
-    /**
-     * @return the index of the TimestepInfo object corresponding with the given
-     * ISO8601 time string. Uses binary search for efficiency.
-     * @throws InvalidDimensionValueException if there is no corresponding
-     * TimestepInfo object, or if the given ISO8601 string is not valid.  
-     */
-    public int findTIndex(String isoDateTime) throws InvalidDimensionValueException
-    {
-        if (isoDateTime.equals("current"))
-        {
-            // Return the last timestep
-            // TODO: should be the index of the timestep closest to now
-            return this.getLastTIndex();
-        }
-        DateTime target = WmsUtils.iso8601ToDateTime(isoDateTime);
-        if (target == null)
-        {
-            throw new InvalidDimensionValueException("time", isoDateTime);
-        }
-        int index = findTIndex(target);
-        if (index < 0)
-        {
-            throw new InvalidDimensionValueException("time", isoDateTime);
-        }
-        return index;
-    }
-    
-    /**
-     * Gets a List of integers representing indices along the time axis
-     * starting from isoDateTimeStart and ending at isoDateTimeEnd, inclusive.
-     * @param isoDateTimeStart ISO8601-formatted String representing the start time
-     * @param isoDateTimeEnd ISO8601-formatted String representing the start time
-     * @return List of Integer indices
-     * @throws InvalidDimensionValueException if either of the start or end
-     * values were not found in the axis, or if they are not valid ISO8601 times.
-     */
-    public List<Integer> findTIndices(String isoDateTimeStart,
-        String isoDateTimeEnd) throws InvalidDimensionValueException
-    {
-        int startIndex = this.findTIndex(isoDateTimeStart);
-        int endIndex = this.findTIndex(isoDateTimeEnd);
-        if (startIndex > endIndex)
-        {
-            throw new InvalidDimensionValueException("time",
-                isoDateTimeStart + "/" + isoDateTimeEnd);
-        }
-        List<Integer> tIndices = new ArrayList<Integer>();
-        for (int i = startIndex; i <= endIndex; i++)
-        {
-            tIndices.add(i);
-        }
-        return tIndices;
     }
 
     /**
@@ -186,7 +135,6 @@ public class LayerImpl extends AbstractTimeAggregatedLayer<Float>
      */
     public boolean supportsStyle(String styleName)
     {
-        text to ensure revisit
         return this.supportedStyles.contains(styleName.trim());
     }
     
@@ -241,7 +189,7 @@ public class LayerImpl extends AbstractTimeAggregatedLayer<Float>
 
     @Override
     public Float readSinglePoint(DateTime time, double elevation, HorizontalPosition xy)
-        throws InvalidDimensionValueException
+        throws InvalidDimensionValueException, IOException
     {
         // Find and check the time and elevation values. Indices of -1 will be
         // returned if this layer does not have a time/elevation axis
@@ -249,11 +197,17 @@ public class LayerImpl extends AbstractTimeAggregatedLayer<Float>
         int zIndex = this.findAndCheckElevationIndex(elevation);
 
         // Find which file we're reading from and the time index in the file
-        TimestepInfo tInfo = this.timesteps.get(tIndex);
+        String filename = this.dataset.getLocation();
+        int tIndexInFile = tIndex;
+        if (tIndex >= 0) {
+            TimestepInfo tInfo = this.timesteps.get(tIndex);
+            filename = tInfo.getFilename();
+            tIndexInFile = tInfo.getIndexInFile();
+        }
 
         PointList singlePoint = PointList.fromPoint(xy, CrsHelper.CRS_84);
 
         DataReader dr = DataReader.forName("todo");
-        return dr.read(tInfo.getFilename(), this, tInfo.getIndexInFile(), zIndex, singlePoint)[0];
+        return dr.read(filename, this, tIndexInFile, zIndex, singlePoint)[0];
     }
 }

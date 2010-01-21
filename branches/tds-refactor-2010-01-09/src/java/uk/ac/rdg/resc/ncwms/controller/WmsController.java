@@ -97,7 +97,7 @@ import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
 import uk.ac.rdg.resc.ncwms.styles.ColorPalette;
 import uk.ac.rdg.resc.ncwms.styles.ImageProducer;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry;
-import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
+import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Dataset;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 import uk.ac.rdg.resc.ncwms.wms.ServerConfig;
@@ -475,31 +475,30 @@ public class WmsController extends AbstractController {
                     " does not support partially-transparent pixels");
         }
 
-        String zValue = dr.getElevationString();
-        int zIndex = getZIndex(zValue, layer); // -1 if no z axis present
+        Double zValue = getElevationValue(dr.getElevationString());
 
         // Cycle through all the provided timesteps, extracting data for each step
         List<String> tValues = new ArrayList<String>();
-        String timeString = dr.getTimeString();
-        List<Integer> tIndices = getTIndices(timeString, layer);
-        if (tIndices.size() > 1 && !imageFormat.supportsMultipleFrames()) {
+        List<DateTime> timeValues = getTimeValues(dr.getTimeString(), layer);
+        if (timeValues.size() > 1 && !imageFormat.supportsMultipleFrames()) {
             throw new WmsException("The image format " + mimeType +
                     " does not support multiple frames");
         }
-        usageLogEntry.setNumTimeSteps(tIndices.size());
+        usageLogEntry.setNumTimeSteps(timeValues.size());
         long beforeExtractData = System.currentTimeMillis();
-        for (int tIndex : tIndices) {
-            // tIndex == -1 if there is no t axis present
-            List<float[]> picData = readData(layer, tIndex, zIndex, grid,
-                    this.tileCache, usageLogEntry);
+        for (DateTime timeValue : timeValues) {
+            // TODO: what happens for vector layers?
+            // Note that if the layer doesn't have a time axis, timeValue==null but this
+            // will be ignored by readPointList()
+            List<? extends Number> picData = layer.readPointList(timeValue, zValue, grid);
 
             // Only add a label if this is part of an animation
-            String tValue = "";
-            if (layer.isTaxisPresent() && tIndices.size() > 1) {
-                tValue = WmsUtils.dateTimeToISO8601(layer.getTimesteps().get(tIndex).getDateTime());
+            String tValueStr = "";
+            if (timeValues.size() > 1 && timeValue != null) {
+                tValueStr = WmsUtils.dateTimeToISO8601(timeValue);
             }
-            tValues.add(tValue);
-            imageProducer.addFrame(picData, tValue); // the tValue is the label for the image
+            tValues.add(tValueStr);
+            imageProducer.addFrame(picData, tValueStr); // the tValue is the label for the image
         }
         long timeToExtractData = System.currentTimeMillis() - beforeExtractData;
         usageLogEntry.setTimeToExtractDataMs(timeToExtractData);
@@ -507,7 +506,8 @@ public class WmsController extends AbstractController {
         // We only create a legend object if the image format requires it
         BufferedImage legend = imageFormat.requiresLegend() ? imageProducer.getLegend() : null;
 
-        // Write the image to the client
+        // Write the image to the client.
+        // First we set the HTTP headers
         httpServletResponse.setStatus(HttpServletResponse.SC_OK);
         httpServletResponse.setContentType(mimeType);
         // If this is a KMZ file give it a sensible filename
@@ -515,7 +515,6 @@ public class WmsController extends AbstractController {
             httpServletResponse.setHeader("Content-Disposition", "inline; filename=" +
                     layer.getDataset().getId() + "_" + layer.getId() + ".kmz");
         }
-
         // Render the images and write to the output stream
         imageFormat.writeImage(imageProducer.getRenderedFrames(),
                 httpServletResponse.getOutputStream(), layer, tValues, zValue,
@@ -1220,62 +1219,122 @@ public class WmsController extends AbstractController {
     }*/
 
     /**
-     * @return the index on the z axis of the requested Z value.  Returns 0 (the
-     * default) if no value has been specified and the provided Variable has a z
-     * axis.  Returns -1 if no value is needed because there is no z axis in the
-     * data.
+     * Gets the elevation value requested by the client.
+     * @param zValue the value of the ELEVATION string from the request
+     * @return the elevation value requested by the client.  Returns null if
+     * {@code zValue} is null.
      * @throws InvalidDimensionValueException if the provided z value is not
-     * a valid floating-point number or if it is not a valid value for this axis.
+     * a valid number.
      */
-    /*static int getZIndex(String zValue, Layer layer) throws InvalidDimensionValueException
+    private static Double getElevationValue(String zValue) throws InvalidDimensionValueException
     {
-        if (!layer.isZaxisPresent()) return -1;
-        
-        // Get the z value.  The default value is the first value in the array
-        // of z values
-        if (zValue == null) return layer.getDefaultZIndex();
-
         // Check to see if this is a single value (the
         // user hasn't requested anything of the form z1,z2 or start/stop/step)
-
-        if (zValue.split(",").length > 1 || zValue.split("/").length > 1) {
+        if (zValue.contains(",") || zValue.contains("/")) {
             throw new InvalidDimensionValueException("elevation", zValue);
         }
 
-        return layer.findZIndex(zValue);
-    }*/
+        try {
+            return Double.parseDouble(zValue);
+        } catch (NumberFormatException nfe) {
+            throw new InvalidDimensionValueException("elevation", zValue);
+        }
+    }
 
     /**
-     * @return a List of indices along the time axis corresponding with the
-     * requested TIME parameter.  If there is no time axis, this will return
-     * a List with a single value of -1.
+     * Gets the list of time values requested by the client.  If the layer does
+     * not have a time axis the timeString will be ignored and a List containing
+     * a single null value will be returned.
+     * @param timeString the string provided for the TIME parameter, or null
+     * if there was no TIME parameter in the client's request
+     * @param layer
+     * @return the list of time values requested by the client or a List containing
+     * a single null element if the layer does not have a time axis.
+     * @throws InvalidDimensionValueException if the time string cannot be parsed
      */
-    /*static List<Integer> getTIndices(String timeString, Layer layer)
+    private static List<DateTime> getTimeValues(String timeString, Layer layer)
             throws InvalidDimensionValueException {
 
-        // The variable has no time axis.  We ignore any provided TIME value.
-        // Signifies a single frame with no particular time value
-        if (!layer.isTaxisPresent()) return Arrays.asList(-1);
+        // If the layer does not have a time axis return a List containing
+        // a single null value
+        if (layer.getTimeValues().size() == 0) return Arrays.asList((DateTime)null);
         
         // Use the default time if none is specified
-        if (timeString == null) return Arrays.asList(layer.getDefaultTIndex());
+        if (timeString == null) {
+            DateTime defaultDateTime = layer.getDefaultTimeValue();
+            if (defaultDateTime == null) {
+                // Must specify a TIME: this layer does not support a default time value
+                throw new InvalidDimensionValueException("time", timeString);
+            }
+            return Arrays.asList(defaultDateTime);
+        }
 
         // Interpret the time specification
-        List<Integer> tIndices = new ArrayList<Integer>();
+        List<DateTime> tValues = new ArrayList<DateTime>();
         for (String t : timeString.split(",")) {
             String[] startStop = t.split("/");
             if (startStop.length == 1) {
                 // This is a single time value
-                tIndices.add(layer.findTIndex(startStop[0]));
+                tValues.add(findTValue(startStop[0], layer));
             } else if (startStop.length == 2) {
                 // Use all time values from start to stop inclusive
-                tIndices.addAll(layer.findTIndices(startStop[0], startStop[1]));
+                tValues.addAll(findTValues(startStop[0], startStop[1]));
             } else {
                 throw new InvalidDimensionValueException("time", t);
             }
         }
-        return tIndices;
-    }*/
+        return tValues;
+    }
+
+    /**
+     * Gets the the DateTime corresponding with the given ISO string, checking
+     * that the time is valid for the given layer.
+     * @throws InvalidDimensionValueException if the layer does not contain
+     * the given time, or if the given ISO8601 string is not valid.
+     */
+    private static DateTime findTValue(String isoDateTime, Layer layer)
+        throws InvalidDimensionValueException
+    {
+        if (isoDateTime.equals("current")) return layer.getCurrentTimeValue();
+
+        DateTime target = WmsUtils.iso8601ToDateTime(isoDateTime);
+        // Find the equivalent DateTime in the Layer.  Note that we can't simply
+        // use the contains() method of the List, since this is based on equals().
+        // We want to find the DateTime with the same millisecond instant.
+        int index = findTIndex(target);
+        if (index < 0)
+        {
+            throw new InvalidDimensionValueException("time", isoDateTime);
+        }
+        return index;
+    }
+
+    /**
+     * Gets a List of integers representing indices along the time axis
+     * starting from isoDateTimeStart and ending at isoDateTimeEnd, inclusive.
+     * @param isoDateTimeStart ISO8601-formatted String representing the start time
+     * @param isoDateTimeEnd ISO8601-formatted String representing the start time
+     * @return List of Integer indices
+     * @throws InvalidDimensionValueException if either of the start or end
+     * values were not found in the axis, or if they are not valid ISO8601 times.
+     */
+    private static List<DateTime> findTValues(String isoDateTimeStart,
+        String isoDateTimeEnd) throws InvalidDimensionValueException
+    {
+        int startIndex = this.findTIndex(isoDateTimeStart);
+        int endIndex = this.findTIndex(isoDateTimeEnd);
+        if (startIndex > endIndex)
+        {
+            throw new InvalidDimensionValueException("time",
+                isoDateTimeStart + "/" + isoDateTimeEnd);
+        }
+        List<DateTime> tValues = new ArrayList<DateTime>();
+        for (int i = startIndex; i <= endIndex; i++)
+        {
+            tValues.add(i);
+        }
+        return tValues;
+    }
 
     /**
      * Called by Spring to inject the metadata controller

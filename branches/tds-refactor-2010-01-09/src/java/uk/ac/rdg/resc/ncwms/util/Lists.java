@@ -26,7 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.utils;
+package uk.ac.rdg.resc.ncwms.util;
 
 import java.util.AbstractList;
 import java.util.List;
@@ -42,12 +42,12 @@ public class Lists
      * Creates and returns an unmodifiable List that wraps the given array.
      * Changes to the array will be reflected in the List.
      * @param arr The array to wrap as a List
-     * @return an unmodifiable List that wraps the array, or null if the array
-     * is null
+     * @return an unmodifiable List that wraps the array
+     * @throws NullPointerException if the array is null
      */
     public static List<Float> fromFloatArray(final float[] arr)
     {
-        if (arr == null) return null;
+        if (arr == null) throw new NullPointerException("array cannot be null");
         return new AbstractList<Float>()
         {
             @Override public Float get(int index) { return arr[index]; }
@@ -59,12 +59,12 @@ public class Lists
      * Creates and returns an unmodifiable List that wraps the given array.
      * Changes to the array will be reflected in the List.
      * @param arr The array to wrap as a List
-     * @return an unmodifiable List that wraps the array, or null if the array
-     * is null
+     * @return an unmodifiable List that wraps the array
+     * @throws NullPointerException if the array is null
      */
     public static List<Double> fromDoubleArray(final double[] arr)
     {
-        if (arr == null) return null;
+        if (arr == null) throw new NullPointerException("array cannot be null");
         return new AbstractList<Double>()
         {
             @Override public Double get(int index) { return arr[index]; }

@@ -29,6 +29,7 @@
 package uk.ac.rdg.resc.ncwms.datareader;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -36,7 +37,7 @@ import java.util.Map;
 import uk.ac.rdg.resc.ncwms.config.Dataset;
 import uk.ac.rdg.resc.ncwms.coordsys.LonLatPosition;
 import uk.ac.rdg.resc.ncwms.config.LayerImpl;
-import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
+import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 
 /**
  * Abstract superclass for classes that read data and metadata from datasets.
@@ -100,11 +101,11 @@ public abstract class DataReader
      * @param pointList The list of real-world x-y points for which we need data
      * @return an array of floating-point data values, one for each point in
      * the {@code pointList}, in the same order.
-     * @throws Exception if an error occurs
+     * @throws IOException if an input/output exception occurred when reading data
      */
     public abstract float[] read(String filename, LayerImpl layer,
         int tIndex, int zIndex, PointList pointList)
-        throws Exception;
+        throws IOException;
 
     /**
      * <p>Reads a timeseries of data from a file from a single xyz point.  This
@@ -128,12 +129,12 @@ public abstract class DataReader
      * @param lonLat The longitude and latitude of the point
      * @return an array of floating-point data values, one for each point in
      * {@code tIndices}, in the same order.
-     * @throws Exception if an error occurs
+     * @throws IOException if an input/output exception occurred when reading data
      * @todo Validity checking on tIndices and layer.hasTAxis()?
      */
     public float[] readTimeseries(String filename, LayerImpl layer,
         List<Integer> tIndices, int zIndex, LonLatPosition lonLat)
-        throws Exception {
+        throws IOException {
 
         PointList pointList = PointList.fromPoint(lonLat);
         float[] tsData = new float[tIndices.size()];

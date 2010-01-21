@@ -43,7 +43,7 @@ import org.joda.time.DateTime;
  * @param <T> The type of the data values contained in this layer
  * @author Jon
  */
-public abstract class AbstractTimeAggregatedLayer<T> extends AbstractLayer<T>
+public abstract class AbstractTimeAggregatedLayer<T extends Number & Comparable<? super T>> extends AbstractLayer<T>
 {
     /** These are sorted into ascending order of time */
     protected final List<TimestepInfo> timesteps = new ArrayList<TimestepInfo>();

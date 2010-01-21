@@ -47,6 +47,7 @@ import uk.ac.rdg.resc.ncwms.controller.GetMapDataRequest;
 import uk.ac.rdg.resc.ncwms.controller.GetMapRequest;
 import uk.ac.rdg.resc.ncwms.controller.GetMapStyleRequest;
 import uk.ac.rdg.resc.ncwms.exceptions.StyleNotDefinedException;
+import uk.ac.rdg.resc.ncwms.util.Range;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 
 /**
@@ -97,7 +98,7 @@ public final class ImageProducer
      * @throws uk.ac.rdg.resc.ncwms.exceptions.StyleNotDefinedException if
      * the requested Style is not supported by the given layer
      */
-    public ImageProducer(GetMapRequest getMapRequest, Layer layer)
+    public ImageProducer(GetMapRequest getMapRequest, Layer<? extends Number> layer)
         throws StyleNotDefinedException
     {
         GetMapStyleRequest styleRequest = getMapRequest.getStyleRequest();
@@ -145,9 +146,9 @@ public final class ImageProducer
         if (colorScaleRange.isDefault())
         {
             // Use the layer's default range
-            float[] scaleRange = layer.getColorScaleRange();
-            this.scaleMin = scaleRange[0];
-            this.scaleMax = scaleRange[1];
+            Range<? extends Number> approxValueRange = layer.getApproxValueRange();
+            this.scaleMin = approxValueRange.getMinimum().floatValue();
+            this.scaleMax = approxValueRange.getMaximum().floatValue();
         }
         else if (colorScaleRange.isAuto())
         {

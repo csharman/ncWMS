@@ -39,6 +39,7 @@ import org.springframework.web.servlet.mvc.multiaction.MultiActionController;
 import uk.ac.rdg.resc.ncwms.styles.ColorPalette;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogger;
 import uk.ac.rdg.resc.ncwms.usagelog.h2.H2UsageLogger;
+import uk.ac.rdg.resc.ncwms.util.Ranges;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 
 /**
@@ -325,13 +326,12 @@ public class AdminController extends MultiActionController
                 // TODO: nicer error handling
                 float min = Float.parseFloat(request.getParameter(layer.getId() + ".scaleMin").trim());
                 float max = Float.parseFloat(request.getParameter(layer.getId() + ".scaleMax").trim());
-                float[] colorScaleRange = new float[]{min, max};
                 // Get the variable config info. This should not be null,
                 // as we will have created it in MetadataLoader.checkAttributeOverrides()
                 // if it wasn't in the config file itself.
                 Variable var = ds.getVariables().get(layer.getId());
                 var.setTitle(newTitle);
-                var.setColorScaleRange(colorScaleRange);
+                var.setColorScaleRange(Ranges.newRange(min, max));
                 var.setPaletteName(request.getParameter(layer.getId() + ".palette"));
                 var.setScaling(request.getParameter(layer.getId() + ".scaling"));
             }

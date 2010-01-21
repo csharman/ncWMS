@@ -50,7 +50,7 @@ import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import uk.ac.rdg.resc.ncwms.config.NcwmsContext;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogger;
-import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
+import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 
 /**
  * UsageLogger that stores data in an H2 database.  The database is run in 

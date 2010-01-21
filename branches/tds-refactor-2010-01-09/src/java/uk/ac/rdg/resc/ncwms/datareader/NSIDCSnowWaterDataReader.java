@@ -39,6 +39,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.Map;
 import org.joda.time.DateTime;
+import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
@@ -130,11 +131,11 @@ public class NSIDCSnowWaterDataReader extends DataReader
      * @param pointList The list of real-world x-y points for which we need data
      * @return an array of floating-point data values, one for each point in
      * the {@code pointList}, in the same order.
-     * @throws Exception if an error occurs
+     * @throws IOException if there is an error reading from the source data
      */
     @Override
     public float[] read(String filename, LayerImpl layer, int tIndex, int zIndex, PointList pointList)
-        throws Exception
+        throws IOException
     {
         // Find the file containing the data
         logger.debug("Reading data from " + filename);
@@ -162,7 +163,16 @@ public class NSIDCSnowWaterDataReader extends DataReader
         int picIndex = 0;
         for (HorizontalPosition point : pointList.asList())
         {
-            LonLatPosition lonLat = pointList.getCrsHelper().crsToLonLat(point);
+            LonLatPosition lonLat;
+            try
+            {
+                lonLat = pointList.getCrsHelper().crsToLonLat(point);
+            }
+            catch (TransformException te)
+            {
+                // This is an internal error from which we can't recover
+                throw new RuntimeException(te); // TODO: more specific exception type
+            }
             if (lonLat.getLatitude() >= 0.0 && lonLat.getLatitude() <= 90.0)
             {
                 // Find the index in the source data

@@ -94,9 +94,10 @@ public interface Dataset
     public boolean isError();
 
     /**
-     * If a dataset cannot be used due to an error ({@literal i.e.} the 
-     * state is ERROR), this can be called to find out more details.
-     * @return Exception object containing more details about the error.
+     * If a dataset cannot be used due to an error, this can be called to find
+     * out more details.
+     * @return Exception object containing more details about the error, or null
+     * if there is no error.
      */
     public Exception getException();
 

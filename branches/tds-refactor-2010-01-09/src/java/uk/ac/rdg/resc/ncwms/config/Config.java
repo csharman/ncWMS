@@ -61,7 +61,7 @@ import ucar.unidata.io.RandomAccessFile;
 import uk.ac.rdg.resc.ncwms.datareader.NcwmsCredentialsProvider;
 import uk.ac.rdg.resc.ncwms.exceptions.LayerNotDefinedException;
 import uk.ac.rdg.resc.ncwms.security.Users;
-import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
+import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 import uk.ac.rdg.resc.ncwms.wms.ServerConfig;
 

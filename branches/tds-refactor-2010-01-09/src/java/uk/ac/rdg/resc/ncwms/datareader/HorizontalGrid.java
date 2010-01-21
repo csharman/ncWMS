@@ -28,6 +28,7 @@
 
 package uk.ac.rdg.resc.ncwms.datareader;
 
+import org.opengis.metadata.extent.GeographicBoundingBox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.ac.rdg.resc.ncwms.controller.GetMapDataRequest;
@@ -41,9 +42,6 @@ import uk.ac.rdg.resc.ncwms.exceptions.InvalidCrsException;
  * is defined by the request CRS, the width, height and bounding box.
  *
  * @author Jon Blower
- * $Revision$
- * $Date$
- * $Log$
  */
 public class HorizontalGrid extends PointList
 {
@@ -89,6 +87,36 @@ public class HorizontalGrid extends PointList
         this.bbox = bbox;
 
         // Now calculate the values along the x and y axes of this grid
+        this.initAxisValues();
+        logger.debug("Created HorizontalGrid object for CRS {}", crsCode);
+    }
+
+    /**
+     * Creates a HorizontalGrid in WGS84 latitude-longitude coordinates
+     *
+     * @param width Width of the grid in pixels
+     * @param height Height of the grid in pixels
+     * @param bbox Bounding box of the grid
+     */
+    public HorizontalGrid(int width, int height, GeographicBoundingBox bbox)
+    {
+        this.crsHelper = CrsHelper.CRS_84;
+        this.crsCode = CrsHelper.PLATE_CARREE_CRS_CODE;
+        this.width = width;
+        this.height = height;
+        this.bbox = new double[] {
+            bbox.getWestBoundLongitude(),
+            bbox.getSouthBoundLatitude(),
+            bbox.getEastBoundLongitude(),
+            bbox.getNorthBoundLatitude()
+        };
+
+        // Now calculate the values along the x and y axes of this grid
+        this.initAxisValues();
+    }
+
+    private void initAxisValues()
+    {
         double dx = (this.bbox[2] - this.bbox[0]) / this.width;
         this.xAxisValues = new double[this.width];
         for (int i = 0; i < this.xAxisValues.length; i++)
@@ -103,7 +131,6 @@ public class HorizontalGrid extends PointList
             // The y axis is flipped
             this.yAxisValues[i] = this.bbox[1] + (this.height - i - 0.5) * dy;
         }
-        logger.debug("Created HorizontalGrid object for CRS {}", crsCode);
     }
 
     public int getWidth()

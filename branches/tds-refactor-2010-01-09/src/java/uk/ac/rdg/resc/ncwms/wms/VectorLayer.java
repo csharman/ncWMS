@@ -34,7 +34,7 @@ package uk.ac.rdg.resc.ncwms.wms;
  * @param <T> the type of data held by the component Layers.
  * @author Jon
  */
-public interface VectorLayer<T> extends Layer<VectorComponent<T>>
+public interface VectorLayer<T extends Number & Comparable<? super T>> extends Layer<VectorComponent<T>>
 {
     /** Returns the Layer representing the eastward component */
     public Layer<T> getEastwardComponent();

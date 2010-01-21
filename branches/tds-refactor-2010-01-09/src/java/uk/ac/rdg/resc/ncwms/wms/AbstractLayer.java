@@ -28,16 +28,21 @@
 
 package uk.ac.rdg.resc.ncwms.wms;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import org.geotoolkit.metadata.iso.extent.DefaultGeographicBoundingBox;
 import org.joda.time.DateTime;
 import org.opengis.metadata.extent.GeographicBoundingBox;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
+import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.datareader.PointList;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
-import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
+import uk.ac.rdg.resc.ncwms.util.Range;
+import uk.ac.rdg.resc.ncwms.util.Ranges;
+import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 
 /**
  * Partial implementation of the {@link Layer} interface, providing convenience
@@ -49,7 +54,7 @@ import uk.ac.rdg.resc.ncwms.utils.WmsUtils;
  * all future operations are read-only.
  * @author Jon
  */
-public abstract class AbstractLayer<T> implements Layer<T>
+public abstract class AbstractLayer<T extends Number & Comparable<? super T>> implements Layer<T>
 {
     protected String id;
     protected String title = null;
@@ -127,17 +132,31 @@ public abstract class AbstractLayer<T> implements Layer<T>
     protected boolean hasElevationAxis() { return this.getElevationValues().size() > 0; }
     
     /**
-     * Gets the time value that will be used by default if a client does not
-     * explicitly provide a time parameter in a request ({@literal e.g. GetMap}),
-     * or null if this layer does not have a time axis.  This returns the time
-     * value that is closest to the current time.
+     * Get the time value that is nearest to the current time.  This will be
+     * used if the client specifies "TIME=current" in a request.  Implementations
+     * may choose to ensure that this only returns values in the past, which
+     * would tend to prevent this returning a time representing a forecast.
+     * @return the time value that is closest to the current time, or null if this
+     * layer doesn't have a time axis.
      */
     @Override
-    public DateTime getDefaultTimeValue()
+    public DateTime getCurrentTimeValue()
     {
         int currentTimeIndex = this.getCurrentTimeIndex();
         if (currentTimeIndex < 0) return null; // this layer doesn't have a time axis
         return this.getTimeValues().get(currentTimeIndex);
+    }
+    
+    /**
+     * Gets the time value that will be used by default if a client does not
+     * explicitly provide a time parameter in a request ({@literal e.g. GetMap}),
+     * or null if this layer does not have a time axis.  This implementation
+     * returns the same as {@link #getCurrentTimeValue()}.
+     */
+    @Override
+    public DateTime getDefaultTimeValue()
+    {
+        return this.getCurrentTimeValue();
     }
 
     /**
@@ -218,15 +237,19 @@ public abstract class AbstractLayer<T> implements Layer<T>
     @Override
     public double getDefaultElevationValue()
     {
-        // We must access this via the accessor method in case subclasses override it.
-        List<Double> zVals = this.getElevationValues();
-        if (zVals.size() == 0) return Double.NaN;
-        double minAbsValue = Double.MAX_VALUE;
-        for (double zVal : zVals)
+        // We must access the elevation values via the accessor method in case
+        // subclasses override it.
+	Iterator<Double> it = this.getElevationValues().iterator();
+        if (!it.hasNext()) return Double.NaN;
+        
+        // Adapted from Collections.min()
+	Double candidate = Math.abs(it.next());
+        while (it.hasNext())
         {
-            minAbsValue = Math.min(minAbsValue, Math.abs(zVal));
-        }
-        return minAbsValue;
+	    Double next = Math.abs(it.next());
+	    if (next.compareTo(candidate) < 0) candidate = next;
+	}
+	return candidate;
     }
 
     /**
@@ -270,6 +293,29 @@ public abstract class AbstractLayer<T> implements Layer<T>
     }
 
     /**
+     * Estimate the range of values in this layer by reading a sample of data
+     * from the default time and elevation.
+     * @return
+     * @throws IOException if there was an error reading from the source data
+     */
+    public Range<T> estimateValueRange() throws IOException
+    {
+        try {
+            // Read a low-resolution grid of data covering the entire spatial extent
+            List<T> data = this.readPointList(
+                this.getDefaultTimeValue(),
+                this.getDefaultElevationValue(),
+                new HorizontalGrid(100, 100, this.getGeographicBoundingBox())
+            );
+            // Find the minimum and maximum values of this range
+            return Ranges.findMinMax(data);
+        } catch (InvalidDimensionValueException idve) {
+            // This would only happen due to a programming error in getDefaultXValue()
+            throw new IllegalStateException(idve);
+        }
+    }
+
+    /**
      * <p>Simple but naive implementation of
      * {@link Layer#readPointList(org.joda.time.DateTime, double,
      * uk.ac.rdg.resc.ncwms.datareader.PointList) Layer.readPointList()} that
@@ -282,7 +328,7 @@ public abstract class AbstractLayer<T> implements Layer<T>
      */
     @Override
     public List<T> readPointList(DateTime time, double elevation, PointList pointList)
-            throws InvalidDimensionValueException
+            throws InvalidDimensionValueException, IOException
     {
         List<T> vals = new ArrayList<T>(pointList.size());
         for (HorizontalPosition xy : pointList.asList()) {
@@ -304,7 +350,7 @@ public abstract class AbstractLayer<T> implements Layer<T>
      */
     @Override
     public List<T> readTimeseries(List<DateTime> times, double elevation,
-        HorizontalPosition xy) throws InvalidDimensionValueException
+        HorizontalPosition xy) throws InvalidDimensionValueException, IOException
     {
         // TODO: could check validity of all the times before we start
         // potentially-lengthy data-reading operations

@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.ac.rdg.resc.ncwms.coordsys.CrsHelper;
@@ -84,7 +85,7 @@ public final class PixelMap
     // Number of unique i-j pairs
     private int numUniqueIJPairs = 0;
 
-    public PixelMap(HorizontalCoordSys horizCoordSys, PointList pointList) throws Exception
+    public PixelMap(HorizontalCoordSys horizCoordSys, PointList pointList) throws TransformException
     {
         long start = System.currentTimeMillis();
         if (pointList instanceof HorizontalGrid)
@@ -98,7 +99,7 @@ public final class PixelMap
         logger.debug("Built pixel map in {} ms", System.currentTimeMillis() - start);
     }
 
-    private void initFromPointList(HorizontalCoordSys horizCoordSys, PointList pointList) throws Exception
+    private void initFromPointList(HorizontalCoordSys horizCoordSys, PointList pointList) throws TransformException
     {
         logger.debug("Using generic method based on iterating over the PointList");
         CrsHelper crsHelper = pointList.getCrsHelper();
@@ -128,7 +129,7 @@ public final class PixelMap
      *
      * @throws Exception if the necessary transformations could not be performed
      */
-    private void initFromGrid(HorizontalCoordSys horizCoordSys, HorizontalGrid grid) throws Exception
+    private void initFromGrid(HorizontalCoordSys horizCoordSys, HorizontalGrid grid) throws TransformException
     {
         // Cycle through each pixel in the picture and work out which
         // i and j index in the source data it corresponds to

@@ -26,7 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.utils;
+package uk.ac.rdg.resc.ncwms.util;
 
 import java.io.File;
 import java.io.FilenameFilter;

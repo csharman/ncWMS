@@ -30,7 +30,6 @@ package uk.ac.rdg.resc.ncwms.config;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -45,15 +44,15 @@ import org.simpleframework.xml.Root;
 import org.simpleframework.xml.load.Commit;
 import org.simpleframework.xml.load.PersistenceException;
 import org.simpleframework.xml.load.Validate;
-import uk.ac.rdg.resc.ncwms.coordsys.CrsHelper;
 import uk.ac.rdg.resc.ncwms.datareader.DataReader;
-import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
+import uk.ac.rdg.resc.ncwms.util.Range;
+import uk.ac.rdg.resc.ncwms.util.Ranges;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 
 /**
  * A dataset object in the ncWMS configuration system: contains a number of
  * Layer objects, which are held in memory and loaded periodically, triggered
- * by the {@link MetadataLoader}.
+ * by the {@link Config} object.
  *
  * @author Jon Blower
  * @todo A lot of these methods can be made package-private
@@ -622,47 +621,42 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
             if (var.getColorScaleRange() == null)
             {
                 this.loadingProgress.append("Reading min-max data for layer " + layer.getName());
-                float[] minMax;
+                Range<Float> valueRange;
                 try
                 {
-                    // Set the scale range for each variable by reading a 100x100
-                    // chunk of data and finding the min and max values of this chunk.
-                    HorizontalGrid grid = new HorizontalGrid(CrsHelper.PLATE_CARREE_CRS_CODE, 100, 100, layer.getBbox());
-                    // Read from the first t and z indices
-                    int tIndex = layer.isTaxisPresent() ? 0 : -1;
-                    int zIndex = layer.isZaxisPresent() ? 0 : -1;
-                    minMax = new float[]{-50.0f, 50.0f};
-                            //MetadataController.findMinMax(layer, tIndex,
-                        //zIndex, grid, null);
-                    if (Float.isNaN(minMax[0]) || Float.isNaN(minMax[1]))
+                    valueRange = layer.estimateValueRange();
+                    if (valueRange.isEmpty())
                     {
-                        // Just guess at a scale
-                        minMax = new float[]{-50.0f, 50.0f};
+                        // We failed to get a valid range.  Just guess at a scale
+                        valueRange = Ranges.newRange(-50.0f, 50.0f);
                     }
-                    else if (minMax[0] == minMax[1])
+                    else if (valueRange.getMinimum().equals(valueRange.getMaximum()))
                     {
                         // This happens occasionally if the above algorithm happens
                         // to hit an area of uniform data.  We make sure that
                         // the max is greater than the min.
-                        minMax[1] = minMax[0] + 1.0f;
+                        valueRange = Ranges.newRange(valueRange.getMinimum(),
+                            valueRange.getMaximum() + 1.0f);
                     }
                     else
                     {
                         // Set the scale range of the layer, factoring in a 10% expansion
                         // to deal with the fact that the sample data we read might
                         // not be representative
-                        float diff = minMax[1] - minMax[0];
-                        minMax = new float[]{minMax[0] - 0.05f * diff,
-                            minMax[1] + 0.05f * diff};
+                        float diff = valueRange.getMaximum() - valueRange.getMinimum();
+                        valueRange = Ranges.newRange(
+                            valueRange.getMinimum() - 0.05f * diff,
+                            valueRange.getMaximum() + 0.05f * diff
+                        );
                     }
                 }
                 catch(Exception e)
                 {
                     logger.error("Error reading min-max from layer " + layer.getId()
                         + " in dataset " + this.id, e);
-                    minMax = new float[]{-50.0f, 50.0f};
+                    valueRange = Ranges.newRange(-50.0f, 50.0f);
                 }
-                var.setColorScaleRange(minMax);
+                var.setColorScaleRange(valueRange);
             }
         }
     }
