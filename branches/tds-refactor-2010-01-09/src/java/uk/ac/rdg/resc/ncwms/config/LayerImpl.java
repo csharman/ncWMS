@@ -44,18 +44,18 @@ import uk.ac.rdg.resc.ncwms.wms.AbstractTimeAggregatedLayer;
 
 /**
  * A concrete Layer implementation that supports  time aggregation through the
- * {@link AbstractTimeAggregatedLayer} superclass.  Data values are represented
- * as floating-point numbers.
+ * {@link AbstractTimeAggregatedLayer} superclass.
  *
  * @author Jon Blower
  */
-public class LayerImpl extends AbstractTimeAggregatedLayer<Float>
+public class LayerImpl extends AbstractTimeAggregatedLayer
 {
     protected Dataset dataset;
     protected boolean zPositive;
     protected HorizontalCoordSys horizCoordSys;
     // Stores the keys of the styles that this variable supports
     protected List<Style> supportedStyles = new ArrayList<Style>();
+    private DataReader dataReader;
     
     /**
      * Creates a new Layer using a default bounding box (covering the whole 
@@ -82,12 +82,13 @@ public class LayerImpl extends AbstractTimeAggregatedLayer<Float>
     }
 
     @Override public Dataset getDataset() { return this.dataset; }
+    // Called by Dataset.loadLayers()
     public void setDataset(Dataset dataset) { this.dataset = dataset; }
 
-    @Override
-    public Class<Float> getDataType()
+    // Called by Dataset.loadLayers()
+    void setDataReader(DataReader dataReader)
     {
-        return Float.class;
+        this.dataReader = dataReader;
     }
 
     public boolean isZpositive()
@@ -206,8 +207,6 @@ public class LayerImpl extends AbstractTimeAggregatedLayer<Float>
         }
 
         PointList singlePoint = PointList.fromPoint(xy, CrsHelper.CRS_84);
-
-        DataReader dr = DataReader.forName("todo");
-        return dr.read(filename, this, tIndexInFile, zIndex, singlePoint)[0];
+        return this.dataReader.read(filename, this, tIndexInFile, zIndex, singlePoint)[0];
     }
 }

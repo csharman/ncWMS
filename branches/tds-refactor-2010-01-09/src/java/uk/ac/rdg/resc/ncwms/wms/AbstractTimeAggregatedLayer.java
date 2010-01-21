@@ -40,10 +40,9 @@ import org.joda.time.DateTime;
  * contain information for the same time, the file with the shorter forecast time
  * is chosen, because this is more likely to be the "more accurate" data.  This
  * logic implements the "best estimate" timeseries of a forecast model run collection.
- * @param <T> The type of the data values contained in this layer
  * @author Jon
  */
-public abstract class AbstractTimeAggregatedLayer<T extends Number & Comparable<? super T>> extends AbstractLayer<T>
+public abstract class AbstractTimeAggregatedLayer extends AbstractLayer
 {
     /** These are sorted into ascending order of time */
     protected final List<TimestepInfo> timesteps = new ArrayList<TimestepInfo>();

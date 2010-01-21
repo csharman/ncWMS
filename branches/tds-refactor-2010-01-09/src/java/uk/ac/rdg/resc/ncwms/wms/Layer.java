@@ -40,7 +40,6 @@ import uk.ac.rdg.resc.ncwms.util.Range;
 
 /**
  * A displayable layer, contained within a {@link Dataset}.
- * @param <T> The type of the data values contained in this layer
  * @todo allow for "stepless" time and elevation axes, plus regularly-spaced
  * ones that could save space in Capabilities docs.
  * @todo factor out a Dimension class, which could hold the values of a dimension,
@@ -48,7 +47,7 @@ import uk.ac.rdg.resc.ncwms.util.Range;
  * the values can be rendered in a Capabilities doc (e.g. if regularly-spaced).
  * @author Jon
  */
-public interface Layer<T extends Number & Comparable<? super T>>
+public interface Layer
 {
     /** Returns the {@link Dataset} to which this layer belongs. */
     public Dataset getDataset();
@@ -144,113 +143,4 @@ public interface Layer<T extends Number & Comparable<? super T>>
      * @todo Replace with strongly-typed JSR-275 Unit?
      */
     public String getElevationUnits();
-
-    /**
-     * Returns an approximate range of values that this layer can take.  This
-     * is merely a hint, for example to suggest to clients sensible default
-     * values for choosing a colour scale.
-     * @return an approximate range of values that this layer can take.
-     */
-    public Range<T> getApproxValueRange();
-
-    /**
-     * Returns the runtime type of the data values in this Layer
-     * @return the runtime type of the data values in this Layer
-     */
-    public Class<T> getDataType();
-
-    /**
-     * <p>Reads a single item of data from a point in space and time.  Returns
-     * null for points outside the domain of the layer, or for
-     * missing values (e.g. land pixels in oceanography data).</p>
-     * <p>This method will perform no interpolation in time or elevation, but
-     * will perform nearest-neighbour interpolation in the horizontal.</p>
-     * @param time The time instant for which we require data.  If this does not
-     * match a time instant in {@link #getTimeValues()} an {@link InvalidDimensionValueException}
-     * will be thrown.  (If this Layer has no time axis, this parameter will be ignored.)
-     * @param elevation The elevation for which we require data (in the
-     * {@link #getElevationUnits() units of this Layer's elevation axis}).  If
-     * this does not match a valid {@link #getElevationValues() elevation value}
-     * in this Layer, this method will throw an {@link InvalidDimensionValueException}.
-     * (If this Layer has no elevation axis, this parameter will be ignored.)
-     * @param xy The horizontal location from which this method will extract
-     * data.  Data will be extracted from the nearest grid point to this location,
-     * unless the point is outside the domain of the layer, in which case
-     * null will be returned.
-     * @return a single item of data from the given point in space and time
-     * @throws NullPointerException if {@code xy} is null or if this
-     * layer has a time axis and {@code time} is null.
-     * @throws InvalidDimensionValueException if {@code elevation} is not a valid
-     * elevation in this Layer, or if {@code time} is not a valid time in this
-     * Layer.
-     * @throws IOException if there was an error reading from the data source
-     */
-    public T readSinglePoint(DateTime time, double elevation, HorizontalPosition xy)
-        throws InvalidDimensionValueException, IOException;
-    
-    /**
-     * <p>Reads data at a number of horizontal locations at a single time and
-     * elevation.  This is the method to use for reading a {@link HorizontalGrid}
-     * of data.  Missing values (e.g. land pixels in oceanography data) will
-     * be represented by null.</p>
-     * <p>This method will perform no interpolation in time or elevation, but
-     * will perform nearest-neighbour interpolation in the horizontal.</p>
-     * @param time The time instant for which we require data.  If this does not
-     * match a time instant in {@link #getTimeValues()} an {@link InvalidDimensionValueException}
-     * will be thrown.  (If this Layer has no time axis, this parameter will be ignored.)
-     * @param elevation The elevation for which we require data (in the
-     * {@link #getElevationUnits() units of this Layer's elevation axis}).  If
-     * this does not match a valid {@link #getElevationValues() elevation value}
-     * in this Layer, this method will throw an {@link InvalidDimensionValueException}.
-     * (If this Layer has no elevation axis, this parameter will be ignored.)
-     * @param pointList The list of horizontal locations from which we are to
-     * read data.  The returned List of data values will contain one value for
-     * each item in this list in the same order.  This method will extract data
-     * from the nearest grid points to each item in this list, returning
-     * null for any points outside the domain of this Layer.
-     * @return a List of data values, one for each point in
-     * the {@code pointList}, in the same order.
-     * @throws NullPointerException if {@code pointList} is null or if this 
-     * layer has a time axis and {@code time} is null.
-     * @throws InvalidDimensionValueException if {@code elevation} is not a valid
-     * elevation in this Layer, or if {@code time} is not a valid time in this
-     * Layer.
-     * @throws IOException if there was an error reading from the data source
-     */
-    public List<T> readPointList(DateTime time, double elevation, PointList pointList)
-        throws InvalidDimensionValueException, IOException;
-
-    /**
-     * <p>Reads a timeseries of data at a single xyz point from this Layer.
-     * Missing values (e.g. land pixels in oceanography data will be represented
-     * by null.</p>
-     * <p>This method will perform no interpolation in time or elevation, but
-     * will perform nearest-neighbour interpolation in the horizontal, i.e. it
-     * will extract data from the nearest grid point to {@code xy}.  If {@code xy}
-     * is outside the domain of this Layer, this method will return a List of
-     * nulls, to retain consistency with other read...() methods
-     * in this interface.</p>
-     * @param times The list of time instants for which we require data.  If a
-     * value in this list is not found in {@link #getTimeValues()}, this method
-     * will throw an {@link InvalidDimensionValueException}.
-     * @param elevation The elevation for which we require data (in the
-     * {@link #getElevationUnits() units of this Layer's elevation axis}).  If
-     * this does not match a valid {@link #getElevationValues() elevation value}
-     * in this Layer, this method will throw an {@link InvalidDimensionValueException}.
-     * (If this Layer has no elevation axis, this parameter will be ignored.)
-     * @param xy The horizontal location from which this method will extract
-     * data.  Data will be extracted from the nearest grid point to this location,
-     * unless the point is outside the domain of the layer.
-     * @return a List of data values, one for each point in
-     * {@code times}, in the same order.
-     * @throws NullPointerException if {@code times} or {@code xy} is null
-     * @throws InvalidDimensionValueException if {@code elevation} is not a valid
-     * elevation in this Layer, or if any of the {@code times} are not valid
-     * times for this layer.
-     * @throws IOException if there was an error reading from the data source
-     * @todo what if this method is called on a Layer that has no time axis?
-     */
-    public List<T> readTimeseries(List<DateTime> times, double elevation,
-        HorizontalPosition xy) throws InvalidDimensionValueException, IOException;
-
 }

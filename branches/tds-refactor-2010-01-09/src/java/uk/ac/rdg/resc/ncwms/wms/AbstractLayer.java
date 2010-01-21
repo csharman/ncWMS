@@ -48,13 +48,12 @@ import uk.ac.rdg.resc.ncwms.util.WmsUtils;
  * Partial implementation of the {@link Layer} interface, providing convenience
  * methods and default implementations of some methods.  Most properties are
  * set through the provided setter methods.
- * @param <T> The type of the data values contained in this layer
  * @todo implement a makeImmutable() method, which prevents futher changes?
  * This could be called by the metadata-reading operation to ensure that
  * all future operations are read-only.
  * @author Jon
  */
-public abstract class AbstractLayer<T extends Number & Comparable<? super T>> implements Layer<T>
+public abstract class AbstractLayer implements ScalarLayer
 {
     protected String id;
     protected String title = null;
@@ -298,11 +297,11 @@ public abstract class AbstractLayer<T extends Number & Comparable<? super T>> im
      * @return
      * @throws IOException if there was an error reading from the source data
      */
-    public Range<T> estimateValueRange() throws IOException
+    public Range<Float> estimateValueRange() throws IOException
     {
         try {
             // Read a low-resolution grid of data covering the entire spatial extent
-            List<T> data = this.readPointList(
+            List<Float> data = this.readPointList(
                 this.getDefaultTimeValue(),
                 this.getDefaultElevationValue(),
                 new HorizontalGrid(100, 100, this.getGeographicBoundingBox())
@@ -327,10 +326,10 @@ public abstract class AbstractLayer<T extends Number & Comparable<? super T>> im
      * @return a List of data values
      */
     @Override
-    public List<T> readPointList(DateTime time, double elevation, PointList pointList)
+    public List<Float> readPointList(DateTime time, double elevation, PointList pointList)
             throws InvalidDimensionValueException, IOException
     {
-        List<T> vals = new ArrayList<T>(pointList.size());
+        List<Float> vals = new ArrayList<Float>(pointList.size());
         for (HorizontalPosition xy : pointList.asList()) {
             vals.add(this.readSinglePoint(time, elevation, xy));
         }
@@ -349,12 +348,12 @@ public abstract class AbstractLayer<T extends Number & Comparable<? super T>> im
      * to override this.</p>
      */
     @Override
-    public List<T> readTimeseries(List<DateTime> times, double elevation,
+    public List<Float> readTimeseries(List<DateTime> times, double elevation,
         HorizontalPosition xy) throws InvalidDimensionValueException, IOException
     {
         // TODO: could check validity of all the times before we start
         // potentially-lengthy data-reading operations
-        List<T> vals = new ArrayList<T>(times.size());
+        List<Float> vals = new ArrayList<Float>(times.size());
         for (DateTime time : times) {
             vals.add(this.readSinglePoint(time, elevation, xy));
         }

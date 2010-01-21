@@ -48,6 +48,7 @@ import uk.ac.rdg.resc.ncwms.controller.GetMapRequest;
 import uk.ac.rdg.resc.ncwms.controller.GetMapStyleRequest;
 import uk.ac.rdg.resc.ncwms.exceptions.StyleNotDefinedException;
 import uk.ac.rdg.resc.ncwms.util.Range;
+import uk.ac.rdg.resc.ncwms.util.Ranges;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 
 /**
@@ -76,8 +77,7 @@ public final class ImageProducer
     private ColorPalette colorPalette;
     
     // Colour scale range of the picture
-    private float scaleMin;
-    private float scaleMax;
+    private Range<Float> scaleRange;
     
     /**
      * The length of arrows in pixels, only used for vector plots
@@ -88,7 +88,7 @@ public final class ImageProducer
     private List<BufferedImage> renderedFrames = new ArrayList<BufferedImage>();
     // If we need to cache the frame data and associated labels (we do this if
     // we have to auto-scale the image) this is where we put them.
-    private List<List<float[]>> frameData;
+    private List<List<List<Float>>> frameData; // YUCK!!!
     private List<String> labels;
     
     /**
@@ -98,7 +98,7 @@ public final class ImageProducer
      * @throws uk.ac.rdg.resc.ncwms.exceptions.StyleNotDefinedException if
      * the requested Style is not supported by the given layer
      */
-    public ImageProducer(GetMapRequest getMapRequest, Layer<? extends Number> layer)
+    public ImageProducer(GetMapRequest getMapRequest, Layer layer)
         throws StyleNotDefinedException
     {
         GetMapStyleRequest styleRequest = getMapRequest.getStyleRequest();
@@ -146,21 +146,22 @@ public final class ImageProducer
         if (colorScaleRange.isDefault())
         {
             // Use the layer's default range
-            Range<? extends Number> approxValueRange = layer.getApproxValueRange();
-            this.scaleMin = approxValueRange.getMinimum().floatValue();
-            this.scaleMax = approxValueRange.getMaximum().floatValue();
+            this.scaleRange = layer.getApproxValueRange();
         }
         else if (colorScaleRange.isAuto())
         {
-            this.scaleMin = 0.0f; // Setting both to zero is the signal to 
-            this.scaleMax = 0.0f; // generate a colour scale that maximizes the
-                                  // contrast of the image.  see isAutoScale()
+            // Setting both to zero is the signal to generate a colour scale
+            // that maximizes the contrast of the image.
+            // see isAutoScale()
+            this.scaleRange = Ranges.newRange(0.0f, 0.0f);
         }
         else
         {
             // Use the range as specified by the user
-            this.scaleMin = colorScaleRange.getScaleMin();
-            this.scaleMax = colorScaleRange.getScaleMax();
+            this.scaleRange = Ranges.newRange(
+                colorScaleRange.getScaleMin(),
+                colorScaleRange.getScaleMax()
+            );
         }
 
         // If the client does not specify a scaling, we use the layer's default
@@ -175,7 +176,7 @@ public final class ImageProducer
     public BufferedImage getLegend()
     {
         return this.colorPalette.createLegend(this.numColourBands, this.layer,
-            this.logarithmic, this.scaleMin, this.scaleMax);
+            this.logarithmic, this.scaleRange);
     }
     
     public int getPicWidth()
@@ -197,7 +198,7 @@ public final class ImageProducer
      * Adds a frame of data to this ImageProducer.  If the data cannot yet be rendered
      * into a BufferedImage, the data and label are stored.
      */
-    public void addFrame(List<float[]> data, String label)
+    public void addFrame(List<List<Float>> data, String label)
     {
         logger.debug("Adding frame with label {}", label);
         if (this.isAutoScale())
@@ -205,7 +206,7 @@ public final class ImageProducer
             logger.debug("Auto-scaling, so caching frame");
             if (this.frameData == null)
             {
-                this.frameData = new ArrayList<List<float[]>>();
+                this.frameData = new ArrayList<List<List<Float>>>();
                 this.labels = new ArrayList<String>();
             }
             this.frameData.add(data);
@@ -223,16 +224,16 @@ public final class ImageProducer
      * Adds the label if one has been set.  The scale must be set before
      * calling this method.
      */
-    private BufferedImage createImage(List<float[]> data, String label)
+    private BufferedImage createImage(List<List<Float>> data, String label)
     {
         // Create the pixel array for the frame
         byte[] pixels = new byte[this.picWidth * this.picHeight];
         // We get the magnitude of the input data (takes care of the case
         // in which the data are two components of a vector)
-        float[] magnitudes = getMagnitude(data);
+        List<Float> magnitudes = getMagnitude(data);
         for (int i = 0; i < pixels.length; i++)
         {
-            pixels[i] = (byte)this.getColourIndex(magnitudes[i]);
+            pixels[i] = (byte)this.getColourIndex(magnitudes.get(i));
         }
         
         // Create a ColorModel for the image
@@ -267,16 +268,18 @@ public final class ImageProducer
             g.setColor(Color.BLACK);
 
             logger.debug("Drawing vectors, length = {} pixels", this.arrowLength);
-            float[] comp1 = data.get(0);
-            float[] comp2 = data.get(1);
+            List<Float> east = data.get(0);
+            List<Float> north = data.get(1);
             for (int i = 0; i < this.picWidth; i += Math.ceil(this.arrowLength * 1.2))
             {
                 for (int j = 0; j < this.picHeight; j += Math.ceil(this.arrowLength * 1.2))
                 {
                     int dataIndex = j * this.picWidth + i;
-                    if (!Float.isNaN(comp1[dataIndex]) && !Float.isNaN(comp2[dataIndex]))
+                    Float eastVal = east.get(dataIndex);
+                    Float northVal = north.get(dataIndex);
+                    if (eastVal != null && northVal != null)
                     {
-                        double angle = Math.atan2(comp2[dataIndex], comp1[dataIndex]);
+                        double angle = Math.atan2(northVal.doubleValue(), eastVal.doubleValue());
                         // Calculate the end point of the arrow
                         double iEnd = i + this.arrowLength * Math.cos(angle);
                         // Screen coordinates go down, but north is up, hence the minus sign
@@ -304,29 +307,29 @@ public final class ImageProducer
      * the array of magnitudes as a new array.  If the input data
      * contains one array only, this array is simply returned.
      */
-    private static float[] getMagnitude(List<float[]> data)
+    private static List<Float> getMagnitude(List<List<Float>> data)
     {
         logger.debug("Calculating the magnitude of {} components", data.size());
-        float[] firstComponent = data.get(0);
+        List<Float> firstComponent = data.get(0);
         if (data.size() == 1)
         {
             return firstComponent;
         }
-        float[] magnitudes = new float[firstComponent.length];
-        for (int i = 0; i < magnitudes.length; i++)
+        List<Float> magnitudes = new ArrayList<Float>(firstComponent.size());
+        for (int i = 0; i < firstComponent.size(); i++)
         {
-            if (Float.isNaN(firstComponent[i]))
+            if (firstComponent.get(i) == null)
             {
-                magnitudes[i] = Float.NaN;
+                magnitudes.add((Float)null);
             }
             else
             {
-                double sumsq = firstComponent[i] * firstComponent[i];
+                double sumsq = firstComponent.get(i) * firstComponent.get(i);
                 for (int j = 1; j < data.size(); j++)
                 {
-                    sumsq += data.get(j)[i] * data.get(j)[i];
+                    sumsq += data.get(j).get(i) * data.get(j).get(i);
                 }
-                magnitudes[i] = (float)Math.sqrt(sumsq);
+                magnitudes.add((float)Math.sqrt(sumsq));
             }
         }
         return magnitudes;
@@ -335,20 +338,22 @@ public final class ImageProducer
     /**
      * @return the colour index that corresponds to the given value
      */
-    private int getColourIndex(float value)
+    private int getColourIndex(Float value)
     {
-        if (Float.isNaN(value))
+        if (value == null)
         {
             return this.numColourBands; // represents a background pixel
         }
-        else if (value < this.scaleMin || value > this.scaleMax)
+        else if (!this.scaleRange.contains(value))
         {
             return this.numColourBands + 1; // represents an out-of-range pixel
         }
         else
         {
-            double min = this.logarithmic ? Math.log(this.scaleMin) : this.scaleMin;
-            double max = this.logarithmic ? Math.log(this.scaleMax) : this.scaleMax;
+            float scaleMin = this.scaleRange.getMinimum().floatValue();
+            float scaleMax = this.scaleRange.getMaximum().floatValue();
+            double min = this.logarithmic ? Math.log(scaleMin) : scaleMin;
+            double max = this.logarithmic ? Math.log(scaleMax) : scaleMax;
             double val = this.logarithmic ? Math.log(value) : value;
             double frac = (val - min) / (max - min);
             // Compute and return the index of the corresponding colour
@@ -368,13 +373,15 @@ public final class ImageProducer
     /**
      * Adjusts the colour scale to accommodate the given frame.
      */
-    private void adjustScaleForFrame(List<float[]> data)
+    private void adjustScaleForFrame(List<Float> data)
     {
         // We only use the first data array: this is a ImageProducer for scalars
         this.scaleMin = Float.MAX_VALUE;
         this.scaleMax = -Float.MAX_VALUE;
+        Rang
         for (float val : data.get(0))
         {
+            Range<Float> valRange = Ranges.findMinMax(data)
             if (!Float.isNaN(val))
             {
                 if (val < this.scaleMin) this.scaleMin = val;
@@ -418,9 +425,10 @@ public final class ImageProducer
         {
             logger.debug("Setting the scale automatically");
             // We have a cache of image data, which we use to generate the colour scale
-            for (List<float[]> data : this.frameData)
+            for (List<List<Float>> data : this.frameData)
             {
-                this.adjustScaleForFrame(data);
+                // We only use the first component if this is a vector quantity
+                this.adjustScaleForFrame(data.get(0));
             }
         }
     }

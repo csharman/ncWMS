@@ -270,7 +270,7 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
         return dataReaderClass;
     }
 
-    void setDataReaderClass(String dataReaderClass)
+    void setDataReaderClass(String dataReaderClass) throws Exception
     {
         this.dataReaderClass = dataReaderClass;
     }
@@ -508,14 +508,6 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
      */
     private void doLoadLayers() throws Exception
     {
-        // Get the filenames that comprise this dataset, expanding any glob expressions
-        /*List<String> filenames = this.getFiles();
-        if (filenames.size() == 0)
-        {
-            throw new Exception(this.location + " does not match any files");
-        }*/
-
-        // Get a DataReader object of the correct type
         logger.debug("Getting data reader of type {}", this.dataReaderClass);
         DataReader dr = DataReader.forName(this.dataReaderClass);
         // Look for OPeNDAP datasets and update the credentials provider accordingly
@@ -525,6 +517,7 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
         for (LayerImpl layer : newLayers.values())
         {
             layer.setDataset(this);
+            layer.setDataReader(dr);
         }
         this.loadingProgress.append("loaded layers");
         // Search for vector quantities (e.g. northward/eastward_sea_water_velocity)

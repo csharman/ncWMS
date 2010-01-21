@@ -27,66 +27,31 @@
  */
 package uk.ac.rdg.resc.ncwms.controller;
 
-import java.awt.Color;
-import java.awt.Font;
-import java.awt.geom.Ellipse2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
-import javax.imageio.ImageIO;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.jfree.chart.ChartFactory;
-import org.jfree.chart.ChartUtilities;
-import org.jfree.chart.JFreeChart;
-import org.jfree.chart.axis.NumberAxis;
-import org.jfree.chart.plot.IntervalMarker;
-import org.jfree.chart.plot.PlotOrientation;
-import org.jfree.chart.plot.XYPlot;
-import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
-import org.jfree.chart.title.TextTitle;
-import org.jfree.data.time.Millisecond;
-import org.jfree.data.time.TimeSeries;
-import org.jfree.data.time.TimeSeriesCollection;
-import org.jfree.data.xy.XYSeries;
-import org.jfree.data.xy.XYSeriesCollection;
-import org.jfree.ui.HorizontalAlignment;
-import org.jfree.ui.RectangleAnchor;
-import org.jfree.ui.RectangleEdge;
-import org.jfree.ui.TextAnchor;
 import org.joda.time.DateTime;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.AbstractController;
 import uk.ac.rdg.resc.ncwms.cache.TileCache;
-import uk.ac.rdg.resc.ncwms.cache.TileCacheKey;
-import uk.ac.rdg.resc.ncwms.coordsys.CrsHelper;
-import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
-import uk.ac.rdg.resc.ncwms.coordsys.LonLatPosition;
 import uk.ac.rdg.resc.ncwms.datareader.DataReader;
 import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
-import uk.ac.rdg.resc.ncwms.datareader.LineString;
-import uk.ac.rdg.resc.ncwms.datareader.PixelMap;
-import uk.ac.rdg.resc.ncwms.datareader.PointList;
 import uk.ac.rdg.resc.ncwms.exceptions.CurrentUpdateSequence;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
-import uk.ac.rdg.resc.ncwms.exceptions.InvalidFormatException;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidUpdateSequence;
-import uk.ac.rdg.resc.ncwms.exceptions.LayerNotQueryableException;
 import uk.ac.rdg.resc.ncwms.exceptions.OperationNotSupportedException;
 import uk.ac.rdg.resc.ncwms.exceptions.Wms1_1_1Exception;
 import uk.ac.rdg.resc.ncwms.exceptions.WmsException;
@@ -100,6 +65,7 @@ import uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Dataset;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
+import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
 import uk.ac.rdg.resc.ncwms.wms.ServerConfig;
 
 /**
@@ -159,7 +125,7 @@ public class WmsController extends AbstractController {
         if (paletteLocationDir.exists() && paletteLocationDir.isDirectory()) {
             ColorPalette.loadPalettes(paletteLocationDir);
         } else {
-            logger.info("Directory of palette files does not exist or is not a directory");
+            log.info("Directory of palette files does not exist or is not a directory");
         }
     }
 
@@ -478,7 +444,7 @@ public class WmsController extends AbstractController {
         Double zValue = getElevationValue(dr.getElevationString());
 
         // Cycle through all the provided timesteps, extracting data for each step
-        List<String> tValues = new ArrayList<String>();
+        List<String> tValueStrings = new ArrayList<String>();
         List<DateTime> timeValues = getTimeValues(dr.getTimeString(), layer);
         if (timeValues.size() > 1 && !imageFormat.supportsMultipleFrames()) {
             throw new WmsException("The image format " + mimeType +
@@ -487,17 +453,27 @@ public class WmsController extends AbstractController {
         usageLogEntry.setNumTimeSteps(timeValues.size());
         long beforeExtractData = System.currentTimeMillis();
         for (DateTime timeValue : timeValues) {
-            // TODO: what happens for vector layers?
-            // Note that if the layer doesn't have a time axis, timeValue==null but this
-            // will be ignored by readPointList()
-            List<? extends Number> picData = layer.readPointList(timeValue, zValue, grid);
+            // A List<Float> for each component of a vector quantity, although
+            // we only use the first component for scalars.
+            List<List<Float>> picData = new ArrayList<List<Float>>(2);
+            if (layer instanceof ScalarLayer) {
+                // Note that if the layer doesn't have a time axis, timeValue==null but this
+                // will be ignored by readPointList()
+                picData.add(((ScalarLayer)layer).readPointList(timeValue, zValue, grid));
+            } else if (layer instanceof VectorLayer) {
+                VectorLayer vecLayer = (VectorLayer)layer;
+                picData.add(vecLayer.getEastwardComponent() .readPointList(timeValue, zValue, grid));
+                picData.add(vecLayer.getNorthwardComponent().readPointList(timeValue, zValue, grid));
+            } else {
+                throw new IllegalStateException("Layer does not contain any data");
+            }
 
             // Only add a label if this is part of an animation
             String tValueStr = "";
             if (timeValues.size() > 1 && timeValue != null) {
                 tValueStr = WmsUtils.dateTimeToISO8601(timeValue);
             }
-            tValues.add(tValueStr);
+            tValueStrings.add(tValueStr);
             imageProducer.addFrame(picData, tValueStr); // the tValue is the label for the image
         }
         long timeToExtractData = System.currentTimeMillis() - beforeExtractData;
@@ -517,8 +493,8 @@ public class WmsController extends AbstractController {
         }
         // Render the images and write to the output stream
         imageFormat.writeImage(imageProducer.getRenderedFrames(),
-                httpServletResponse.getOutputStream(), layer, tValues, zValue,
-                grid.getBbox(), legend);
+                httpServletResponse.getOutputStream(), layer, tValueStrings,
+                dr.getElevationString(), grid.getBbox(), legend);
 
         return null;
     }
