@@ -131,6 +131,26 @@ public class WmsUtils
     {
         return ISO_TIME_FORMATTER.print(dateTime);
     }
+
+    /**
+     * Searches the given list of timesteps for the specified date-time using the binary
+     * search algorithm.  Matches are found based only upon the millisecond
+     * instant of the target DateTime, not its Chronology.
+     * @param  target The timestep to search for.
+     * @return the index of the search key, if it is contained in the list;
+     *	       otherwise, <tt>(-(<i>insertion point</i>) - 1)</tt>.  The
+     *	       <i>insertion point</i> is defined as the point at which the
+     *	       key would be inserted into the list: the index of the first
+     *	       element greater than the key, or <tt>list.size()</tt> if all
+     *	       elements in the list are less than the specified key.  Note
+     *	       that this guarantees that the return value will be &gt;= 0 if
+     *	       and only if the key is found.  If this Layer does not have a time
+     *         axis this method will return -1.
+     */
+    public static int findTimeIndex(List<DateTime> dtList, DateTime target)
+    {
+        return Collections.binarySearch(dtList, target, DATE_TIME_COMPARATOR);
+    }
     
     /**
      * Creates a directory, throwing an Exception if it could not be created and

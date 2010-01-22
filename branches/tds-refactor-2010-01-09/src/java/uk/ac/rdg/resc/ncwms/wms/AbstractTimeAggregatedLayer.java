@@ -32,6 +32,7 @@ import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.List;
 import org.joda.time.DateTime;
+import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 
 /**
  * Brings time aggregation capabilities to the {@link AbstractLayer} class.
@@ -108,7 +109,7 @@ public abstract class AbstractTimeAggregatedLayer extends AbstractLayer
     {
         TimestepInfo tInfo = new TimestepInfo(dt, filename, indexInFile);
         // Find the insertion point in the List of timesteps
-        int index = this.findTimeIndex(dt);
+        int index = WmsUtils.findTimeIndex(this.getTimeValues(), dt);
         if (index >= 0)
         {
             // We already have a timestep for this time

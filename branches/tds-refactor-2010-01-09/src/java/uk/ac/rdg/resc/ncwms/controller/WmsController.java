@@ -465,7 +465,7 @@ public class WmsController extends AbstractController {
                 picData.add(vecLayer.getEastwardComponent() .readPointList(timeValue, zValue, grid));
                 picData.add(vecLayer.getNorthwardComponent().readPointList(timeValue, zValue, grid));
             } else {
-                throw new IllegalStateException("Layer does not contain any data");
+                throw new IllegalStateException("Unrecognized layer type");
             }
 
             // Only add a label if this is part of an animation
@@ -1254,16 +1254,40 @@ public class WmsController extends AbstractController {
                 tValues.add(findTValue(startStop[0], layer));
             } else if (startStop.length == 2) {
                 // Use all time values from start to stop inclusive
-                tValues.addAll(findTValues(startStop[0], startStop[1]));
+                tValues.addAll(findTValues(startStop[0], startStop[1], layer));
             } else {
                 throw new InvalidDimensionValueException("time", t);
             }
         }
         return tValues;
     }
+    
+    /**
+     * Gets the index of the DateTime corresponding with the given ISO string,
+     * checking that the time is valid for the given layer.
+     * @throws InvalidDimensionValueException if the layer does not contain
+     * the given time, or if the given ISO8601 string is not valid.
+     */
+    private static int findTIndex(String isoDateTime, Layer layer)
+        throws InvalidDimensionValueException
+    {
+        DateTime target = isoDateTime.equals("current")
+            ? layer.getCurrentTimeValue()
+            : WmsUtils.iso8601ToDateTime(isoDateTime);
+
+        // Find the equivalent DateTime in the Layer.  Note that we can't simply
+        // use the contains() method of the List, since this is based on equals().
+        // We want to find the DateTime with the same millisecond instant.
+        int index = WmsUtils.findTimeIndex(layer.getTimeValues(), target);
+        if (index < 0)
+        {
+            throw new InvalidDimensionValueException("time", isoDateTime);
+        }
+        return index;
+    }
 
     /**
-     * Gets the the DateTime corresponding with the given ISO string, checking
+     * Gets the DateTime corresponding with the given ISO string, checking
      * that the time is valid for the given layer.
      * @throws InvalidDimensionValueException if the layer does not contain
      * the given time, or if the given ISO8601 string is not valid.
@@ -1271,18 +1295,7 @@ public class WmsController extends AbstractController {
     private static DateTime findTValue(String isoDateTime, Layer layer)
         throws InvalidDimensionValueException
     {
-        if (isoDateTime.equals("current")) return layer.getCurrentTimeValue();
-
-        DateTime target = WmsUtils.iso8601ToDateTime(isoDateTime);
-        // Find the equivalent DateTime in the Layer.  Note that we can't simply
-        // use the contains() method of the List, since this is based on equals().
-        // We want to find the DateTime with the same millisecond instant.
-        int index = findTIndex(target);
-        if (index < 0)
-        {
-            throw new InvalidDimensionValueException("time", isoDateTime);
-        }
-        return index;
+        return layer.getTimeValues().get(findTIndex(isoDateTime, layer));
     }
 
     /**
@@ -1295,19 +1308,20 @@ public class WmsController extends AbstractController {
      * values were not found in the axis, or if they are not valid ISO8601 times.
      */
     private static List<DateTime> findTValues(String isoDateTimeStart,
-        String isoDateTimeEnd) throws InvalidDimensionValueException
+        String isoDateTimeEnd, Layer layer) throws InvalidDimensionValueException
     {
-        int startIndex = this.findTIndex(isoDateTimeStart);
-        int endIndex = this.findTIndex(isoDateTimeEnd);
+        int startIndex = findTIndex(isoDateTimeStart, layer);
+        int endIndex = findTIndex(isoDateTimeEnd, layer);
         if (startIndex > endIndex)
         {
             throw new InvalidDimensionValueException("time",
                 isoDateTimeStart + "/" + isoDateTimeEnd);
         }
+        List<DateTime> layerTValues = layer.getTimeValues();
         List<DateTime> tValues = new ArrayList<DateTime>();
         for (int i = startIndex; i <= endIndex; i++)
         {
-            tValues.add(i);
+            tValues.add(layerTValues.get(i));
         }
         return tValues;
     }

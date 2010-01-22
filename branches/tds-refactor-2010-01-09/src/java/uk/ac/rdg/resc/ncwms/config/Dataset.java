@@ -29,7 +29,7 @@
 package uk.ac.rdg.resc.ncwms.config;
 
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -48,6 +48,8 @@ import uk.ac.rdg.resc.ncwms.datareader.DataReader;
 import uk.ac.rdg.resc.ncwms.util.Range;
 import uk.ac.rdg.resc.ncwms.util.Ranges;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
+import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
+import uk.ac.rdg.resc.ncwms.wms.VectorLayerImpl;
 
 /**
  * A dataset object in the ncWMS configuration system: contains a number of
@@ -119,10 +121,13 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
      * null if the Layers have not yet been loaded */
     private DateTime lastUpdateTime = null;
 
-    /** The Layers that belong to this dataset.  This will be loaded through the
+    /** The ScalarLayers that belong to this dataset.  This will be loaded through the
      * {@link #loadLayers()} method, which is called periodically by the
      * {@link Config} object. */
-    private Map<String, LayerImpl> layers;
+    private Map<String, LayerImpl> scalarLayers;
+
+    /** The VectorLayers generated from the scalarLayers */
+    private Map<String, VectorLayer> vectorLayers;
 
     /**
      * Checks that the data we have read are valid.  Checks that there are no
@@ -312,7 +317,7 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
      */
     Layer getLayer(String layerId)
     {
-        return this.layers.get(layerId);
+        return this.scalarLayers.get(layerId);
     }
     
     /**
@@ -321,10 +326,12 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
     @Override
     public Set<Layer> getLayers()
     {
-        Collection<LayerImpl> layersInDataset = this.layers.values();
-        Set<Layer> layerSet = new LinkedHashSet<Layer>(layersInDataset.size());
-        for (Layer layerInDataset : layersInDataset) {
-            layerSet.add(layerInDataset);
+        Set<Layer> layerSet = new LinkedHashSet<Layer>(this.scalarLayers.size());
+        for (Layer scalarLayer : this.scalarLayers.values()) {
+            layerSet.add(scalarLayer);
+        }
+        for (VectorLayer vectorLayer : this.vectorLayers.values()) {
+            layerSet.add(vectorLayer);
         }
         return layerSet;
     }
@@ -513,21 +520,19 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
         // Look for OPeNDAP datasets and update the credentials provider accordingly
         this.config.updateCredentialsProvider(this);
         // Read the metadata
-        Map<String, LayerImpl> newLayers = dr.getAllLayers(this);
-        for (LayerImpl layer : newLayers.values())
+        this.scalarLayers = dr.getAllLayers(this);
+        for (LayerImpl layer : this.scalarLayers.values())
         {
             layer.setDataset(this);
             layer.setDataReader(dr);
         }
         this.loadingProgress.append("loaded layers");
         // Search for vector quantities (e.g. northward/eastward_sea_water_velocity)
-        //this.findVectorQuantities(newLayers);
+        this.findVectorQuantities();
         this.loadingProgress.append("found vector quantities");
         // Look for overriding attributes in the configuration
-        this.readLayerConfig(newLayers);
+        this.readLayerConfig();
         this.loadingProgress.append("attributes overridden");
-        // Update the metadata store
-        this.layers = newLayers;
         this.loadingProgress.append("Finished loading metadata");
     }
 
@@ -538,12 +543,13 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
      * in-place.
      * @todo Only works for northward/eastward so far
      */
-    /*private void findVectorQuantities(Map<String, LayerImpl> layers)
+    private void findVectorQuantities()
     {
         // This hashtable will store pairs of components in eastward-northward
         // order, keyed by the standard name for the vector quantity
         Map<String, LayerImpl[]> components = new HashMap<String, LayerImpl[]>();
-        for (LayerImpl layer : layers.values())
+        this.vectorLayers = new LinkedHashMap<String, VectorLayer>();
+        for (LayerImpl layer : this.scalarLayers.values())
         {
             if (layer.getTitle().contains("eastward"))
             {
@@ -578,21 +584,19 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
                 comps[0].setDataset(this);
                 comps[1].setDataset(this);
                 // We've found both components.  Create a new Layer object
-                LayerImpl vec = new VectorLayerImpl(key, comps[0], comps[1]);
-                // Use the title as the unique ID for this variable
-                vec.setId(key);
-                layers.put(key, vec);
+                VectorLayer vec = new VectorLayerImpl(key, comps[0], comps[1]);
+                this.vectorLayers.put(key, vec);
             }
         }
-    }*/
+    }
 
     /**
      * Read the configuration information from individual layers from the
      * config file.
      */
-    private void readLayerConfig(Map<String, LayerImpl> layers)
+    private void readLayerConfig()
     {
-        for (LayerImpl layer : layers.values())
+        for (LayerImpl layer : this.scalarLayers.values())
         {
             // Load the Variable object from the config file or create a new
             // one if it doesn't exist.

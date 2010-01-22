@@ -29,8 +29,6 @@
 package uk.ac.rdg.resc.ncwms.config;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import org.joda.time.DateTime;
 import uk.ac.rdg.resc.ncwms.coordsys.CrsHelper;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalCoordSys;
@@ -38,7 +36,7 @@ import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.datareader.DataReader;
 import uk.ac.rdg.resc.ncwms.datareader.PointList;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
-import uk.ac.rdg.resc.ncwms.styles.Style;
+import uk.ac.rdg.resc.ncwms.styles.ColorPalette;
 import uk.ac.rdg.resc.ncwms.util.Range;
 import uk.ac.rdg.resc.ncwms.wms.AbstractTimeAggregatedLayer;
 
@@ -48,13 +46,10 @@ import uk.ac.rdg.resc.ncwms.wms.AbstractTimeAggregatedLayer;
  *
  * @author Jon Blower
  */
-public class LayerImpl extends AbstractTimeAggregatedLayer
+public final class LayerImpl extends AbstractTimeAggregatedLayer
 {
-    protected Dataset dataset;
-    protected boolean zPositive;
-    protected HorizontalCoordSys horizCoordSys;
-    // Stores the keys of the styles that this variable supports
-    protected List<Style> supportedStyles = new ArrayList<Style>();
+    private Dataset dataset;
+    private HorizontalCoordSys horizCoordSys;
     private DataReader dataReader;
     
     /**
@@ -64,7 +59,6 @@ public class LayerImpl extends AbstractTimeAggregatedLayer
     public LayerImpl(String id)
     {
         super(id);
-        this.supportedStyles.add(Style.BOXFILL);
     }
 
     /**
@@ -90,16 +84,6 @@ public class LayerImpl extends AbstractTimeAggregatedLayer
     {
         this.dataReader = dataReader;
     }
-
-    public boolean isZpositive()
-    {
-        return zPositive;
-    }
-
-    public void setZpositive(boolean zPositive)
-    {
-        this.zPositive = zPositive;
-    }
     
     /**
      * Returns an approximate range of values that this layer can take.  This
@@ -111,32 +95,6 @@ public class LayerImpl extends AbstractTimeAggregatedLayer
     public Range<Float> getApproxValueRange()
     {
         return this.getVariable().getColorScaleRange();
-    }
-
-    /**
-     * @return List of styles that this layer can be rendered in.
-     */
-    public List<Style> getSupportedStyles()
-    {
-        return this.supportedStyles;
-    }
-    
-    /**
-     * @return the key of the default style for this Variable.  Exactly 
-     * equivalent to getSupportedStyles().get(0)
-     */
-    public Style getDefaultStyle()
-    {
-        return this.supportedStyles.get(0);
-    }
-    
-    /**
-     * @return true if this Layer can be rendered in the style with the
-     * given name, false otherwise.
-     */
-    public boolean supportsStyle(String styleName)
-    {
-        return this.supportedStyles.contains(styleName.trim());
     }
     
     /**
@@ -162,11 +120,25 @@ public class LayerImpl extends AbstractTimeAggregatedLayer
     /**
      * Return true if we are to use logarithmic colour scaling by default for
      * this layer.
-     * @return
+     * @return true if we are to use logarithmic colour scaling by default for
+     * this layer.
      */
+    @Override
     public boolean isLogScaling()
     {
         return this.getVariable().isLogScaling();
+    }
+
+    /**
+     * Returns the default colour palette to be used if the client does not
+     * specify one in a GetMap request
+     * @return the default colour palette to be used if the client does not
+     * specify one
+     */
+    @Override
+    public ColorPalette getDefaultColorPalette()
+    {
+        return ColorPalette.get(this.getVariable().getPaletteName());
     }
 
     /**

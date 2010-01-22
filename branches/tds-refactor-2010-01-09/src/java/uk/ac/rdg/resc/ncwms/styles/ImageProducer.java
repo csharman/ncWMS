@@ -42,7 +42,6 @@ import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import uk.ac.rdg.resc.ncwms.controller.ColorScaleRange;
 import uk.ac.rdg.resc.ncwms.controller.GetMapDataRequest;
 import uk.ac.rdg.resc.ncwms.controller.GetMapRequest;
 import uk.ac.rdg.resc.ncwms.controller.GetMapStyleRequest;
@@ -50,14 +49,12 @@ import uk.ac.rdg.resc.ncwms.exceptions.StyleNotDefinedException;
 import uk.ac.rdg.resc.ncwms.util.Range;
 import uk.ac.rdg.resc.ncwms.util.Ranges;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
+import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
 
 /**
  * An object that is used to render data into images.
  *
  * @author Jon Blower
- * $Revision$
- * $Date$
- * $Log$
  */
 public final class ImageProducer
 {
@@ -76,7 +73,10 @@ public final class ImageProducer
     private Color bgColor;
     private ColorPalette colorPalette;
     
-    // Colour scale range of the picture
+    /**
+     * Colour scale range of the picture.  An {@link Range#isEmpty() empty Range}
+     * means that the picture will be auto-scaled.
+     */
     private Range<Float> scaleRange;
     
     /**
@@ -88,6 +88,9 @@ public final class ImageProducer
     private List<BufferedImage> renderedFrames = new ArrayList<BufferedImage>();
     // If we need to cache the frame data and associated labels (we do this if
     // we have to auto-scale the image) this is where we put them.
+    // The inner List<Float> is the data for a single vector component
+    // The middle List contains the two vector components
+    // The outer List contains data for each animation frame
     private List<List<List<Float>>> frameData; // YUCK!!!
     private List<String> labels;
     
@@ -107,8 +110,8 @@ public final class ImageProducer
         if (styleRequest.getStyles().length == 0)
         {
             // Use the default style and colour palette for this layer
-            this.style = this.layer.getDefaultStyle();
-            this.colorPalette = ColorPalette.get(this.layer.getDefaultPaletteName());
+            this.style = layer instanceof VectorLayer ? Style.VECTOR : Style.BOXFILL;
+            this.colorPalette = layer.getDefaultColorPalette();
         }
         else
         {
@@ -126,7 +129,7 @@ public final class ImageProducer
             else if (styleType.equalsIgnoreCase("vector")) this.style = Style.VECTOR;
             else throw new StyleNotDefinedException("The style " + styleSpec +
                 " is not supported by this server");
-            if (!layer.getSupportedStyles().contains(this.style))
+            if (this.style == Style.VECTOR && !(layer instanceof VectorLayer))
             {
                 throw new StyleNotDefinedException("The style " + styleSpec +
                     " is not supported by this layer");
@@ -142,26 +145,11 @@ public final class ImageProducer
         this.transparent = styleRequest.isTransparent();
         this.bgColor = styleRequest.getBackgroundColour();
         this.opacity = styleRequest.getOpacity();
-        ColorScaleRange colorScaleRange = styleRequest.getColorScaleRange();
-        if (colorScaleRange.isDefault())
+        this.scaleRange = styleRequest.getColorScaleRange();
+        if (this.scaleRange == null)
         {
             // Use the layer's default range
             this.scaleRange = layer.getApproxValueRange();
-        }
-        else if (colorScaleRange.isAuto())
-        {
-            // Setting both to zero is the signal to generate a colour scale
-            // that maximizes the contrast of the image.
-            // see isAutoScale()
-            this.scaleRange = Ranges.newRange(0.0f, 0.0f);
-        }
-        else
-        {
-            // Use the range as specified by the user
-            this.scaleRange = Ranges.newRange(
-                colorScaleRange.getScaleMin(),
-                colorScaleRange.getScaleMax()
-            );
         }
 
         // If the client does not specify a scaling, we use the layer's default
@@ -201,7 +189,7 @@ public final class ImageProducer
     public void addFrame(List<List<Float>> data, String label)
     {
         logger.debug("Adding frame with label {}", label);
-        if (this.isAutoScale())
+        if (this.scaleRange.isEmpty())
         {
             logger.debug("Auto-scaling, so caching frame");
             if (this.frameData == null)
@@ -362,35 +350,6 @@ public final class ImageProducer
     }
     
     /**
-     * @return true if this image will have its colour range scaled automatically.
-     * This is true if scaleMin and scaleMax are both zero
-     */
-    private boolean isAutoScale()
-    {
-        return (this.scaleMin == 0.0f && this.scaleMax == 0.0f);
-    }
-    
-    /**
-     * Adjusts the colour scale to accommodate the given frame.
-     */
-    private void adjustScaleForFrame(List<Float> data)
-    {
-        // We only use the first data array: this is a ImageProducer for scalars
-        this.scaleMin = Float.MAX_VALUE;
-        this.scaleMax = -Float.MAX_VALUE;
-        Rang
-        for (float val : data.get(0))
-        {
-            Range<Float> valRange = Ranges.findMinMax(data)
-            if (!Float.isNaN(val))
-            {
-                if (val < this.scaleMin) this.scaleMin = val;
-                if (val > this.scaleMax) this.scaleMax = val;
-            }
-        }
-    }
-    
-    /**
      * Gets the frames as BufferedImages, ready to be turned into a picture or
      * animation.  This is called just before the picture is due to be created,
      * so subclasses can delay creating the BufferedImages until all the data
@@ -417,19 +376,34 @@ public final class ImageProducer
     /**
      * Makes sure that the scale is set: if we are auto-scaling, this reads all
      * of the data we have stored to find the extremes.  If the scale has
-     * already been set, this does nothing
+     * already been set, this does nothing.
      */
     private void setScale()
     {
-        if (this.isAutoScale())
+        if (this.scaleRange.isEmpty())
         {
+            Float scaleMin = null;
+            Float scaleMax = null;
             logger.debug("Setting the scale automatically");
             // We have a cache of image data, which we use to generate the colour scale
             for (List<List<Float>> data : this.frameData)
             {
                 // We only use the first component if this is a vector quantity
-                this.adjustScaleForFrame(data.get(0));
+                Range<Float> range = Ranges.findMinMax(data.get(0));
+                // TODO: could move this logic to the Range/Ranges class
+                if (!range.isEmpty())
+                {
+                    if (scaleMin == null || range.getMinimum().compareTo(scaleMin) < 0)
+                    {
+                        scaleMin = range.getMinimum();
+                    }
+                    if (scaleMax == null || range.getMaximum().compareTo(scaleMax) > 0)
+                    {
+                        scaleMax = range.getMaximum();
+                    }
+                }
             }
+            this.scaleRange = Ranges.newRange(scaleMin, scaleMax);
         }
     }
 

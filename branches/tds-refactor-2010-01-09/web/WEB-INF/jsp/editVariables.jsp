@@ -40,7 +40,7 @@ response.setDateHeader ("Expires", 0); //prevents caching at the proxy server
                             <td>
                                 <select name="${layer.id}.palette">
                                     <c:forEach var="paletteName" items="${paletteNames}">
-                                        <option value="${paletteName}"<c:if test="${layer.defaultPaletteName == paletteName}"> selected="selected"</c:if>>${paletteName}</option>
+                                        <option value="${paletteName}"<c:if test="${layer.defaultColorPalette.name == paletteName}"> selected="selected"</c:if>>${paletteName}</option>
                                     </c:forEach>
                                 </select>
                             </td>

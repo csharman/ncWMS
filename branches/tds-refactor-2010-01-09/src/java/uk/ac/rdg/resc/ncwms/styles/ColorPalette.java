@@ -45,6 +45,7 @@ import java.util.Set;
 import java.util.StringTokenizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import uk.ac.rdg.resc.ncwms.util.Range;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 
 /**
@@ -80,7 +81,8 @@ public class ColorPalette
      * chosen.  This palette is taken from the SGT graphics toolkit.
      * @see DEFAULT_PALETTE_NAME
      */
-    private static final ColorPalette DEFAULT_PALETTE = new ColorPalette(new Color[] {
+    private static final ColorPalette DEFAULT_PALETTE = new ColorPalette(DEFAULT_PALETTE_NAME,
+        new Color[] {
         new Color(0,0,143), new Color(0,0,159), new Color(0,0,175),
         new Color(0,0,191), new Color(0,0,207), new Color(0,0,223),
         new Color(0,0,239), new Color(0,0,255), new Color(0,11,255),
@@ -104,10 +106,12 @@ public class ColorPalette
         new Color(175,0,0), new Color(158,0,0), new Color(140,0,0)
     });
     
-    private Color[] palette;
+    private final Color[] palette;
+    private final String name;
     
-    private ColorPalette(Color[] palette)
+    private ColorPalette(String name, Color[] palette)
     {
+        this.name = name;
         this.palette = palette;
     }
     
@@ -145,10 +149,10 @@ public class ColorPalette
             {
                 try
                 {
-                    ColorPalette palette = new ColorPalette(readColorPalette(file));
                     String paletteName = file.getName().substring(0, file.getName().lastIndexOf("."));
+                    ColorPalette palette = new ColorPalette(paletteName, readColorPalette(file));
                     logger.debug("Read palette with name {}", paletteName);
-                    palettes.put(paletteName.toLowerCase(), palette);
+                    palettes.put(palette.getName(), palette);
                 }
                 catch(Exception e)
                 {
@@ -179,6 +183,9 @@ public class ColorPalette
         }
         return palettes.get(name.trim().toLowerCase());
     }
+
+    /** Gets the name of this palette */
+    public String getName() { return this.name; }
     
     /**
      * Creates a color bar with the given width and height and the given number
@@ -218,18 +225,18 @@ public class ColorPalette
      * @param numColorBands The number of color bands to show in the legend
      * @param layer Layer for which the legend is being created
      * @param logarithmic True if the scale is to be logarithmic: otherwise linear
-     * @param colourScaleMin Data value corresponding to the bottom of the colour
-     * scale.
-     * @param colourScaleMax Data value corresponding to the top of the colour
-     * scale.
+     * @param colourScaleRange Data values corresponding with the min and max
+     * values of the colour scale
      * @return a BufferedImage object representing the legend.  This has a fixed
      * size (110 pixels wide, 264 pixels high)
      * @throws IllegalArgumentException if the requested number of colour bands
      * is less than one or greater than 254.
      */
     public BufferedImage createLegend(int numColorBands, Layer layer,
-        boolean logarithmic, float colourScaleMin, float colourScaleMax)
+        boolean logarithmic, Range<Float> colorScaleRange)
     {
+        float colourScaleMin = colorScaleRange.getMinimum();
+        float colourScaleMax = colorScaleRange.getMaximum();
         BufferedImage colourScale = new BufferedImage(LEGEND_WIDTH,
             LEGEND_HEIGHT, BufferedImage.TYPE_3BYTE_BGR);
         Graphics2D gfx = colourScale.createGraphics();

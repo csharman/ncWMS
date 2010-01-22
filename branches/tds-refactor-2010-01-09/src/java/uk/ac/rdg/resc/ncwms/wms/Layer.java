@@ -28,14 +28,10 @@
 
 package uk.ac.rdg.resc.ncwms.wms;
 
-import java.io.IOException;
 import java.util.List;
 import org.joda.time.DateTime;
 import org.opengis.metadata.extent.GeographicBoundingBox;
-import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
-import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
-import uk.ac.rdg.resc.ncwms.datareader.PointList;
-import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
+import uk.ac.rdg.resc.ncwms.styles.ColorPalette;
 import uk.ac.rdg.resc.ncwms.util.Range;
 
 /**
@@ -143,4 +139,36 @@ public interface Layer
      * @todo Replace with strongly-typed JSR-275 Unit?
      */
     public String getElevationUnits();
+
+    /**
+     * Returns true if the positive direction of the elevation axis is up
+     * @return true if the positive direction of the elevation axis is up
+     * @todo Make the name and meaning of this method clearer
+     */
+    public boolean isElevationPositive();
+
+    /**
+     * Returns an approximate range of values that this layer can take.  This
+     * is merely a hint, for example to suggest to clients sensible default
+     * values for choosing a colour scale.
+     * @return an approximate range of values that this layer can take.
+     */
+    public Range<Float> getApproxValueRange();
+
+    /**
+     * Returns true if images generated from this Layer should be scaled
+     * logarithmically (appropriate for quantities that vary over several orders
+     * of magnitude).
+     * @return true if images generated from this Layer should be scaled
+     * logarithmically
+     */
+    public boolean isLogScaling();
+
+    /**
+     * Returns the default colour palette to be used if the client does not
+     * specify one in a GetMap request
+     * @return the default colour palette to be used if the client does not
+     * specify one
+     */
+    public ColorPalette getDefaultColorPalette();
 }

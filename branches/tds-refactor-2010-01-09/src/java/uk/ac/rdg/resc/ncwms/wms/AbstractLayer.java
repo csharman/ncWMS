@@ -30,7 +30,6 @@ package uk.ac.rdg.resc.ncwms.wms;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import org.geotoolkit.metadata.iso.extent.DefaultGeographicBoundingBox;
@@ -40,6 +39,7 @@ import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.datareader.PointList;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
+import uk.ac.rdg.resc.ncwms.styles.ColorPalette;
 import uk.ac.rdg.resc.ncwms.util.Range;
 import uk.ac.rdg.resc.ncwms.util.Ranges;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
@@ -61,6 +61,7 @@ public abstract class AbstractLayer implements ScalarLayer
     protected String units;
     protected String zUnits;
     protected List<Double> zValues;
+    protected boolean zPositive;
     protected GeographicBoundingBox bbox = DefaultGeographicBoundingBox.WORLD;
 
     /**
@@ -104,6 +105,10 @@ public abstract class AbstractLayer implements ScalarLayer
 
     @Override public List<Double> getElevationValues() { return zValues; }
     public void setElevationValues(List<Double> zValues) { this.zValues = zValues; }
+
+    @Override
+    public boolean isElevationPositive() { return zPositive; }
+    public void setElevationPositive(boolean zPositive) { this.zPositive = zPositive; }
 
     @Override
     public GeographicBoundingBox getGeographicBoundingBox() { return this.bbox; }
@@ -172,7 +177,7 @@ public abstract class AbstractLayer implements ScalarLayer
     protected int getCurrentTimeIndex()
     {
         if (this.getTimeValues().size() == 0) return -1; // no time axis
-        int index = findTimeIndex(new DateTime());
+        int index = WmsUtils.findTimeIndex(this.getTimeValues(), new DateTime());
         if (index >= 0) {
             // Exact match.  Very unlikely!
             return index;
@@ -186,30 +191,6 @@ public abstract class AbstractLayer implements ScalarLayer
     }
 
     /**
-     * Searches the list of timesteps for the specified date-time using the binary
-     * search algorithm.  Matches are found based only upon the millisecond
-     * instant of the passed DateTime, not its Chronology.
-     * @param  target The timestep to search for.
-     * @return the index of the search key, if it is contained in the list;
-     *	       otherwise, <tt>(-(<i>insertion point</i>) - 1)</tt>.  The
-     *	       <i>insertion point</i> is defined as the point at which the
-     *	       key would be inserted into the list: the index of the first
-     *	       element greater than the key, or <tt>list.size()</tt> if all
-     *	       elements in the list are less than the specified key.  Note
-     *	       that this guarantees that the return value will be &gt;= 0 if
-     *	       and only if the key is found.  If this Layer does not have a time
-     *         axis this method will return -1.
-     */
-    protected int findTimeIndex(DateTime target)
-    {
-        return Collections.binarySearch(
-            this.getTimeValues(),         // The list of timesteps
-            target,                       // The target value
-            WmsUtils.DATE_TIME_COMPARATOR // Comparator based upon ms values only
-        );
-    }
-
-    /**
      * Searches the list of timesteps for the specified date-time, returning
      * the index of the date-time, or throwing an {@link InvalidDimensionValueException}
      * if the specified date-time is not a valid timestep for this layer.  If
@@ -218,7 +199,7 @@ public abstract class AbstractLayer implements ScalarLayer
     protected int findAndCheckTimeIndex(DateTime target) throws InvalidDimensionValueException
     {
         if (!this.hasTimeAxis()) return -1;
-        int index = this.findTimeIndex(target);
+        int index = WmsUtils.findTimeIndex(this.getTimeValues(), target);
         if (index >= 0) return index;
         throw new InvalidDimensionValueException("time", WmsUtils.dateTimeToISO8601(target));
     }
@@ -312,6 +293,28 @@ public abstract class AbstractLayer implements ScalarLayer
             // This would only happen due to a programming error in getDefaultXValue()
             throw new IllegalStateException(idve);
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>This implementation always returns false.</p>
+     */
+    @Override
+    public boolean isLogScaling()
+    {
+        return false;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>This implementation always returns the default palette from {@link ColorPalette}.</p>
+     */
+    @Override
+    public ColorPalette getDefaultColorPalette()
+    {
+        return ColorPalette.get(null);
     }
 
     /**

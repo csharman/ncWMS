@@ -95,6 +95,11 @@ public final class Ranges
         return newRange(dt1, dt2, null);
     }
 
+    public static <T> Range<T> emptyRange()
+    {
+        return new SimpleRangeWithComparator<T>((T)null, (T)null, null);
+    }
+
     private static abstract class AbstractRange<T> implements Range<T>
     {
         private final T min;

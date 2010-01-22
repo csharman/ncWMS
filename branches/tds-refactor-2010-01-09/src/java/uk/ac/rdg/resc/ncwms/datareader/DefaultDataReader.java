@@ -396,7 +396,7 @@ public class DefaultDataReader extends DataReader
                         if (zAxis != null)
                         {
                             layer.setElevationUnits(zAxis.getUnitsString());
-                            layer.setZpositive(zPositive);
+                            layer.setElevationPositive(zPositive);
                             layer.setElevationValues(zValues);
                         }
 

@@ -35,7 +35,6 @@ import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.datareader.PointList;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
-import uk.ac.rdg.resc.ncwms.util.Range;
 
 /**
  * A {@link Layer} that contains a single data value at each point in its grid.
@@ -43,14 +42,6 @@ import uk.ac.rdg.resc.ncwms.util.Range;
  */
 public interface ScalarLayer extends Layer
 {
-
-    /**
-     * Returns an approximate range of values that this layer can take.  This
-     * is merely a hint, for example to suggest to clients sensible default
-     * values for choosing a colour scale.
-     * @return an approximate range of values that this layer can take.
-     */
-    public Range<Float> getApproxValueRange();
 
     /**
      * <p>Reads a single item of data from a point in space and time.  Returns

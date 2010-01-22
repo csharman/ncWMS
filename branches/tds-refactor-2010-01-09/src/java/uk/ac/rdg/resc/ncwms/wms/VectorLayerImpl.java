@@ -31,6 +31,8 @@ package uk.ac.rdg.resc.ncwms.wms;
 import java.util.List;
 import org.joda.time.DateTime;
 import org.opengis.metadata.extent.GeographicBoundingBox;
+import uk.ac.rdg.resc.ncwms.styles.ColorPalette;
+import uk.ac.rdg.resc.ncwms.util.Range;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 
 /**
@@ -40,7 +42,7 @@ import uk.ac.rdg.resc.ncwms.util.WmsUtils;
  * must share the same domain, although this class does not verify this.
  * @author Jon
  */
-public class VectorLayerImpl implements VectorLayer
+public final class VectorLayerImpl implements VectorLayer
 {
     private final String id;
     private final ScalarLayer east;
@@ -51,7 +53,6 @@ public class VectorLayerImpl implements VectorLayer
         this.id = id;
         this.east = east;
         this.north = north;
-        // TODO add vector as supported Style
     }
 
     @Override
@@ -59,6 +60,12 @@ public class VectorLayerImpl implements VectorLayer
 
     @Override
     public ScalarLayer getNorthwardComponent() { return this.north; }
+
+    @Override
+    public Range<Float> getApproxValueRange() {
+        // TODO: this will sometimes underestimate the range of the magnitu
+        //return this.east.getApproxValueRange();
+    }
 
     @Override
     public String getId() { return this.id; }
@@ -113,4 +120,10 @@ public class VectorLayerImpl implements VectorLayer
 
     @Override
     public String getElevationUnits() { return this.east.getElevationUnits(); }
+
+    @Override
+    public boolean isLogScaling() { return this.east.isLogScaling(); }
+
+    @Override
+    public ColorPalette getDefaultColorPalette() { return this.east.getDefaultColorPalette(); }
 }
