@@ -26,7 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.wms;
+package uk.ac.rdg.resc.ncwms.config;
 
 import java.util.List;
 import org.joda.time.DateTime;
@@ -34,6 +34,9 @@ import org.opengis.metadata.extent.GeographicBoundingBox;
 import uk.ac.rdg.resc.ncwms.styles.ColorPalette;
 import uk.ac.rdg.resc.ncwms.util.Range;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
+import uk.ac.rdg.resc.ncwms.wms.Dataset;
+import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
+import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
 
 /**
  * Implementation of a {@link VectorLayer} that wraps two Layer objects,
@@ -45,10 +48,10 @@ import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 public final class VectorLayerImpl implements VectorLayer
 {
     private final String id;
-    private final ScalarLayer east;
-    private final ScalarLayer north;
+    private final LayerImpl east;
+    private final LayerImpl north;
 
-    public VectorLayerImpl(String id, ScalarLayer east, ScalarLayer north)
+    public VectorLayerImpl(String id, LayerImpl east, LayerImpl north)
     {
         this.id = id;
         this.east = east;
@@ -62,16 +65,7 @@ public final class VectorLayerImpl implements VectorLayer
     public ScalarLayer getNorthwardComponent() { return this.north; }
 
     @Override
-    public Range<Float> getApproxValueRange() {
-        // TODO: this will sometimes underestimate the range of the magnitu
-        //return this.east.getApproxValueRange();
-    }
-
-    @Override
     public String getId() { return this.id; }
-
-    @Override
-    public String getTitle() { return this.id; }
 
     @Override
     public String getAbstract() {
@@ -120,10 +114,52 @@ public final class VectorLayerImpl implements VectorLayer
 
     @Override
     public String getElevationUnits() { return this.east.getElevationUnits(); }
+    
+    @Override
+    public boolean isElevationPositive() { return this.east.isElevationPositive(); }
+
+    ////////////////////////////////////////////
+    //// Values overridden in configuration ////
+    ////////////////////////////////////////////
+
+    /**
+     * Gets the {@link Variable} object that is associated with this Layer.
+     * The Variable object allows the sysadmin to override certain properties.
+     */
+    private Variable getVariable()
+    {
+        return this.east.getDataset().getVariables().get(this.id);
+    }
+
+    /**
+     * Gets the human-readable Title of this Layer.  If the sysadmin has set a
+     * title for this layer in the config file, this title will be returned.
+     * If not, the id will be used.
+     */
+    @Override
+    public String getTitle()
+    {
+        Variable var = this.getVariable();
+        if (var != null && var.getTitle() != null) return var.getTitle();
+        else return this.id;
+    }
 
     @Override
-    public boolean isLogScaling() { return this.east.isLogScaling(); }
+    public Range<Float> getApproxValueRange()
+    {
+        return this.getVariable().getColorScaleRange();
+    }
 
     @Override
-    public ColorPalette getDefaultColorPalette() { return this.east.getDefaultColorPalette(); }
+    public boolean isLogScaling()
+    {
+        return this.getVariable().isLogScaling();
+    }
+
+    @Override
+    public ColorPalette getDefaultColorPalette()
+    {
+        return ColorPalette.get(this.getVariable().getPaletteName());
+    }
+
 }

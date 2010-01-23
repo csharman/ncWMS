@@ -36,12 +36,9 @@ import org.geotoolkit.metadata.iso.extent.DefaultGeographicBoundingBox;
 import org.joda.time.DateTime;
 import org.opengis.metadata.extent.GeographicBoundingBox;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
-import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.datareader.PointList;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.styles.ColorPalette;
-import uk.ac.rdg.resc.ncwms.util.Range;
-import uk.ac.rdg.resc.ncwms.util.Ranges;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 
 /**
@@ -153,7 +150,7 @@ public abstract class AbstractLayer implements ScalarLayer
     
     /**
      * Gets the time value that will be used by default if a client does not
-     * explicitly provide a time parameter in a request ({@literal e.g. GetMap}),
+     * explicitly provide a time parameter in a request ({@literal e.g.} GetMap),
      * or null if this layer does not have a time axis.  This implementation
      * returns the same as {@link #getCurrentTimeValue()}.
      */
@@ -206,7 +203,7 @@ public abstract class AbstractLayer implements ScalarLayer
 
     /**
      * <p>Gets the elevation value that will be used by default if a client does not
-     * explicitly provide an elevation parameter in a request ({@literal e.g. GetMap}),
+     * explicitly provide an elevation parameter in a request ({@literal e.g.} GetMap),
      * or {@link Double#NaN} if this layer does not support a default elevation
      * value (or does not have an elevation axis).</p>
      * <p>This implementation simply returns the value that is closest to zero
@@ -270,29 +267,6 @@ public abstract class AbstractLayer implements ScalarLayer
         int index = this.findElevationIndex(targetVal);
         if (index >= 0) return index;
         throw new InvalidDimensionValueException("elevation", "" + targetVal);
-    }
-
-    /**
-     * Estimate the range of values in this layer by reading a sample of data
-     * from the default time and elevation.
-     * @return
-     * @throws IOException if there was an error reading from the source data
-     */
-    public Range<Float> estimateValueRange() throws IOException
-    {
-        try {
-            // Read a low-resolution grid of data covering the entire spatial extent
-            List<Float> data = this.readPointList(
-                this.getDefaultTimeValue(),
-                this.getDefaultElevationValue(),
-                new HorizontalGrid(100, 100, this.getGeographicBoundingBox())
-            );
-            // Find the minimum and maximum values of this range
-            return Ranges.findMinMax(data);
-        } catch (InvalidDimensionValueException idve) {
-            // This would only happen due to a programming error in getDefaultXValue()
-            throw new IllegalStateException(idve);
-        }
     }
 
     /**

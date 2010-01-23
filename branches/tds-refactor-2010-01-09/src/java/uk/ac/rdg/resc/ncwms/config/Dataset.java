@@ -28,6 +28,7 @@
 
 package uk.ac.rdg.resc.ncwms.config;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -45,11 +46,13 @@ import org.simpleframework.xml.load.Commit;
 import org.simpleframework.xml.load.PersistenceException;
 import org.simpleframework.xml.load.Validate;
 import uk.ac.rdg.resc.ncwms.datareader.DataReader;
+import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
+import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.util.Range;
 import uk.ac.rdg.resc.ncwms.util.Ranges;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
+import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
 import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
-import uk.ac.rdg.resc.ncwms.wms.VectorLayerImpl;
 
 /**
  * A dataset object in the ncWMS configuration system: contains a number of
@@ -121,13 +124,13 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
      * null if the Layers have not yet been loaded */
     private DateTime lastUpdateTime = null;
 
-    /** The ScalarLayers that belong to this dataset.  This will be loaded through the
+    /** The Layers that belong to this dataset.  This will be loaded through the
      * {@link #loadLayers()} method, which is called periodically by the
      * {@link Config} object. */
     private Map<String, LayerImpl> scalarLayers;
 
     /** The VectorLayers generated from the scalarLayers */
-    private Map<String, VectorLayer> vectorLayers;
+    private Map<String, VectorLayerImpl> vectorLayers;
 
     /**
      * Checks that the data we have read are valid.  Checks that there are no
@@ -548,7 +551,7 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
         // This hashtable will store pairs of components in eastward-northward
         // order, keyed by the standard name for the vector quantity
         Map<String, LayerImpl[]> components = new HashMap<String, LayerImpl[]>();
-        this.vectorLayers = new LinkedHashMap<String, VectorLayer>();
+        this.vectorLayers = new LinkedHashMap<String, VectorLayerImpl>();
         for (LayerImpl layer : this.scalarLayers.values())
         {
             if (layer.getTitle().contains("eastward"))
@@ -581,10 +584,8 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
             LayerImpl[] comps = components.get(key);
             if (comps[0] != null && comps[1] != null)
             {
-                comps[0].setDataset(this);
-                comps[1].setDataset(this);
                 // We've found both components.  Create a new Layer object
-                VectorLayer vec = new VectorLayerImpl(key, comps[0], comps[1]);
+                VectorLayerImpl vec = new VectorLayerImpl(key, comps[0], comps[1]);
                 this.vectorLayers.put(key, vec);
             }
         }
@@ -596,7 +597,7 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
      */
     private void readLayerConfig()
     {
-        for (LayerImpl layer : this.scalarLayers.values())
+        for (Layer layer : this.getLayers()) // all the layers, scalars and vectors
         {
             // Load the Variable object from the config file or create a new
             // one if it doesn't exist.
@@ -621,7 +622,7 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
                 Range<Float> valueRange;
                 try
                 {
-                    valueRange = layer.estimateValueRange();
+                    valueRange = estimateValueRange(layer);
                     if (valueRange.isEmpty())
                     {
                         // We failed to get a valid range.  Just guess at a scale
@@ -656,6 +657,71 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
                 var.setColorScaleRange(valueRange);
             }
         }
+    }
+
+    /**
+     * Estimate the range of values in this layer by reading a sample of data
+     * from the default time and elevation.
+     * @return
+     * @throws IOException if there was an error reading from the source data
+     */
+    private static Range<Float> estimateValueRange(Layer layer) throws IOException
+    {
+        if (layer instanceof ScalarLayer)
+        {
+            List<Float> dataSample = readDataSample((ScalarLayer)layer);
+            return Ranges.findMinMax(dataSample);
+        }
+        else if (layer instanceof VectorLayer)
+        {
+            VectorLayer vecLayer = (VectorLayer)layer;
+            List<Float> eastDataSample = readDataSample(vecLayer.getEastwardComponent());
+            List<Float> northDataSample = readDataSample(vecLayer.getEastwardComponent());
+            List<Float> magnitudes = getMagnitudes(eastDataSample, northDataSample);
+            return Ranges.findMinMax(magnitudes);
+        }
+        else
+        {
+            throw new IllegalStateException("Unrecognized layer type");
+        }
+    }
+
+    private static List<Float> readDataSample(ScalarLayer layer) throws IOException
+    {
+        try {
+            // Read a low-resolution grid of data covering the entire spatial extent
+            return layer.readPointList(
+                layer.getDefaultTimeValue(),
+                layer.getDefaultElevationValue(),
+                new HorizontalGrid(100, 100, layer.getGeographicBoundingBox())
+            );
+        } catch (InvalidDimensionValueException idve) {
+            // This would only happen due to a programming error in getDefaultXValue()
+            throw new IllegalStateException(idve);
+        }
+    }
+
+    private static List<Float> getMagnitudes(List<Float> eastData, List<Float> northData)
+    {
+        if (eastData == null || northData == null) throw new NullPointerException();
+        if (eastData.size() != northData.size())
+        {
+            throw new IllegalArgumentException("east and north data components must be the same length");
+        }
+        List<Float> mag = new ArrayList<Float>(eastData.size());
+        for (int i = 0; i < eastData.size(); i++)
+        {
+            Float east = eastData.get(i);
+            Float north = northData.get(i);
+            Float val = null;
+            if (east != null && north != null)
+            {
+                val = (float)Math.sqrt(east * east + north * north);
+            }
+            mag.add(val);
+        }
+        if (mag.size() != eastData.size()) throw new AssertionError();
+        return mag;
     }
 
     /**

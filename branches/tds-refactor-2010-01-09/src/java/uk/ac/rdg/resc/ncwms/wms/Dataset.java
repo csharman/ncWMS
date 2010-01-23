@@ -32,7 +32,7 @@ import java.util.Set;
 import org.joda.time.DateTime;
 
 /**
- * Represents a Dataset, i.e. a collection of {@link Layer}s.  Datasets are
+ * Represents a Dataset, {@literal i.e.} a collection of {@link Layer}s.  Datasets are
  * represented in ncWMS as non-displayable container layers.
  *
  * @author Jon Blower

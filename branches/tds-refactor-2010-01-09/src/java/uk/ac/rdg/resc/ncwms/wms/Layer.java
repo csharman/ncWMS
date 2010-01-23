@@ -157,10 +157,10 @@ public interface Layer
 
     /**
      * Returns true if images generated from this Layer should be scaled
-     * logarithmically (appropriate for quantities that vary over several orders
-     * of magnitude).
+     * logarithmically by default (appropriate for quantities that vary over
+     * several orders of magnitude).
      * @return true if images generated from this Layer should be scaled
-     * logarithmically
+     * logarithmically by default.
      */
     public boolean isLogScaling();
 

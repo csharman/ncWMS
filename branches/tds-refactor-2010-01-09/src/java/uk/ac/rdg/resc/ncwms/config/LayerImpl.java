@@ -108,16 +108,6 @@ public final class LayerImpl extends AbstractTimeAggregatedLayer
     }
 
     /**
-     * Get the name of the default palette that should be used to render this
-     * layer.
-     * @return
-     */
-    public String getDefaultPaletteName()
-    {
-        return this.getVariable().getPaletteName();
-    }
-
-    /**
      * Return true if we are to use logarithmic colour scaling by default for
      * this layer.
      * @return true if we are to use logarithmic colour scaling by default for
