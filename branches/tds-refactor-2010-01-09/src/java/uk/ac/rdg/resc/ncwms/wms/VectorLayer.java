@@ -35,9 +35,9 @@ package uk.ac.rdg.resc.ncwms.wms;
  */
 public interface VectorLayer extends Layer
 {
-    /** Returns the ReadableLayer representing the eastward component */
+    /** Returns the ScalarLayer representing the eastward component */
     public ScalarLayer getEastwardComponent();
     
-    /** Returns the ReadableLayer representing the northward component */
+    /** Returns the ScalarLayer representing the northward component */
     public ScalarLayer getNorthwardComponent();
 }

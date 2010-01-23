@@ -441,7 +441,7 @@ public class WmsController extends AbstractController {
                     " does not support partially-transparent pixels");
         }
 
-        Double zValue = getElevationValue(dr.getElevationString());
+        double zValue = getElevationValue(dr.getElevationString());
 
         // Cycle through all the provided timesteps, extracting data for each step
         List<String> tValueStrings = new ArrayList<String>();
@@ -1197,13 +1197,15 @@ public class WmsController extends AbstractController {
     /**
      * Gets the elevation value requested by the client.
      * @param zValue the value of the ELEVATION string from the request
-     * @return the elevation value requested by the client.  Returns null if
+     * @return the elevation value requested by the client.  Returns NaN if
      * {@code zValue} is null.
      * @throws InvalidDimensionValueException if the provided z value is not
      * a valid number.
      */
-    private static Double getElevationValue(String zValue) throws InvalidDimensionValueException
+    private static double getElevationValue(String zValue) throws InvalidDimensionValueException
     {
+        if (zValue == null) return Double.NaN;
+
         // Check to see if this is a single value (the
         // user hasn't requested anything of the form z1,z2 or start/stop/step)
         if (zValue.contains(",") || zValue.contains("/")) {

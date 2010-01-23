@@ -30,6 +30,7 @@ package uk.ac.rdg.resc.ncwms.wms;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import org.geotoolkit.metadata.iso.extent.DefaultGeographicBoundingBox;
@@ -57,7 +58,7 @@ public abstract class AbstractLayer implements ScalarLayer
     protected String abstr = null; // "abstract" is a reserved word in Java
     protected String units;
     protected String zUnits;
-    protected List<Double> zValues;
+    protected List<Double> zValues = Collections.emptyList(); // Prevents NullPointerExceptions
     protected boolean zPositive;
     protected GeographicBoundingBox bbox = DefaultGeographicBoundingBox.WORLD;
 

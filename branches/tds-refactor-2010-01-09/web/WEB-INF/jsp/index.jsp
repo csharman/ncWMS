@@ -47,6 +47,7 @@ response.setDateHeader ("Expires", 0); //prevents caching at the proxy server
             <th>FeatureInfo</th>
         </tr>
         <c:forEach var="dataset" items="${config.datasets}">
+        <c:if test="${dataset.ready}">
         <tr>
             <th>
                 ${dataset.title}<br />
@@ -58,8 +59,8 @@ response.setDateHeader ("Expires", 0); //prevents caching at the proxy server
             <td>
                 <!-- Direct links to the Godiva2 site -->
                 <c:forEach var="layer" items="${layers}">
-                    <c:set var="bbox" value="${layer.bbox}"/>
-                    <a href="godiva2.html?layer=${layer.layerName}&amp;bbox=${bbox.westBoundLongitude},${bbox.southBoundLatitude},${bbox.eastBoundLongitude},${bbox.northBoundLatitude}">${layer.title}</a><br />
+                    <c:set var="bbox" value="${layer.geographicBoundingBox}"/>
+                    <a href="godiva2.html?layer=${layer.name}&amp;bbox=${bbox.westBoundLongitude},${bbox.southBoundLatitude},${bbox.eastBoundLongitude},${bbox.northBoundLatitude}">${layer.title}</a><br />
                 </c:forEach>
             </td>
             <c:forEach var="mimeType" items="${supportedImageFormats}">
@@ -69,20 +70,21 @@ response.setDateHeader ("Expires", 0); //prevents caching at the proxy server
                 </c:if>
                 <td>
                     <c:forEach var="layer" items="${layers}">
-                    <c:set var="bbox" value="${layer.bbox}"/>
-                    <a href="wms?REQUEST=GetMap&amp;VERSION=1.3.0&amp;STYLES=&amp;CRS=CRS:84&amp;WIDTH=256&amp;HEIGHT=256&amp;FORMAT=${mimeType}&amp;TRANSPARENT=${transparent}&amp;LAYERS=${layer.layerName}&amp;BBOX=${bbox.westBoundLongitude},${bbox.southBoundLatitude},${bbox.eastBoundLongitude},${bbox.northBoundLatitude}">${layer.title}</a><br />
+                    <c:set var="bbox" value="${layer.geographicBoundingBox}"/>
+                    <a href="wms?REQUEST=GetMap&amp;VERSION=1.3.0&amp;STYLES=&amp;CRS=CRS:84&amp;WIDTH=256&amp;HEIGHT=256&amp;FORMAT=${mimeType}&amp;TRANSPARENT=${transparent}&amp;LAYERS=${layer.name}&amp;BBOX=${bbox.westBoundLongitude},${bbox.southBoundLatitude},${bbox.eastBoundLongitude},${bbox.northBoundLatitude}">${layer.title}</a><br />
                     </c:forEach>
                 </td>
             </c:forEach>
             <td>
                 <c:forEach var="layer" items="${layers}">
                 <c:if test="${layer.queryable}">
-                <c:set var="bbox" value="${layer.bbox}"/>
-                <a href="wms?REQUEST=GetFeatureInfo&amp;VERSION=1.3.0&amp;STYLES=&amp;CRS=CRS:84&amp;WIDTH=256&amp;HEIGHT=256&amp;I=128&amp;J=128&amp;INFO_FORMAT=text/xml&amp;QUERY_LAYERS=${layer.layerName}&amp;BBOX=${bbox.westBoundLongitude},${bbox.southBoundLatitude},${bbox.eastBoundLongitude},${bbox.northBoundLatitude}">${layer.title}</a><br />
+                <c:set var="bbox" value="${layer.geographicBoundingBox}"/>
+                <a href="wms?REQUEST=GetFeatureInfo&amp;VERSION=1.3.0&amp;STYLES=&amp;CRS=CRS:84&amp;WIDTH=256&amp;HEIGHT=256&amp;I=128&amp;J=128&amp;INFO_FORMAT=text/xml&amp;QUERY_LAYERS=${layer.name}&amp;BBOX=${bbox.westBoundLongitude},${bbox.southBoundLatitude},${bbox.eastBoundLongitude},${bbox.northBoundLatitude}">${layer.title}</a><br />
                 </c:if>
                 </c:forEach>
             </td>
         </tr>
+        </c:if> <%-- End if dataset is ready --%>
         </c:forEach>
     </table>
     
