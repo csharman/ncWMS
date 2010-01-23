@@ -29,6 +29,7 @@
 package uk.ac.rdg.resc.ncwms.config;
 
 import java.io.IOException;
+import java.util.List;
 import org.joda.time.DateTime;
 import uk.ac.rdg.resc.ncwms.coordsys.CrsHelper;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalCoordSys;
@@ -150,8 +151,13 @@ public final class LayerImpl extends AbstractTimeAggregatedLayer
         this.horizCoordSys = horizCoordSys;
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>This implementation makes a single call to the underlying DataReader
+     * and is thus more efficient than making multiple calls to readSinglePoint().</p>
+     */
     @Override
-    public Float readSinglePoint(DateTime time, double elevation, HorizontalPosition xy)
+    public List<Float> readPointList(DateTime time, double elevation, PointList pointList)
         throws InvalidDimensionValueException, IOException
     {
         // Find and check the time and elevation values. Indices of -1 will be
@@ -168,7 +174,14 @@ public final class LayerImpl extends AbstractTimeAggregatedLayer
             tIndexInFile = tInfo.getIndexInFile();
         }
 
+        return this.dataReader.read(filename, this, tIndexInFile, zIndex, pointList);
+    }
+
+    @Override
+    public Float readSinglePoint(DateTime time, double elevation, HorizontalPosition xy)
+        throws InvalidDimensionValueException, IOException
+    {
         PointList singlePoint = PointList.fromPoint(xy, CrsHelper.CRS_84);
-        return this.dataReader.read(filename, this, tIndexInFile, zIndex, singlePoint)[0];
+        return this.readPointList(time, elevation, singlePoint).get(0);
     }
 }

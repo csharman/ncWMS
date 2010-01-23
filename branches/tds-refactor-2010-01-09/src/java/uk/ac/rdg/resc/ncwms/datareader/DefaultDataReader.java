@@ -30,7 +30,6 @@ package uk.ac.rdg.resc.ncwms.datareader;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.EnumSet;
 import java.util.List;
@@ -88,7 +87,7 @@ public class DefaultDataReader extends DataReader
      * This method knows
      * nothing about aggregation: it simply reads data from the given file.
      * Missing values (e.g. land pixels in oceanography data) will be represented
-     * by Float.NaN.
+     * by null.
      *
      * <p>The actual reading of data is performed in {@link #populatePixelArray
      * populatePixelArray()}</p>
@@ -104,7 +103,7 @@ public class DefaultDataReader extends DataReader
      * @throws IOException if an input/output exception occurred when reading data
      */
     @Override
-    public float[] read(String filename, LayerImpl layer, int tIndex, int zIndex,
+    public List<Float> read(String filename, LayerImpl layer, int tIndex, int zIndex,
         PointList pointList) throws IOException
     {
         NetcdfDataset nc = null;
@@ -120,10 +119,8 @@ public class DefaultDataReader extends DataReader
             Range tRange = new Range(tIndex, tIndex);
             Range zRange = new Range(zIndex, zIndex);
             
-            // Create an array to hold the data
-            float[] picData = new float[pointList.size()];
-            // Use NaNs to represent missing data
-            Arrays.fill(picData, Float.NaN);
+            // Create an list to hold the data, filled with nulls
+            List<Float> picData = nullArrayList(pointList.size());
             
             PixelMap pixelMap = new PixelMap(layer.getHorizontalCoordSys(), pointList);
             if (pixelMap.isEmpty()) return picData;
@@ -215,7 +212,7 @@ public class DefaultDataReader extends DataReader
      * <p>Reads a timeseries of data from a file from a single xyz point.  This
      * method knows nothing about aggregation: it simply reads data from the
      * given file.  Missing values (e.g. land pixels in oceanography data) will
-     * be represented by Float.NaN.</p>
+     * be represented by null.</p>
      * <p>If the provided Layer doesn't have a time axis then {@code tIndices}
      * must be a single-element list with value -1.  In this case the returned
      * "timeseries" of data will be a single data value. (TODO: make this more
@@ -238,7 +235,7 @@ public class DefaultDataReader extends DataReader
      * @todo Validity checking on tIndices and layer.hasTAxis()?
      */
     @Override
-    public float[] readTimeseries(String filename, LayerImpl layer,
+    public List<Float> readTimeseries(String filename, LayerImpl layer,
         List<Integer> tIndices, int zIndex, LonLatPosition lonLat)
         throws IOException
     {
@@ -284,14 +281,14 @@ public class DefaultDataReader extends DataReader
             // Copy the data (which may include many points we don't need) to
             // the required array
             VariableDS var = grid.getVariable();
-            float[] tsData = new float[tIndices.size()];
-            for (int i = 0; i < tIndices.size(); i++)
+            List<Float> tsData = new ArrayList<Float>();
+            for (int tIndex : tIndices)
             {
-                int tIndex = tIndices.get(i) - firstTIndex;
-                if (tIndex < 0) tIndex = 0; // This will happen if the layer has no t axis
-                float val = arr.getFloat(tIndex);
+                int tIndexOffset = tIndex - firstTIndex;
+                if (tIndexOffset < 0) tIndexOffset = 0; // This will happen if the layer has no t axis
+                float val = arr.getFloat(tIndexOffset);
                 // Convert scale-offset-missing
-                tsData[i] = (float)var.convertScaleOffsetMissing(val);
+                tsData.add((float)var.convertScaleOffsetMissing(val));
             }
             return tsData;
         }

@@ -29,6 +29,7 @@ package uk.ac.rdg.resc.ncwms.datareader;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ucar.ma2.Array;
@@ -101,7 +102,7 @@ public enum DataReadingStrategy {
      */
     SCANLINE {
         @Override
-        protected void doPopulatePixelArray(float[] picData, Range tRange, Range zRange,
+        protected void doPopulatePixelArray(List<Float> picData, Range tRange, Range zRange,
             PixelMap pixelMap, GridDatatype grid) throws IOException, InvalidRangeException
         {
             logger.debug("Reading data using a scanline algorithm");
@@ -138,7 +139,7 @@ public enum DataReadingStrategy {
                     // Now we set the value of all the image pixels associated with
                     // this data point.
                     for (int p : pixelMap.getPixelIndices(i, j)) {
-                        picData[p] = val;
+                        picData.set(p, val);
                     }
                 }
             }
@@ -152,7 +153,7 @@ public enum DataReadingStrategy {
      */
     BOUNDING_BOX {
         @Override
-        protected void doPopulatePixelArray(float[] picData, Range tRange, Range zRange,
+        protected void doPopulatePixelArray(List<Float> picData, Range tRange, Range zRange,
             PixelMap pixelMap, GridDatatype grid) throws IOException, InvalidRangeException
         {
             logger.debug("Reading data using a bounding-box algorithm");
@@ -187,7 +188,7 @@ public enum DataReadingStrategy {
                         val = (float)var.convertScaleOffsetMissing(val);
                         for (int pixelIndex : pixelMap.getPixelIndices(i, j))
                         {
-                            picData[pixelIndex] = val;
+                            picData.set(pixelIndex, val);
                         }
                     }
                     catch(ArrayIndexOutOfBoundsException aioobe)
@@ -207,7 +208,7 @@ public enum DataReadingStrategy {
      */
     PIXEL_BY_PIXEL {
         @Override
-        protected void doPopulatePixelArray(float[] picData, Range tRange, Range zRange,
+        protected void doPopulatePixelArray(List<Float> picData, Range tRange, Range zRange,
             PixelMap pixelMap, GridDatatype grid) throws IOException, InvalidRangeException
         {
             logger.debug("Reading data using a pixel-by-pixel algorithm");
@@ -230,7 +231,7 @@ public enum DataReadingStrategy {
                     val = (float)var.convertScaleOffsetMissing(val);
                     for (int pixelIndex : pixelMap.getPixelIndices(i, j))
                     {
-                        picData[pixelIndex] = val;
+                        picData.set(pixelIndex, val);
                     }
                 }
             }
@@ -243,7 +244,7 @@ public enum DataReadingStrategy {
      * Reads data from the given GridDatatype and populates the given pixel array.
      * @see PixelMap
      */
-    public final void populatePixelArray(float[] picData, Range tRange, Range zRange,
+    public final void populatePixelArray(List<Float> picData, Range tRange, Range zRange,
         PixelMap pixelMap, GridDatatype grid) throws IOException
     {
         try {
@@ -254,7 +255,7 @@ public enum DataReadingStrategy {
         }
     }
 
-    protected abstract void doPopulatePixelArray(float[] picData, Range tRange, Range zRange,
+    protected abstract void doPopulatePixelArray(List<Float> picData, Range tRange, Range zRange,
         PixelMap pixelMap, GridDatatype grid) throws IOException, InvalidRangeException;
 
     private static final Logger logger = LoggerFactory.getLogger(DataReadingStrategy.class);

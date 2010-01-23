@@ -30,6 +30,7 @@ package uk.ac.rdg.resc.ncwms.datareader;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -92,18 +93,18 @@ public abstract class DataReader
      * This method knows
      * nothing about aggregation: it simply reads data from the given file.
      * Missing values (e.g. land pixels in oceanography data) will be represented
-     * by Float.NaN.
+     * by null.
      *
      * @param filename Location of the file, NcML aggregation or OPeNDAP URL
      * @param layer {@link LayerImpl} object representing the variable
      * @param tIndex The index along the time axis (or -1 if there is no time axis)
      * @param zIndex The index along the vertical axis (or -1 if there is no vertical axis)
      * @param pointList The list of real-world x-y points for which we need data
-     * @return an array of floating-point data values, one for each point in
+     * @return an List of floating-point data values, one for each point in
      * the {@code pointList}, in the same order.
      * @throws IOException if an input/output exception occurred when reading data
      */
-    public abstract float[] read(String filename, LayerImpl layer,
+    public abstract List<Float> read(String filename, LayerImpl layer,
         int tIndex, int zIndex, PointList pointList)
         throws IOException;
 
@@ -111,7 +112,7 @@ public abstract class DataReader
      * <p>Reads a timeseries of data from a file from a single xyz point.  This
      * method knows nothing about aggregation: it simply reads data from the
      * given file.  Missing values (e.g. land pixels in oceanography data) will
-     * be represented by Float.NaN.</p>
+     * be represented by null.</p>
      * <p>If the provided Layer doesn't have a time axis then {@code tIndices}
      * must be a single-element list with value -1.  In this case the returned
      * "timeseries" of data will be a single data value. (TODO: make this more
@@ -132,14 +133,14 @@ public abstract class DataReader
      * @throws IOException if an input/output exception occurred when reading data
      * @todo Validity checking on tIndices and layer.hasTAxis()?
      */
-    public float[] readTimeseries(String filename, LayerImpl layer,
+    public List<Float> readTimeseries(String filename, LayerImpl layer,
         List<Integer> tIndices, int zIndex, LonLatPosition lonLat)
         throws IOException {
 
         PointList pointList = PointList.fromPoint(lonLat);
-        float[] tsData = new float[tIndices.size()];
-        for (int i = 0; i < tsData.length; i++) {
-            tsData[i] = this.read(filename, layer, tIndices.get(i), zIndex, pointList)[0];
+        List<Float> tsData = new ArrayList<Float>();
+        for (int tIndex : tIndices) {
+            tsData.add(this.read(filename, layer, tIndex, zIndex, pointList).get(0));
         }
 
         return tsData;
@@ -192,4 +193,17 @@ public abstract class DataReader
      */
     protected abstract void findAndUpdateLayers(String location,
         Map<String, LayerImpl> layers) throws Exception;
+
+    /**
+     * Returns an ArrayList of null values of the given length
+     */
+    protected static ArrayList<Float> nullArrayList(int n)
+    {
+        ArrayList<Float> list = new ArrayList<Float>(n);
+        for (int i = 0; i < n; i++)
+        {
+            list.add((Float)null);
+        }
+        return list;
+    }
 }

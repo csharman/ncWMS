@@ -35,8 +35,8 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import org.joda.time.DateTime;
 import org.opengis.referencing.operation.TransformException;
@@ -122,7 +122,7 @@ public class NSIDCSnowWaterDataReader extends DataReader
      * This method knows
      * nothing about aggregation: it simply reads data from the given file.
      * Missing values (e.g. land pixels in oceanography data) will be represented
-     * by Float.NaN.
+     * by null.
      *
      * @param filename Location of the file, NcML aggregation or OPeNDAP URL
      * @param layer {@link LayerImpl} object representing the variable
@@ -134,15 +134,14 @@ public class NSIDCSnowWaterDataReader extends DataReader
      * @throws IOException if there is an error reading from the source data
      */
     @Override
-    public float[] read(String filename, LayerImpl layer, int tIndex, int zIndex, PointList pointList)
+    public List<Float> read(String filename, LayerImpl layer, int tIndex, int zIndex, PointList pointList)
         throws IOException
     {
         // Find the file containing the data
         logger.debug("Reading data from " + filename);
-        
+
         // Create an array to hold the data
-        float[] picData = new float[pointList.size()];
-        Arrays.fill(picData, Float.NaN);
+        List<Float> picData = nullArrayList(pointList.size());
         
         FileInputStream fin = null;
         ByteBuffer data = null;
@@ -179,7 +178,7 @@ public class NSIDCSnowWaterDataReader extends DataReader
                 int dataIndex = latLonToIndex(lonLat.getLatitude(), lonLat.getLongitude());
                 // two bytes per pixel
                 short val = data.getShort(dataIndex * 2);
-                if (val > 0) picData[picIndex] = val;
+                if (val > 0) picData.set(picIndex, (float)val);
             }
             picIndex++;
         }
