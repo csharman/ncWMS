@@ -138,8 +138,10 @@ public enum DataReadingStrategy {
                     val = (float) var.convertScaleOffsetMissing(val);
                     // Now we set the value of all the image pixels associated with
                     // this data point.
-                    for (int p : pixelMap.getPixelIndices(i, j)) {
-                        picData.set(p, val);
+                    if (!Float.isNaN(val)) {
+                        for (int p : pixelMap.getPixelIndices(i, j)) {
+                            picData.set(p, val);
+                        }
                     }
                 }
             }
@@ -186,9 +188,12 @@ public enum DataReadingStrategy {
                         // We unpack and check for missing values just for
                         // the points we need to display.
                         val = (float)var.convertScaleOffsetMissing(val);
-                        for (int pixelIndex : pixelMap.getPixelIndices(i, j))
+                        if (!Float.isNaN(val))
                         {
-                            picData.set(pixelIndex, val);
+                            for (int pixelIndex : pixelMap.getPixelIndices(i, j))
+                            {
+                                picData.set(pixelIndex, val);
+                            }
                         }
                     }
                     catch(ArrayIndexOutOfBoundsException aioobe)
@@ -229,9 +234,12 @@ public enum DataReadingStrategy {
                     Index index = xySlice.getIndex();
                     float val = xySlice.getFloat(index.set(0, 0));
                     val = (float)var.convertScaleOffsetMissing(val);
-                    for (int pixelIndex : pixelMap.getPixelIndices(i, j))
+                    if (!Float.isNaN(val))
                     {
-                        picData.set(pixelIndex, val);
+                        for (int pixelIndex : pixelMap.getPixelIndices(i, j))
+                        {
+                            picData.set(pixelIndex, val);
+                        }
                     }
                 }
             }
@@ -242,6 +250,7 @@ public enum DataReadingStrategy {
 
     /**
      * Reads data from the given GridDatatype and populates the given pixel array.
+     * @param picData A List of the correct size, full of nulls.
      * @see PixelMap
      */
     public final void populatePixelArray(List<Float> picData, Range tRange, Range zRange,

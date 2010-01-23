@@ -30,7 +30,6 @@ package uk.ac.rdg.resc.ncwms.config;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -320,7 +319,9 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
      */
     Layer getLayer(String layerId)
     {
-        return this.scalarLayers.get(layerId);
+        Layer layer = this.scalarLayers.get(layerId);
+        if (layer == null) layer = this.vectorLayers.get(layerId);
+        return layer;
     }
     
     /**
@@ -403,6 +404,11 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
     {
         return this.loadingProgress.toString();
     }
+
+    private void appendLoadingProgress(String loadingProgress)
+    {
+        this.loadingProgress.append(String.format("%s%n", loadingProgress));
+    }
     
     /**
      * Gets the configuration information for all the {@link Variable}s in this
@@ -443,6 +449,7 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
      */
     void loadLayers()
     {
+        this.loadingProgress = new StringBuilder();
         // Include the id of the dataset in the thread for debugging purposes
         // Comment this out to use the default thread names (e.g. "pool-2-thread-1")
         Thread.currentThread().setName("load-metadata-" + this.id);
@@ -529,14 +536,14 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
             layer.setDataset(this);
             layer.setDataReader(dr);
         }
-        this.loadingProgress.append("loaded layers");
+        this.appendLoadingProgress("loaded layers");
         // Search for vector quantities (e.g. northward/eastward_sea_water_velocity)
         this.findVectorQuantities();
-        this.loadingProgress.append("found vector quantities");
+        this.appendLoadingProgress("found vector quantities");
         // Look for overriding attributes in the configuration
         this.readLayerConfig();
-        this.loadingProgress.append("attributes overridden");
-        this.loadingProgress.append("Finished loading metadata");
+        this.appendLoadingProgress("attributes overridden");
+        this.appendLoadingProgress("Finished loading metadata");
     }
 
     /**
@@ -550,7 +557,7 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
     {
         // This hashtable will store pairs of components in eastward-northward
         // order, keyed by the standard name for the vector quantity
-        Map<String, LayerImpl[]> components = new HashMap<String, LayerImpl[]>();
+        Map<String, LayerImpl[]> components = new LinkedHashMap<String, LayerImpl[]>();
         this.vectorLayers = new LinkedHashMap<String, VectorLayerImpl>();
         for (LayerImpl layer : this.scalarLayers.values())
         {
@@ -618,7 +625,7 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
             // from the source data.
             if (var.getColorScaleRange() == null)
             {
-                this.loadingProgress.append("Reading min-max data for layer " + layer.getName());
+                this.appendLoadingProgress("Reading min-max data for layer " + layer.getName());
                 Range<Float> valueRange;
                 try
                 {
