@@ -31,6 +31,7 @@ package uk.ac.rdg.resc.ncwms.wms;
 import java.util.List;
 import org.joda.time.DateTime;
 import org.opengis.metadata.extent.GeographicBoundingBox;
+import uk.ac.rdg.resc.ncwms.coordsys.HorizontalCoordSys;
 import uk.ac.rdg.resc.ncwms.styles.ColorPalette;
 import uk.ac.rdg.resc.ncwms.util.Range;
 
@@ -84,6 +85,13 @@ public interface Layer
      * @return the geographic extent of this layer in WGS84 latitude-longitude.
      */
     public GeographicBoundingBox getGeographicBoundingBox();
+
+    /**
+     * Returns the horizontal coordinate system of this layer, which is an object
+     * that translates from lat-lon coordinates to the neareast grid coordinates.
+     * @return the horizontal coordinate system of this layer.
+     */
+    public HorizontalCoordSys getHorizontalCoordSys();
 
     /**
      * Returns the list of time instants that are valid for this layer, in

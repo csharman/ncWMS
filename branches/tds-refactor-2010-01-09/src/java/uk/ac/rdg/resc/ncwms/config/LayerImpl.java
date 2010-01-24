@@ -32,7 +32,6 @@ import java.io.IOException;
 import java.util.List;
 import org.joda.time.DateTime;
 import uk.ac.rdg.resc.ncwms.coordsys.CrsHelper;
-import uk.ac.rdg.resc.ncwms.coordsys.HorizontalCoordSys;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.datareader.DataReader;
 import uk.ac.rdg.resc.ncwms.datareader.PointList;
@@ -50,7 +49,6 @@ import uk.ac.rdg.resc.ncwms.wms.AbstractTimeAggregatedLayer;
 public final class LayerImpl extends AbstractTimeAggregatedLayer
 {
     private Dataset dataset;
-    private HorizontalCoordSys horizCoordSys;
     private DataReader dataReader;
     
     /**
@@ -139,16 +137,6 @@ public final class LayerImpl extends AbstractTimeAggregatedLayer
     private Variable getVariable()
     {
         return this.dataset.getVariables().get(this.id);
-    }
-
-    public HorizontalCoordSys getHorizontalCoordSys()
-    {
-        return this.horizCoordSys;
-    }
-
-    public void setHorizontalCoordSys(HorizontalCoordSys horizCoordSys)
-    {
-        this.horizCoordSys = horizCoordSys;
     }
 
     /**

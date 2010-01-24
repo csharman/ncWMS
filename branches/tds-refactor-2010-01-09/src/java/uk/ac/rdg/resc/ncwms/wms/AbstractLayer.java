@@ -36,6 +36,7 @@ import java.util.List;
 import org.geotoolkit.metadata.iso.extent.DefaultGeographicBoundingBox;
 import org.joda.time.DateTime;
 import org.opengis.metadata.extent.GeographicBoundingBox;
+import uk.ac.rdg.resc.ncwms.coordsys.HorizontalCoordSys;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.datareader.PointList;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
@@ -61,6 +62,7 @@ public abstract class AbstractLayer implements ScalarLayer
     protected List<Double> zValues = Collections.emptyList(); // Prevents NullPointerExceptions
     protected boolean zPositive;
     protected GeographicBoundingBox bbox = DefaultGeographicBoundingBox.WORLD;
+    protected HorizontalCoordSys horizCoordSys;
 
     /**
      * Creates an AbstractLayer with a bounding box that covers the whole world
@@ -119,6 +121,10 @@ public abstract class AbstractLayer implements ScalarLayer
         // Note that these arguments are different from OGC BBOX order!
         this.bbox = new DefaultGeographicBoundingBox(bbox[0], bbox[2], bbox[1], bbox[3]);
     }
+
+    @Override
+    public HorizontalCoordSys getHorizontalCoordSys() { return this.horizCoordSys; }
+    public void setHorizontalCoordSys(HorizontalCoordSys horizCoordSys) { this.horizCoordSys = horizCoordSys; }
 
     /**
      * Returns true if this layer has a time axis.  This is a convenience method

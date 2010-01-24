@@ -251,6 +251,36 @@ public class WmsUtils
         }
         return bbox;
     }
+
+    /**
+     * Calculates the magnitude of the vector components given in the provided
+     * Lists.  The two lists must be of the same length.  For any element in the
+     * component lists, if either east or north is null, the magnitude will also
+     * be null.
+     * @return a List of the magnitudes calculated from the components.
+     */
+    public static List<Float> getMagnitudes(List<Float> eastData, List<Float> northData)
+    {
+        if (eastData == null || northData == null) throw new NullPointerException();
+        if (eastData.size() != northData.size())
+        {
+            throw new IllegalArgumentException("east and north data components must be the same length");
+        }
+        List<Float> mag = new ArrayList<Float>(eastData.size());
+        for (int i = 0; i < eastData.size(); i++)
+        {
+            Float east = eastData.get(i);
+            Float north = northData.get(i);
+            Float val = null;
+            if (east != null && north != null)
+            {
+                val = (float)Math.sqrt(east * east + north * north);
+            }
+            mag.add(val);
+        }
+        if (mag.size() != eastData.size()) throw new AssertionError();
+        return mag;
+    }
     
     /**
      * @return true if the given location represents an OPeNDAP dataset.

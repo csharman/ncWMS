@@ -85,29 +85,29 @@ response.setDateHeader ("Expires", 0); //prevents caching at the proxy server
                 <Title><c:out value="${dataset.title}"/></Title>
                 <c:forEach var="layer" items="${dataset.layers}">
                 <Layer<c:if test="${layer.queryable}"> queryable="1"</c:if>>
-                    <Name>${layer.layerName}</Name>
+                    <Name>${layer.name}</Name>
                     <Title><c:out value="${layer.title}"/></Title>
                     <Abstract><c:out value="${layer.abstract}"/></Abstract>
-                    <c:set var="bbox" value="${layer.bbox}"/>
+                    <c:set var="bbox" value="${layer.geographicBoundingBox}"/>
                     <EX_GeographicBoundingBox>
                         <westBoundLongitude>${bbox.westBoundLongitude}</westBoundLongitude>
                         <eastBoundLongitude>${bbox.eastBoundLongitude}</eastBoundLongitude>
                         <southBoundLatitude>${bbox.southBoundLatitude}</southBoundLatitude>
                         <northBoundLatitude>${bbox.northBoundLatitude}</northBoundLatitude>
                     </EX_GeographicBoundingBox>
-                    <BoundingBox CRS="CRS:84" minx="${bbox[0]}" maxx="${bbox[2]}" miny="${bbox[1]}" maxy="${bbox[3]}"/>
-                    <c:if test="${layer.zaxisPresent}">
-                    <Dimension name="elevation" units="${layer.zunits}" default="${layer.defaultZValue}">
+                    <BoundingBox CRS="CRS:84" minx="${bbox.westBoundLongitude}" maxx="${bbox.eastBoundLongitude}" miny="${bbox.southBoundLatitude}" maxy="${bbox.northBoundLatitude}"/>
+                    <c:if test="${not empty layer.elevationValues}">
+                    <Dimension name="elevation" units="${layer.elevationUnits}" default="${layer.defaultElevationValue}">
                         <%-- Print out the dimension values, comma separated, making sure
                              that there is no comma at the start or end of the list.  Note that
                              we can't use ${fn:join} because the z values are an array of doubles,
                              not strings. --%>
-                        <c:forEach var="zval" items="${layer.zvalues}" varStatus="status"><c:if test="${status.index > 0}">,</c:if>${zval}</c:forEach>
+                        <c:forEach var="zval" items="${layer.elevationValues}" varStatus="status"><c:if test="${status.index > 0}">,</c:if>${zval}</c:forEach>
                     </Dimension>
                     </c:if>
-                    <c:set var="tvalues" value="${layer.tvalues}"/>
-                    <c:if test="${layer.taxisPresent}">
-                        <Dimension name="time" units="ISO8601" multipleValues="true" current="true" default="${utils:dateTimeToISO8601(layer.defaultTValue)}">
+                    <c:set var="tvalues" value="${layer.timeValues}"/>
+                    <c:if test="${not empty tvalues}">
+                        <Dimension name="time" units="ISO8601" multipleValues="true" current="true" default="${utils:dateTimeToISO8601(layer.defaultTimeValue)}">
                         <c:forEach var="tval" items="${tvalues}" varStatus="status"><c:if test="${status.index > 0}">,</c:if>${utils:dateTimeToISO8601(tval)}</c:forEach>
                         </Dimension>
                     </c:if>
@@ -119,7 +119,7 @@ response.setDateHeader ("Expires", 0); //prevents caching at the proxy server
                         <Abstract>${style} style, using the ${paletteName} palette</Abstract>
                         <LegendURL width="${legendWidth}" height="${legendHeight}">
                             <Format>image/png</Format>
-                            <OnlineResource xlink:type="simple" xlink:href="${wmsBaseUrl}?REQUEST=GetLegendGraphic&amp;LAYER=${layer.layerName}&amp;PALETTE=${paletteName}"/>
+                            <OnlineResource xlink:type="simple" xlink:href="${wmsBaseUrl}?REQUEST=GetLegendGraphic&amp;LAYER=${layer.name}&amp;PALETTE=${paletteName}"/>
                         </LegendURL>
                     </Style>
                     </c:forEach>

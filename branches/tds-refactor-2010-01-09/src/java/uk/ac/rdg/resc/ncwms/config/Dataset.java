@@ -49,6 +49,7 @@ import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.util.Range;
 import uk.ac.rdg.resc.ncwms.util.Ranges;
+import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
 import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
@@ -684,7 +685,7 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
             VectorLayer vecLayer = (VectorLayer)layer;
             List<Float> eastDataSample = readDataSample(vecLayer.getEastwardComponent());
             List<Float> northDataSample = readDataSample(vecLayer.getEastwardComponent());
-            List<Float> magnitudes = getMagnitudes(eastDataSample, northDataSample);
+            List<Float> magnitudes = WmsUtils.getMagnitudes(eastDataSample, northDataSample);
             return Ranges.findMinMax(magnitudes);
         }
         else
@@ -706,29 +707,6 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
             // This would only happen due to a programming error in getDefaultXValue()
             throw new IllegalStateException(idve);
         }
-    }
-
-    private static List<Float> getMagnitudes(List<Float> eastData, List<Float> northData)
-    {
-        if (eastData == null || northData == null) throw new NullPointerException();
-        if (eastData.size() != northData.size())
-        {
-            throw new IllegalArgumentException("east and north data components must be the same length");
-        }
-        List<Float> mag = new ArrayList<Float>(eastData.size());
-        for (int i = 0; i < eastData.size(); i++)
-        {
-            Float east = eastData.get(i);
-            Float north = northData.get(i);
-            Float val = null;
-            if (east != null && north != null)
-            {
-                val = (float)Math.sqrt(east * east + north * north);
-            }
-            mag.add(val);
-        }
-        if (mag.size() != eastData.size()) throw new AssertionError();
-        return mag;
     }
 
     /**

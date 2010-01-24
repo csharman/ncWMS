@@ -31,6 +31,7 @@ package uk.ac.rdg.resc.ncwms.config;
 import java.util.List;
 import org.joda.time.DateTime;
 import org.opengis.metadata.extent.GeographicBoundingBox;
+import uk.ac.rdg.resc.ncwms.coordsys.HorizontalCoordSys;
 import uk.ac.rdg.resc.ncwms.styles.ColorPalette;
 import uk.ac.rdg.resc.ncwms.util.Range;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
@@ -96,6 +97,9 @@ public final class VectorLayerImpl implements VectorLayer
 
     @Override
     public GeographicBoundingBox getGeographicBoundingBox() { return this.east.getGeographicBoundingBox(); }
+
+    @Override
+    public HorizontalCoordSys getHorizontalCoordSys() { return this.east.getHorizontalCoordSys(); }
 
     @Override
     public List<DateTime> getTimeValues() { return this.east.getTimeValues(); }
