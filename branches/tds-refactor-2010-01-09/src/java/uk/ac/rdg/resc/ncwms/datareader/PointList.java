@@ -104,13 +104,31 @@ public abstract class PointList
     public static PointList fromPoint(final HorizontalPosition point, final CrsHelper crsHelper)
     {
         return new PointList() {
-            public CrsHelper getCrsHelper() { return crsHelper; }
-            public HorizontalPosition getPoint(int index) {
+            @Override public CrsHelper getCrsHelper() { return crsHelper; }
+            @Override public HorizontalPosition getPoint(int index) {
                 if (index != 0) throw new IndexOutOfBoundsException();
                 return point;
             }
-            public int size() { return 1; }
+            @Override public int size() { return 1; }
         };
+    }
+
+    /**
+     * Creates a PointList containing a single point.
+     * @param point The HorizontalPosition to wrap. This must contain a
+     * non-null CoordinateReferenceSystem.
+     * @return a new PointList that wraps the given point
+     * @throws IllegalArgumentException if the point does not contain a
+     * coordinate reference system.
+     */
+    public static PointList fromPoint(final HorizontalPosition point)
+    {
+        if (point.getCoordinateReferenceSystem() == null)
+        {
+            throw new IllegalArgumentException("The horizontal position must have "
+                + "an associated coordinate reference system");
+        }
+        return fromPoint(point, CrsHelper.fromCrs(point.getCoordinateReferenceSystem()));
     }
 
     /**

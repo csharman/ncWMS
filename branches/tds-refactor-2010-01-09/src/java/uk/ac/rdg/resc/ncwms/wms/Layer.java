@@ -32,7 +32,7 @@ import java.util.List;
 import org.joda.time.DateTime;
 import org.opengis.metadata.extent.GeographicBoundingBox;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalCoordSys;
-import uk.ac.rdg.resc.ncwms.styles.ColorPalette;
+import uk.ac.rdg.resc.ncwms.graphics.ColorPalette;
 import uk.ac.rdg.resc.ncwms.util.Range;
 
 /**

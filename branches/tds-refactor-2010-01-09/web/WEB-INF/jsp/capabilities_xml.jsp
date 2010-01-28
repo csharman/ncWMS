@@ -111,7 +111,11 @@ response.setDateHeader ("Expires", 0); //prevents caching at the proxy server
                         <c:forEach var="tval" items="${tvalues}" varStatus="status"><c:if test="${status.index > 0}">,</c:if>${utils:dateTimeToISO8601(tval)}</c:forEach>
                         </Dimension>
                     </c:if>
-                    <c:forEach var="style" items="${layer.supportedStyles}">
+                    <c:set var="styles" value="boxfill"/>
+                    <c:if test="${utils:isVectorLayer(layer)}">
+                        <c:set var="styles" value="vector,boxfill"/>
+                    </c:if>
+                    <c:forEach var="style" items="${styles}">
                     <c:forEach var="paletteName" items="${paletteNames}">
                     <Style>
                         <Name>${style}/${paletteName}</Name>

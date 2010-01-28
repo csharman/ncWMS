@@ -43,6 +43,8 @@ import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 import uk.ac.rdg.resc.ncwms.exceptions.WmsException;
+import uk.ac.rdg.resc.ncwms.wms.Layer;
+import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
 
 /**
  * <p>Collection of static utility methods that are useful in the WMS application.</p>
@@ -382,6 +384,16 @@ public class WmsUtils
             if (path.isFile()) files.add(path);
         }
         return files;
+    }
+
+    /**
+     * Returns true if the given layer is a VectorLayer.  This is used in the
+     * wmsUtils.tld taglib, since an "instanceof" function is not available in
+     * JSTL.
+     */
+    public static boolean isVectorLayer(Layer layer)
+    {
+        return layer instanceof VectorLayer;
     }
     
 }

@@ -31,12 +31,11 @@ package uk.ac.rdg.resc.ncwms.config;
 import java.io.IOException;
 import java.util.List;
 import org.joda.time.DateTime;
-import uk.ac.rdg.resc.ncwms.coordsys.CrsHelper;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.datareader.DataReader;
 import uk.ac.rdg.resc.ncwms.datareader.PointList;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
-import uk.ac.rdg.resc.ncwms.styles.ColorPalette;
+import uk.ac.rdg.resc.ncwms.graphics.ColorPalette;
 import uk.ac.rdg.resc.ncwms.util.Range;
 import uk.ac.rdg.resc.ncwms.wms.AbstractTimeAggregatedLayer;
 
@@ -169,7 +168,7 @@ public final class LayerImpl extends AbstractTimeAggregatedLayer
     public Float readSinglePoint(DateTime time, double elevation, HorizontalPosition xy)
         throws InvalidDimensionValueException, IOException
     {
-        PointList singlePoint = PointList.fromPoint(xy, CrsHelper.CRS_84);
+        PointList singlePoint = PointList.fromPoint(xy);
         return this.readPointList(time, elevation, singlePoint).get(0);
     }
 }

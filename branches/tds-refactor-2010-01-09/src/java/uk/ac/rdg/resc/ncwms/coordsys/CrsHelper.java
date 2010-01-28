@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Set;
 import org.geotoolkit.referencing.CRS;
 import org.geotoolkit.referencing.crs.DefaultGeographicCRS;
+import org.opengis.referencing.FactoryException;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.cs.CoordinateSystemAxis;
 import org.opengis.referencing.operation.MathTransform;
@@ -63,12 +64,13 @@ public final class CrsHelper {
     public static final CrsHelper CRS_84;
 
     /** Cache of CrsHelper objects */
-    private static final Map<String, CrsHelper> CACHE = new HashMap<String, CrsHelper>();
+    private static final Map<CoordinateReferenceSystem, CrsHelper> CACHE =
+            new HashMap<CoordinateReferenceSystem, CrsHelper>();
 
     static {
         try {
-            CRS_84 = fromCrsCode(PLATE_CARREE_CRS_CODE);
-            CACHE.put(PLATE_CARREE_CRS_CODE, CRS_84);
+            CRS_84 = fromCrs(DefaultGeographicCRS.WGS84);
+            CACHE.put(DefaultGeographicCRS.WGS84, CRS_84);
         } catch (Exception e) {
             throw new ExceptionInInitializerError(e);
         }
@@ -88,29 +90,46 @@ public final class CrsHelper {
      * @throws InvalidCrsException if the CRS code is not recognized
      */
     public static CrsHelper fromCrsCode(String crsCode) throws InvalidCrsException {
-        CrsHelper crsHelper = CACHE.get(crsCode);
+        try
+        {
+            // The "true" means "force longitude-first"
+            return fromCrs(CRS.decode(crsCode, true));
+        }
+        catch ()
+        {
+            throw new InvalidCrsException(crsCode);
+        }
+    }
+
+    /**
+     * Returns a CrsHelper object corresponding with the given CRS code.  CrsHelper
+     * objects are cached, so only one CrsHelper per CRS code will ever exist.
+     * @throws InvalidCrsException if the CRS code is not recognized
+     */
+    public static CrsHelper fromCrs(CoordinateReferenceSystem crs) {
+        CrsHelper crsHelper = CACHE.get(crs);
         if (crsHelper != null) return crsHelper;
 
         // We have to create a new CrsHelper object
         crsHelper = new CrsHelper();
         try
         {
-            // The "true" means "force longitude first" axis order
-            crsHelper.crs = CRS.decode(crsCode, true);
+            crsHelper.crs = crs;
+            CRS.lookupEpsgCode(crs, true)
             // Get transformations to and from lat-lon.
             // The "true" means "lenient", i.e. ignore datum shifts.  This
             // is necessary to prevent "Bursa wolf parameters required"
             // errors (Some CRSs, including British National Grid, fail if
             // we are not "lenient".)
-            crsHelper.crsToLonLat = CRS.findMathTransform(crsHelper.crs, DefaultGeographicCRS.WGS84, true);
-            crsHelper.lonLatToCrs = CRS.findMathTransform(DefaultGeographicCRS.WGS84, crsHelper.crs, true);
+            crsHelper.crsToLonLat = CRS.findMathTransform(crs, DefaultGeographicCRS.WGS84, true);
+            crsHelper.lonLatToCrs = CRS.findMathTransform(DefaultGeographicCRS.WGS84, crs, true);
             crsHelper.isLatLon = crsHelper.crsToLonLat.isIdentity();
-            CACHE.put(crsCode, crsHelper);
+            CACHE.put(crs, crsHelper);
             return crsHelper;
         }
-        catch(Exception e)
+        catch(FactoryException fe)
         {
-            throw new InvalidCrsException(crsCode);
+            //throw new InvalidCrsException(crsCode);
         }
     }
 

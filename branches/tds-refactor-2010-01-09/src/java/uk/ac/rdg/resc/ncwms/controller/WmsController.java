@@ -45,6 +45,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import javax.imageio.ImageIO;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.jfree.chart.ChartFactory;
@@ -91,9 +92,10 @@ import uk.ac.rdg.resc.ncwms.graphics.ImageFormat;
 import uk.ac.rdg.resc.ncwms.graphics.KmzFormat;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogger;
 import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
-import uk.ac.rdg.resc.ncwms.styles.ColorPalette;
-import uk.ac.rdg.resc.ncwms.styles.ImageProducer;
+import uk.ac.rdg.resc.ncwms.graphics.ColorPalette;
+import uk.ac.rdg.resc.ncwms.graphics.ImageProducer;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry;
+import uk.ac.rdg.resc.ncwms.util.Range;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Dataset;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
@@ -214,10 +216,10 @@ public class WmsController extends AbstractController {
                 // Delegate to the MetadataController
                 return this.metadataController.handleRequest(httpServletRequest,
                         httpServletResponse, usageLogEntry);
-            /*} else if (request.equals("GetLegendGraphic")) {
+            } else if (request.equals("GetLegendGraphic")) {
                 // This is a request for an image that contains the colour scale
                 // and range for a given layer
-                return getLegendGraphic(params, httpServletResponse);*/
+                return getLegendGraphic(params, httpServletResponse);
             /*} else if (request.equals("GetKML")) {
                 // This is a request for a KML document that allows the selected
                 // layer(s) to be displayed in Google Earth in a manner that 
@@ -741,7 +743,7 @@ public class WmsController extends AbstractController {
      * Creates and returns a PNG image with the colour scale and range for 
      * a given Layer
      */
-    /*private ModelAndView getLegendGraphic(RequestParams params,
+    private ModelAndView getLegendGraphic(RequestParams params,
             HttpServletResponse httpServletResponse) throws Exception {
         BufferedImage legend;
 
@@ -767,10 +769,9 @@ public class WmsController extends AbstractController {
             Layer layer = this.serverConfig.getLayerByUniqueName(layerName);
 
             // We default to the layer's default palette if none is specified
-            if (paletteName == null) {
-                paletteName = layer.getDefaultPaletteName();
-            }
-            ColorPalette palette = ColorPalette.get(paletteName);
+            ColorPalette palette = paletteName == null
+                ? layer.getDefaultColorPalette()
+                : ColorPalette.get(paletteName);
 
             // See if the client has specified a logarithmic scaling, defaulting
             // to the layer's default
@@ -778,30 +779,24 @@ public class WmsController extends AbstractController {
             boolean logarithmic = isLogScale == null ? layer.isLogScaling() : isLogScale.booleanValue();
 
             // Now get the colour scale range
-            float scaleMin;
-            float scaleMax;
-            ColorScaleRange colorScaleRange = GetMapStyleRequest.getColorScaleRange(params);
-            if (colorScaleRange.isDefault()) {
-                float[] scaleRange = layer.getColorScaleRange();
-                scaleMin = scaleRange[0];
-                scaleMax = scaleRange[1];
-            } else if (colorScaleRange.isAuto()) {
+            Range<Float> colorScaleRange = GetMapStyleRequest.getColorScaleRange(params);
+            if (colorScaleRange == null) {
+                // Use the layer's default range if none is specified
+                colorScaleRange = layer.getApproxValueRange();
+            } else if (colorScaleRange.isEmpty()) {
                 throw new WmsException("Cannot automatically create a colour scale "
                     + "for a legend graphic.  Use COLORSCALERANGE=default or specify "
                     + "the scale extremes explicitly.");
-            } else {
-                scaleMin = colorScaleRange.getScaleMin();
-                scaleMax = colorScaleRange.getScaleMax();
             }
 
             // Now create the legend image
-            legend = palette.createLegend(numColourBands, layer, logarithmic, scaleMin, scaleMax);
+            legend = palette.createLegend(numColourBands, layer, logarithmic, colorScaleRange);
         }
         httpServletResponse.setContentType("image/png");
         ImageIO.write(legend, "png", httpServletResponse.getOutputStream());
 
         return null;
-    }*/
+    }
 
     // This doesn't really work well so we're commenting it out for now.
     /*private ModelAndView getKML(RequestParams params,

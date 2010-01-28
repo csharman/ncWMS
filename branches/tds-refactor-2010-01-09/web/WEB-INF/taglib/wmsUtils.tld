@@ -23,4 +23,10 @@
     <function-class>uk.ac.rdg.resc.ncwms.util.WmsUtils</function-class>
     <function-signature>java.lang.String formatUTCTimeOnly(org.joda.time.DateTime)</function-signature>
   </function>
+  <function>
+    <description>Returns true if the given layer is a vector layer</description>
+    <name>isVectorLayer</name>
+    <function-class>uk.ac.rdg.resc.ncwms.util.WmsUtils</function-class>
+    <function-signature>boolean isVectorLayer(uk.ac.rdg.resc.ncwms.wms.Layer)</function-signature>
+  </function>
 </taglib>
