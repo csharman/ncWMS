@@ -29,6 +29,7 @@
 package uk.ac.rdg.resc.ncwms.config;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -58,11 +59,17 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import ucar.nc2.dataset.NetcdfDataset;
 import ucar.unidata.io.RandomAccessFile;
+import uk.ac.rdg.resc.ncwms.cache.TileCache;
+import uk.ac.rdg.resc.ncwms.cache.TileCacheKey;
+import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.datareader.NcwmsCredentialsProvider;
+import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.exceptions.LayerNotDefinedException;
 import uk.ac.rdg.resc.ncwms.security.Users;
+import uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
+import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
 import uk.ac.rdg.resc.ncwms.wms.ServerConfig;
 
 /**
@@ -106,6 +113,9 @@ public class Config implements ServerConfig, ApplicationContextAware
     private DateTime lastUpdateTime;
     
     private File configFile; // Location of the file from which this information has been read
+
+    // Cache of recently-extracted data arrays
+    private TileCache tileCache;
     
     // Will be injected by Spring: handles authenticated OPeNDAP calls
     private NcwmsCredentialsProvider credentialsProvider;
@@ -135,8 +145,7 @@ public class Config implements ServerConfig, ApplicationContextAware
      * (including the location of the config file)
      * @param credentialsProvider object that handles authenticated calls to OPeNDAP servers
      */
-    public static Config readConfig(NcwmsContext ncwmsContext,
-            NcwmsCredentialsProvider credentialsProvider) throws Exception
+    public static Config readConfig(NcwmsContext ncwmsContext) throws Exception
     {
         Config config;
         File configFile = ncwmsContext.getConfigFile();
@@ -157,7 +166,6 @@ public class Config implements ServerConfig, ApplicationContextAware
         }
 
         config.lastUpdateTime = new DateTime();
-        config.credentialsProvider = credentialsProvider;
 
         // Initialize the cache of NetcdfDatasets.  Hold between 50 and 500
         // datasets, clearing out the cache every 5 minutes.  If the number of
@@ -185,6 +193,9 @@ public class Config implements ServerConfig, ApplicationContextAware
             ds.setConfig(config);
             config.scheduleReloading(ds);
         }
+
+        // Initialize the TileCache
+        config.tileCache = new TileCache(ncwmsContext.getWorkingDirectory(), config);
         
         return config;
     }
@@ -335,6 +346,52 @@ public class Config implements ServerConfig, ApplicationContextAware
     }
 
     /**
+     * {@inheritDoc}
+     * <p>This implementation uses a {@link TileCache} to store data arrays,
+     * speeding up repeat requests.</p>
+     */
+    @Override
+    public List<Float> readDataGrid(ScalarLayer layer, DateTime dateTime,
+        double elevation, HorizontalGrid grid, UsageLogEntry usageLogEntry)
+        throws InvalidDimensionValueException, IOException
+    {
+        // We know that this Config object only returns LayerImpl objects
+        LayerImpl layerImpl = (LayerImpl)layer;
+        // Find which file contains this time, and which index it is within the file
+        LayerImpl.FilenameAndTimeIndex fti = layerImpl.findAndCheckFilenameAndTimeIndex(dateTime);
+        // Find the z index within the file
+        int zIndex = layerImpl.findAndCheckElevationIndex(elevation);
+
+        // Create a key for searching the cache
+        TileCacheKey key = new TileCacheKey(
+            fti.filename,
+            layer,
+            grid,
+            fti.tIndexInFile,
+            zIndex
+        );
+
+        List<Float> data = null;
+        // Search the cache
+         // returns null if key is not found
+        if (this.cache.isEnabled()) data = this.tileCache.get(key);
+
+        // Record whether or not we got a hit in the cache
+        usageLogEntry.setUsedCache(data != null);
+
+        if (data == null)
+        {
+            // We didn't get any data from the cache, so we have to read from
+            // the source data.
+            data = layerImpl.readPointList(fti, zIndex, grid);
+            // Put the data in the tile cache
+            if (this.cache.isEnabled()) this.tileCache.put(key, data);
+        }
+
+        return null;
+    }
+
+    /**
      * Gets a Map of dataset IDs to Dataset objects for all datasets on this
      * server, whether or not they are ready for use.  This operation is used
      * only by the ncWMS configuration system, and hence does not appear in the
@@ -457,12 +514,14 @@ public class Config implements ServerConfig, ApplicationContextAware
     }
 
     /**
-     * Called by the Spring framework to clean up this object
+     * Called by the Spring framework to clean up this object.  Closes all
+     * background threads.
      */
-    public void close()
+    public void shutdown()
     {
         this.scheduler.shutdown();
         NetcdfDataset.shutdown();
+        this.tileCache.shutdown();
         logger.info("Cleaned up Config object");
     }
 
@@ -537,6 +596,12 @@ public class Config implements ServerConfig, ApplicationContextAware
     public void setThreddsCatalogLocation(String threddsCatalogLocation)
     {
         this.threddsCatalogLocation = checkEmpty(threddsCatalogLocation);
+    }
+
+    /** Called by Spring to set the credentials provider */
+    public void setCredentialsProvider(NcwmsCredentialsProvider credentialsProvider)
+    {
+        this.credentialsProvider = credentialsProvider;
     }
 
     /**

@@ -71,7 +71,6 @@ import org.slf4j.LoggerFactory;
 import org.joda.time.DateTime;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.AbstractController;
-import uk.ac.rdg.resc.ncwms.cache.TileCache;
 import uk.ac.rdg.resc.ncwms.coordsys.CrsHelper;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.coordsys.LonLatPosition;
@@ -139,7 +138,6 @@ public class WmsController extends AbstractController {
     // These objects will be injected by Spring
     private ServerConfig serverConfig;
     private UsageLogger usageLogger;
-    private TileCache tileCache;
 
     /**
      * Called automatically by Spring after all the dependencies have been
@@ -493,11 +491,11 @@ public class WmsController extends AbstractController {
             if (layer instanceof ScalarLayer) {
                 // Note that if the layer doesn't have a time axis, timeValue==null but this
                 // will be ignored by readPointList()
-                picData.add(((ScalarLayer)layer).readPointList(timeValue, zValue, grid));
+                picData.add(this.serverConfig.readDataGrid((ScalarLayer)layer, timeValue, zValue, grid, usageLogEntry));
             } else if (layer instanceof VectorLayer) {
                 VectorLayer vecLayer = (VectorLayer)layer;
-                picData.add(vecLayer.getEastwardComponent() .readPointList(timeValue, zValue, grid));
-                picData.add(vecLayer.getNorthwardComponent().readPointList(timeValue, zValue, grid));
+                picData.add(this.serverConfig.readDataGrid(vecLayer.getEastwardComponent(),  timeValue, zValue, grid, usageLogEntry));
+                picData.add(this.serverConfig.readDataGrid(vecLayer.getNorthwardComponent(), timeValue, zValue, grid, usageLogEntry));
             } else {
                 throw new IllegalStateException("Unrecognized layer type");
             }
@@ -1273,13 +1271,6 @@ public class WmsController extends AbstractController {
      */
     public void setUsageLogger(UsageLogger usageLogger) {
         this.usageLogger = usageLogger;
-    }
-
-    /**
-     * Called by Spring to inject the tile cache
-     */
-    public void setTileCache(TileCache tileCache) {
-        this.tileCache = tileCache;
     }
 
     /**

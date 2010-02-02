@@ -147,10 +147,35 @@ public final class LayerImpl extends AbstractTimeAggregatedLayer
     public List<Float> readPointList(DateTime time, double elevation, PointList pointList)
         throws InvalidDimensionValueException, IOException
     {
+        int zIndex = this.findAndCheckElevationIndex(elevation);
+        FilenameAndTimeIndex fti = this.findAndCheckFilenameAndTimeIndex(time);
+        return this.readPointList(fti, zIndex, pointList);
+    }
+    
+    /** Reads a PointList based upon t and z indices rather than natural values */
+    List<Float> readPointList(FilenameAndTimeIndex fti, int zIndex, PointList pointList)
+        throws IOException
+    {
+        return this.dataReader.read(fti.filename, this, fti.tIndexInFile, zIndex, pointList);
+    }
+
+    /**
+     * Package-private method (called by
+     * {@link Config#readDataGrid(uk.ac.rdg.resc.ncwms.wms.ScalarLayer,
+     * org.joda.time.DateTime, double, uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid,
+     * uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry) Config.readDataGrid()}) that
+     * finds the file that contains the give DateTime and the index within the file.
+     * @param time The time to search for
+     * @return
+     * @throws InvalidDimensionValueException if {@code time} is not a valid
+     * DateTime for this layer.
+     */
+    FilenameAndTimeIndex findAndCheckFilenameAndTimeIndex(DateTime time)
+        throws InvalidDimensionValueException
+    {
         // Find and check the time and elevation values. Indices of -1 will be
         // returned if this layer does not have a time/elevation axis
         int tIndex = this.findAndCheckTimeIndex(time);
-        int zIndex = this.findAndCheckElevationIndex(elevation);
 
         // Find which file we're reading from and the time index in the file
         String filename = this.dataset.getLocation();
@@ -160,8 +185,22 @@ public final class LayerImpl extends AbstractTimeAggregatedLayer
             filename = tInfo.getFilename();
             tIndexInFile = tInfo.getIndexInFile();
         }
+        return new FilenameAndTimeIndex(filename, tIndexInFile);
+    }
 
-        return this.dataReader.read(filename, this, tIndexInFile, zIndex, pointList);
+    static class FilenameAndTimeIndex
+    {
+        /** The filename containing the data */
+        String filename;
+        /** The index of the timestep <b>within this file</b>, or -1 if this
+         layer doesn't have a time axis. */
+        int tIndexInFile;
+
+        public FilenameAndTimeIndex(String filename, int tIndexInFile)
+        {
+            this.filename = filename;
+            this.tIndexInFile = tIndexInFile;
+        }
     }
 
     @Override

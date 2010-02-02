@@ -198,9 +198,9 @@ public abstract class AbstractLayer implements ScalarLayer
      * Searches the list of timesteps for the specified date-time, returning
      * the index of the date-time, or throwing an {@link InvalidDimensionValueException}
      * if the specified date-time is not a valid timestep for this layer.  If
-     * this layer does not have an elevation axis, this will return -1.
+     * this layer does not have a time axis, this will return -1.
      */
-    protected int findAndCheckTimeIndex(DateTime target) throws InvalidDimensionValueException
+    public int findAndCheckTimeIndex(DateTime target) throws InvalidDimensionValueException
     {
         if (!this.hasTimeAxis()) return -1;
         int index = WmsUtils.findTimeIndex(this.getTimeValues(), target);
@@ -268,7 +268,7 @@ public abstract class AbstractLayer implements ScalarLayer
      * if the specified elevation is not valid for this layer.  If this layer
      * does not have an elevation axis, this will return -1.
      */
-    protected int findAndCheckElevationIndex(double targetVal) throws InvalidDimensionValueException
+    public int findAndCheckElevationIndex(double targetVal) throws InvalidDimensionValueException
     {
         if (!this.hasElevationAxis()) return -1;
         int index = this.findElevationIndex(targetVal);

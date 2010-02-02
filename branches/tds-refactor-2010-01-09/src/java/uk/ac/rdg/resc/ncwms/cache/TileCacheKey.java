@@ -43,9 +43,6 @@ import uk.ac.rdg.resc.ncwms.util.WmsUtils;
  *
  * @see TileCache
  * @author Jon Blower
- * $Revision$
- * $Date$
- * $Log$
  */
 public class TileCacheKey implements Serializable
 {
@@ -69,6 +66,7 @@ public class TileCacheKey implements Serializable
     
     // TileCacheKeys are immutable so these properties can be stored to save
     // repeated recomputation:
+    // TODO: make transient or generate dynamically.  Improve algorithms!
     private String str;        // String representation of this key
     private int hashCode;      // Hash code for this key
     

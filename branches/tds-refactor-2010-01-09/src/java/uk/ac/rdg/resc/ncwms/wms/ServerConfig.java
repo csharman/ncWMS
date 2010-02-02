@@ -28,9 +28,14 @@
 
 package uk.ac.rdg.resc.ncwms.wms;
 
+import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 import org.joda.time.DateTime;
+import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
+import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.exceptions.LayerNotDefinedException;
+import uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry;
 
 /**
  * Top-level configuration object that contains metadata about the server itself
@@ -65,6 +70,36 @@ public interface ServerConfig
      * @throws LayerNotDefinedException if there is no layer with the given name.
      */
     public Layer getLayerByUniqueName(String name) throws LayerNotDefinedException;
+
+    /**
+     * Reads a grid of data from the given layer, used by the GetMap operation.
+     * Many implementations will
+     * simply call {@link ScalarLayer#readPointList(org.joda.time.DateTime, double,
+     * uk.ac.rdg.resc.ncwms.datareader.PointList) layer.readPointList()} to
+     * implement this method, but others may choose to implement in a different
+     * way, perhaps to allow for caching of the data.  If implementations return
+     * cached data they must indicate this by setting {@link UsageLogEntry#setUsedCache(boolean)}.
+     * @param layer The layer containing the data
+     * @param time The time instant for which we require data.  If this does not
+     * match a time instant in {@link Layer#getTimeValues()} an {@link InvalidDimensionValueException}
+     * will be thrown.  (If this Layer has no time axis, this parameter will be ignored.)
+     * @param elevation The elevation for which we require data (in the
+     * {@link Layer#getElevationUnits() units of this Layer's elevation axis}).  If
+     * this does not match a valid {@link Layer#getElevationValues() elevation value}
+     * in this Layer, this method will throw an {@link InvalidDimensionValueException}.
+     * (If this Layer has no elevation axis, this parameter will be ignored.)
+     * @param grid The grid of points, one point per pixel in the image that will
+     * be created in the GetMap operation
+     * @param usageLogEntry
+     * @return a List of data values, one for each point in
+     * the {@code grid}, in the same order.
+     * @throws InvalidDimensionValueException if {@code dateTime} or {@code elevation}
+     * do not represent valid values along the time and elevation axes.
+     * @throws IOException if there was an error reading from the data source
+     */
+    public List<Float> readDataGrid(ScalarLayer layer, DateTime dateTime,
+        double elevation, HorizontalGrid grid, UsageLogEntry usageLogEntry)
+        throws InvalidDimensionValueException, IOException;
 
     /**
      * <p>Returns true if this server is allowed to produce a Capabilities document
