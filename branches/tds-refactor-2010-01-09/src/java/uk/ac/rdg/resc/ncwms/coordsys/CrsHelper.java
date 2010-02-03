@@ -95,18 +95,24 @@ public final class CrsHelper {
             // The "true" means "force longitude-first"
             return fromCrs(CRS.decode(crsCode, true));
         }
-        catch ()
+        catch (Exception e)
         {
             throw new InvalidCrsException(crsCode);
         }
     }
 
     /**
-     * Returns a CrsHelper object corresponding with the given CRS code.  CrsHelper
-     * objects are cached, so only one CrsHelper per CRS code will ever exist.
-     * @throws InvalidCrsException if the CRS code is not recognized
+     * Returns a CrsHelper object corresponding with the given CRS.  CrsHelper
+     * objects are cached, so only one CrsHelper per CRS.
+     * @throws IllegalArgumentException if the CRS code is not a 2D CRS
+     * @todo could do other checks on the incoming CRS.
      */
-    public static CrsHelper fromCrs(CoordinateReferenceSystem crs) {
+    public static CrsHelper fromCrs(CoordinateReferenceSystem crs)
+    {
+        if (crs.getCoordinateSystem().getDimension() != 2)
+        {
+            throw new IllegalArgumentException("CRS must be two-dimensional");
+        }
         CrsHelper crsHelper = CACHE.get(crs);
         if (crsHelper != null) return crsHelper;
 
@@ -115,7 +121,6 @@ public final class CrsHelper {
         try
         {
             crsHelper.crs = crs;
-            CRS.lookupEpsgCode(crs, true)
             // Get transformations to and from lat-lon.
             // The "true" means "lenient", i.e. ignore datum shifts.  This
             // is necessary to prevent "Bursa wolf parameters required"
@@ -129,7 +134,8 @@ public final class CrsHelper {
         }
         catch(FactoryException fe)
         {
-            //throw new InvalidCrsException(crsCode);
+            // Shouldn't happen unless crs is an engineering CRS
+            throw new RuntimeException(fe);
         }
     }
 
