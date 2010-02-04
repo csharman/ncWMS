@@ -1125,7 +1125,7 @@ public class WmsController extends AbstractController {
      * @throws InvalidDimensionValueException if the provided z value is not
      * a valid number.
      */
-    private static double getElevationValue(String zValue) throws InvalidDimensionValueException
+    static double getElevationValue(String zValue) throws InvalidDimensionValueException
     {
         if (zValue == null) return Double.NaN;
 
@@ -1148,12 +1148,12 @@ public class WmsController extends AbstractController {
      * a single null value will be returned.
      * @param timeString the string provided for the TIME parameter, or null
      * if there was no TIME parameter in the client's request
-     * @param layer
      * @return the list of time values requested by the client or a List containing
      * a single null element if the layer does not have a time axis.
-     * @throws InvalidDimensionValueException if the time string cannot be parsed
+     * @throws InvalidDimensionValueException if the time string cannot be parsed,
+     * or if any of the requested times are not valid times for the layer
      */
-    private static List<DateTime> getTimeValues(String timeString, Layer layer)
+    static List<DateTime> getTimeValues(String timeString, Layer layer)
             throws InvalidDimensionValueException {
 
         // If the layer does not have a time axis return a List containing
@@ -1193,7 +1193,7 @@ public class WmsController extends AbstractController {
      * @throws InvalidDimensionValueException if the layer does not contain
      * the given time, or if the given ISO8601 string is not valid.
      */
-    private static int findTIndex(String isoDateTime, Layer layer)
+    static int findTIndex(String isoDateTime, Layer layer)
         throws InvalidDimensionValueException
     {
         DateTime target = isoDateTime.equals("current")
@@ -1249,13 +1249,6 @@ public class WmsController extends AbstractController {
             tValues.add(layerTValues.get(i));
         }
         return tValues;
-    }
-
-    /**
-     * Called by Spring to inject the metadata controller
-     */
-    public void setMetadataController(MetadataController metadataController) {
-        this.metadataController = metadataController;
     }
 
     /**

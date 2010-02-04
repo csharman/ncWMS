@@ -46,6 +46,7 @@ import uk.ac.rdg.resc.ncwms.exceptions.InvalidCrsException;
  * providing a set of convenience methods such as transformations and validity
  * checks.
  * @author Jon
+ * @see http://www.geotoolkit.org/modules/referencing/faq.html
  */
 public final class CrsHelper {
 

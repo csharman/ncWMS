@@ -46,31 +46,26 @@ import org.joda.time.Period;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.servlet.ModelAndView;
-import uk.ac.rdg.resc.ncwms.exceptions.MetadataException;
 import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
+import uk.ac.rdg.resc.ncwms.exceptions.MetadataException;
 import uk.ac.rdg.resc.ncwms.graphics.ColorPalette;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry;
+import uk.ac.rdg.resc.ncwms.util.Range;
+import uk.ac.rdg.resc.ncwms.util.Ranges;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
+import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
 import uk.ac.rdg.resc.ncwms.wms.ServerConfig;
+import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
 
 /**
  * Controller that handles all requests for non-standard metadata by the
  * Godiva2 site.  Eventually Godiva2 will be changed to accept standard
  * metadata (i.e. fragments of GetCapabilities)... maybe.
  *
- * @todo Output exceptions in JSON format for display on web interface?
- * @todo If we factor out {@link #findMinMax(uk.ac.rdg.resc.ncwms.metadata.Layer,
- * int, int, uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid,
- * uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry)}, we can make this class
- * package-private.
- *
  * @author Jon Blower
- * $Revision$
- * $Date$
- * $Log$
  */
-public class MetadataController
+class MetadataController
 {
     private static final Logger log = LoggerFactory.getLogger(MetadataController.class);
 
@@ -108,19 +103,19 @@ public class MetadataController
             }
             else if (item.equals("layerDetails"))
             {
-                //return this.showLayerDetails(request, usageLogEntry);
+                return this.showLayerDetails(request, usageLogEntry);
             }
             else if (item.equals("timesteps"))
             {
-                //return this.showTimesteps(request);
+                return this.showTimesteps(request);
             }
             else if (item.equals("minmax"))
             {
-                //return this.showMinMax(request, usageLogEntry);
+                return this.showMinMax(request, usageLogEntry);
             }
             else if (item.equals("animationTimesteps"))
             {
-                //return this.showAnimationTimesteps(request);
+                return this.showAnimationTimesteps(request);
             }
             throw new Exception("Invalid value for ITEM parameter");
         }
@@ -143,18 +138,6 @@ public class MetadataController
     static void proxyRequest(String url, HttpServletRequest request,
         HttpServletResponse response) throws Exception
     {
-        // The commented-out code below will only be relevant for third-party
-        // plain WMSs.
-        /*ThirdPartyLayerProvider layerProvider =
-            this.config.getThirdPartyLayerProviders().get(url);
-        if (layerProvider == null)
-        {
-            throw new Exception("Layer provider at URL " + url + " not registered");
-        }
-        if (layerProvider.getType() != ThirdPartyLayerProvider.Type.NCWMS)
-        {
-            throw new Exception("Can only handle ncWMS third-party providers");
-        }*/
         // Download the data from the remote URL
         // TODO: is there a proxy class we can invoke here?
         StringBuffer fullURL = new StringBuffer(url);
@@ -220,7 +203,7 @@ public class MetadataController
      * Shows an JSON document containing the details of the given variable (units,
      * zvalues, tvalues etc).  See showLayerDetails.jsp.
      */
-    /*private ModelAndView showLayerDetails(HttpServletRequest request,
+    private ModelAndView showLayerDetails(HttpServletRequest request,
         UsageLogEntry usageLogEntry) throws Exception
     {
         Layer layer = this.getLayer(request);
@@ -238,15 +221,15 @@ public class MetadataController
         
         Map<Integer, Map<Integer, List<Integer>>> datesWithData =
             new HashMap<Integer, Map<Integer, List<Integer>>>();
-        DateTime nearestDateTime = layer.isTaxisPresent() && layer.getTvalues().size() > 0
-            ? layer.getTvalues().get(0) : new DateTime(0);
+        List<DateTime> timeValues = layer.getTimeValues();
+        DateTime nearestDateTime = timeValues.isEmpty() ? new DateTime(0) : timeValues.get(0);
         
         // Takes an array of time values for a layer and turns it into a Map of
         // year numbers to month numbers to day numbers, for use in
         // showVariableDetails.jsp.  This is used to provide a list of days for
         // which we have data.  Also calculates the nearest value on the time axis
         // to the time we're currently displaying on the web interface.
-        for (DateTime dateTime : layer.getTvalues())
+        for (DateTime dateTime : layer.getTimeValues())
         {
             // We must make sure that dateTime() is in UTC or getDayOfMonth() etc
             // might return unexpected results
@@ -287,7 +270,7 @@ public class MetadataController
         // because there might be several menu JSPs.
         models.put("paletteNames", ColorPalette.getAvailablePaletteNames());
         return new ModelAndView("showLayerDetails", models);
-    }*/
+    }
     
     /**
      * @return the Layer that the user is requesting, throwing an
@@ -313,32 +296,34 @@ public class MetadataController
      * Finds all the timesteps that occur on the given date, which will be provided
      * in the form "2007-10-18".
      */
-    /*private ModelAndView showTimesteps(HttpServletRequest request)
+    private ModelAndView showTimesteps(HttpServletRequest request)
         throws Exception
     {
         Layer layer = getLayer(request);
+        if (layer.getTimeValues().isEmpty()) return null; // return no data if no time axis present
+        
         String dayStr = request.getParameter("day");
         if (dayStr == null)
         {
             throw new Exception("Must provide a value for the day parameter");
         }
         DateTime date = WmsUtils.iso8601ToDateTime(dayStr);
-        if (!layer.isTaxisPresent()) return null; // return no data if no time axis present
         
         // List of date-times that fall on this day
         List<DateTime> timesteps = new ArrayList<DateTime>();
-        // Search exhaustively through the time values
+        // Search exhaustively through the layer's valid time values
         // TODO: inefficient: should stop once last day has been found.
-        for (DateTime tVal : layer.getTvalues())
+        for (DateTime tVal : layer.getTimeValues())
         {
             if (onSameDay(tVal, date))
             {
                 timesteps.add(tVal);
             }
         }
+        log.debug("Found {} timesteps on {}", timesteps.size(), dayStr);
         
         return new ModelAndView("showTimesteps", "timesteps", timesteps);
-    }*/
+    }
     
     /**
      * @return true if the two given DateTimes fall on the same day.
@@ -360,7 +345,7 @@ public class MetadataController
      * Shows an XML document containing the minimum and maximum values for the
      * tile given in the parameters.
      */
-    /*private ModelAndView showMinMax(HttpServletRequest request,
+    private ModelAndView showMinMax(HttpServletRequest request,
         UsageLogEntry usageLogEntry) throws Exception
     {
         RequestParams params = new RequestParams(request.getParameterMap());
@@ -369,68 +354,40 @@ public class MetadataController
         // GetMapDataRequest object will look for "CRS" instead of "SRS"
         GetMapDataRequest dataRequest = new GetMapDataRequest(params, "1.3.0");
         
-        // TODO: some of the code below is repetitive of WmsController: refactor?
-        
         // Get the variable we're interested in
         Layer layer = this.serverConfig.getLayerByUniqueName(dataRequest.getLayers()[0]);
+        usageLogEntry.setLayer(layer);
         
         // Get the grid onto which the data is being projected
         HorizontalGrid grid = new HorizontalGrid(dataRequest);
         
-        // Get the index along the z axis
-        int zIndex = WmsController.getZIndex(dataRequest.getElevationString(), layer); // -1 if no z axis present
+        // Get the value on the z axis
+        double zValue = WmsController.getElevationValue(dataRequest.getElevationString());
         
-        // Get the information about the requested timestep (taking the first only)
-        int tIndex = WmsController.getTIndices(dataRequest.getTimeString(), layer).get(0);
+        // Get the requested timestep (taking the first only if an animation is requested)
+        DateTime tValue = WmsController.getTimeValues(dataRequest.getTimeString(), layer).get(0);
         
         // Now read the data and calculate the minimum and maximum values
-        float[] minMax = findMinMax(layer, tIndex, zIndex, grid, usageLogEntry);
-        
-        return new ModelAndView("showMinMax", "minMax", minMax);
-    }*/
-    
-    /**
-     * Finds the minimum and maximum values of data in the given arrays.
-     * @param layer the Layer from which to read data
-     * @param tIndex the time index, or -1 if there is no time axis
-     * @param zIndex the z index, or -1 if there is to vertical axis
-     * @param grid The grid onto which the data is to be read
-     * @param usageLogEntry a UsageLogEntry that is used to collect information
-     * about the usage of this WMS (may be null, if this method is called from
-     * the MetadataLoader).
-     * @return Array of two floats: [min, max], or [NaN, NaN] if all values
-     * in the grid are missing
-     * @throws Exception if there was an error reading the data
-     */
-    /*public static float[] findMinMax(Layer layer, int tIndex, int zIndex,
-        HorizontalGrid grid, UsageLogEntry usageLogEntry)
-        throws Exception
-    {
-        // Now read the data
-        // TODO: should we use the tile cache here?
-        List<float[]> picData = WmsController.readData(layer, tIndex, zIndex,
-            grid, null, usageLogEntry);
-        
-        // Now find the minimum and maximum values: for a vector this is the magnitude
-        float min = Float.NaN;
-        float max = Float.NaN;
-        for (int i = 0; i < picData.get(0).length; i++)
+        List<Float> magnitudes;
+        if (layer instanceof ScalarLayer)
         {
-            float val = picData.get(0)[i];
-            if (!Float.isNaN(val))
-            {
-                if (picData.size() == 2)
-                {
-                    // This is a vector quantity: calculate the magnitude
-                    val = (float)Math.sqrt(val * val + picData.get(1)[i] * picData.get(1)[i]);
-                }
-                if (Float.isNaN(min) || val < min) min = val;
-                if (Float.isNaN(max) || val > max) max = val;
-            }
+            magnitudes = ((ScalarLayer)layer).readPointList(tValue, zValue, grid);
         }
-        log.debug("Got min-max: {},{}", min, max);
-        return new float[]{min, max};
-    }*/
+        else if (layer instanceof VectorLayer)
+        {
+            VectorLayer vecLayer = (VectorLayer)layer;
+            List<Float> east = vecLayer.getEastwardComponent().readPointList(tValue, zValue, grid);
+            List<Float> north = vecLayer.getNorthwardComponent().readPointList(tValue, zValue, grid);
+            magnitudes = WmsUtils.getMagnitudes(east, north);
+        }
+        else
+        {
+            throw new IllegalStateException("Invalid Layer type");
+        }
+
+        Range<Float> valueRange = Ranges.findMinMax(magnitudes);
+        return new ModelAndView("showMinMax", "valueRange", valueRange);
+    }
 
     /**
      * Calculates the TIME strings necessary to generate animations for the
@@ -439,7 +396,7 @@ public class MetadataController
      * @return
      * @throws java.lang.Exception
      */
-    /*private ModelAndView showAnimationTimesteps(HttpServletRequest request)
+    private ModelAndView showAnimationTimesteps(HttpServletRequest request)
         throws Exception
     {
         Layer layer = this.getLayer(request);
@@ -451,9 +408,9 @@ public class MetadataController
         }
 
         // Find the start and end indices along the time axis
-        int startIndex = layer.findTIndex(startStr);
-        int endIndex = layer.findTIndex(endStr);
-        List<DateTime> tValues = layer.getTvalues();
+        int startIndex = WmsController.findTIndex(startStr, layer);
+        int endIndex = WmsController.findTIndex(endStr, layer);
+        List<DateTime> tValues = layer.getTimeValues();
 
         // E.g.: {
         //  "Full" : "start/end",
@@ -472,7 +429,7 @@ public class MetadataController
         addTimeString("Yearly", timeStrings, tValues, startIndex, endIndex, new Period().withYears(1));
 
         return new ModelAndView("showAnimationTimesteps", "timeStrings", timeStrings);
-    }*/
+    }
 
     private static void addTimeString(String label, Map<String, String> timeStrings,
         List<DateTime> tValues, int startIndex, int endIndex, Period resolution)

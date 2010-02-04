@@ -25,14 +25,7 @@
     <bean id="config" class="uk.ac.rdg.resc.ncwms.config.Config"
            factory-method="readConfig" destroy-method="close">
         <constructor-arg ref="ncwmsContext"/>
-        <constructor-arg ref="credentialsProvider"/>
-    </bean>
-    
-    <!-- A cache for image data arrays -->
-    <bean id="tileCache" class="uk.ac.rdg.resc.ncwms.cache.TileCache"
-            init-method="init" destroy-method="close">
-         <property name="ncwmsContext"><ref local="ncwmsContext"/></property>
-         <property name="config"><ref local="config"/></property>
+        <property name="credentialsProvider"><ref local="credentialsProvider"/></property>
     </bean>
     
     <!-- Object that handles the provision of authentication credentials
@@ -55,7 +48,6 @@
         <property name="supportedMethods" value="GET"/>
         <property name="serverConfig"><ref local="config"/></property>
         <property name="usageLogger"><ref local="usageLogger"/></property>
-        <property name="tileCache"><ref local="tileCache"/></property>
     </bean>
     
     <!-- This Controller is used to display the front page of the server, which

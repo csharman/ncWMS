@@ -48,6 +48,7 @@ import uk.ac.rdg.resc.ncwms.controller.GetMapStyleRequest;
 import uk.ac.rdg.resc.ncwms.exceptions.StyleNotDefinedException;
 import uk.ac.rdg.resc.ncwms.util.Range;
 import uk.ac.rdg.resc.ncwms.util.Ranges;
+import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
 
@@ -220,7 +221,9 @@ public final class ImageProducer
         byte[] pixels = new byte[this.picWidth * this.picHeight];
         // We get the magnitude of the input data (takes care of the case
         // in which the data are two components of a vector)
-        List<Float> magnitudes = getMagnitude(data);
+        List<Float> magnitudes = data.size() == 1
+            ? data.get(0)
+            : WmsUtils.getMagnitudes(data.get(0), data.get(1));
         for (int i = 0; i < pixels.length; i++)
         {
             pixels[i] = (byte)this.getColourIndex(magnitudes.get(i));
@@ -289,40 +292,6 @@ public final class ImageProducer
         }
         
         return image;
-    }
-    
-    /**
-     * If the input data are the two components of a vector, this
-     * calculates the magnitude of these components and returns
-     * the array of magnitudes as a new array.  If the input data
-     * contains one array only, this array is simply returned.
-     */
-    private static List<Float> getMagnitude(List<List<Float>> data)
-    {
-        logger.debug("Calculating the magnitude of {} components", data.size());
-        List<Float> firstComponent = data.get(0);
-        if (data.size() == 1)
-        {
-            return firstComponent;
-        }
-        List<Float> magnitudes = new ArrayList<Float>(firstComponent.size());
-        for (int i = 0; i < firstComponent.size(); i++)
-        {
-            if (firstComponent.get(i) == null)
-            {
-                magnitudes.add((Float)null);
-            }
-            else
-            {
-                double sumsq = firstComponent.get(i) * firstComponent.get(i);
-                for (int j = 1; j < data.size(); j++)
-                {
-                    sumsq += data.get(j).get(i) * data.get(j).get(i);
-                }
-                magnitudes.add((float)Math.sqrt(sumsq));
-            }
-        }
-        return magnitudes;
     }
     
     /**

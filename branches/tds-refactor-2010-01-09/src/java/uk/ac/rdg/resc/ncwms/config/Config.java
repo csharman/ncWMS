@@ -388,7 +388,7 @@ public class Config implements ServerConfig, ApplicationContextAware
             if (this.cache.isEnabled()) this.tileCache.put(key, data);
         }
 
-        return null;
+        return data;
     }
 
     /**
