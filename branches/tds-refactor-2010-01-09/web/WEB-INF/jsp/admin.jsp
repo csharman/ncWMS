@@ -24,7 +24,7 @@ response.setDateHeader ("Expires", 0); //prevents caching at the proxy server
 
     <p><a href="../godiva2.html">Godiva2 interface</a></p>
     <c:choose>
-        <c:when test="${config.server.allowGlobalCapabilities}">
+        <c:when test="${config.allowsGlobalCapabilities}">
             <p><a href="../wms?SERVICE=WMS&amp;REQUEST=GetCapabilities&amp;VERSION=1.3.0">WMS 1.3.0 Capabilities</a></p>
             <p><a href="../wms?SERVICE=WMS&amp;REQUEST=GetCapabilities&amp;VERSION=1.1.1">WMS 1.1.1 Capabilities</a></p>
         </c:when>
@@ -44,7 +44,8 @@ response.setDateHeader ("Expires", 0); //prevents caching at the proxy server
         <table border="1">
         <tr><th>Edit variables</th><th>Unique ID</th><th>Title</th><th>Location</th><th>State</th><th>Last update</th><th>Auto refresh frequency</th><th>Force refresh?</th><th>Disabled?</th><th>Queryable?</th><th>Remove?</th><th>Data reading class</th><th>Link to more info</th><th>Copyright statement</th></tr>
 
-            <c:forEach var="dataset" items="${config.datasets}">
+            <c:forEach var="datasetEntry" items="${config.allDatasets}">
+                <c:set var="dataset" value="${datasetEntry.value}"/>
                 <tr<c:if test="${dataset.disabled}"> bgcolor="lightgrey"</c:if>>
                     <td>
                         <c:if test="${dataset.ready}">
@@ -56,18 +57,11 @@ response.setDateHeader ("Expires", 0); //prevents caching at the proxy server
                     <td><input type="text" name="dataset.${dataset.id}.location" value="${dataset.location}"/></td>
                     <td>
                         <c:choose>
-                            <c:when test="${dataset.error}">
-                                <a target="_blank" href="error.jsp?dataset=${dataset.id}">${dataset.state}</a>
+                            <c:when test="${dataset.error or dataset.loading}">
+                                <a target="_blank" href="datasetStatus.jsp?dataset=${dataset.id}">${dataset.state}</a>
                             </c:when>
                             <c:otherwise>
-                                <c:choose>
-                                    <c:when test="${dataset.loading}">
-                                        <a target="_blank" href="loading.jsp?dataset=${dataset.id}">${dataset.state}</a>
-                                    </c:when>
-                                    <c:otherwise>
-                                        ${dataset.state}
-                                    </c:otherwise>
-                                </c:choose>
+                                ${dataset.state}
                             </c:otherwise>
                         </c:choose>
                     </td>

@@ -9,7 +9,7 @@ response.setDateHeader ("Expires", 0); //prevents caching at the proxy server
 <%-- Displays the Capabilities document in XML.
      Data (models) passed in to this page:
          config     = Configuration of this server (uk.ac.rdg.resc.ncwms.wms.ServerConfig)
-         datasets   = collection of datasets to display in this Capabilities document (Set<uk.ac.rdg.resc.ncwms.wms.Dataset>)
+         datasets   = collection of datasets to display in this Capabilities document (Collection<uk.ac.rdg.resc.ncwms.wms.Dataset>)
          lastUpdate = Last update time of the dataset(s) displayed in this document (org.joda.time.DateTime)
          wmsBaseUrl = Base URL of this server (java.lang.String)
          supportedCrsCodes = List of Strings of supported Coordinate Reference System codes

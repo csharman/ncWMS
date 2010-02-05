@@ -30,6 +30,7 @@ package uk.ac.rdg.resc.ncwms.wms;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.joda.time.DateTime;
 import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
@@ -102,15 +103,6 @@ public interface ServerConfig
         throws InvalidDimensionValueException, IOException;
 
     /**
-     * <p>Returns true if this server is allowed to produce a Capabilities document
-     * that includes {@link #getDatasets() all datasets} on this server.  This
-     * document could get extremely large so return true with caution.</p>
-     * @return true if this server is allowed to produce a Capabilities document
-     * that includes all datasets
-     */
-    public boolean getAllowsGlobalCapabilities();
-
-    /**
      * Returns the {@link Dataset} with the given unique id, or null if the given
      * id doesn't match a dataset.
      * @param datasetId the dataset's identifier
@@ -120,16 +112,21 @@ public interface ServerConfig
     public Dataset getDatasetById(String datasetId);
 
     /**
-     * <p>Returns a {@link Set} of all the {@link Dataset}s on this server.
-     * This will be called whenever we need to create a metadata
-     * document (e.g. a Capabilities document) that contains all the available
-     * datasets on this server.  The available datasets could change and therefore
-     * clients are encouraged not to cache the results of this method.</p>
-     * <b>Only those datasets that are {@link Dataset#isReady() ready} will usually
-     * appear in public metadata documents.</b>
-     * @return a {@link Set} of all the {@link Dataset}s on this server.
+     * <p>Returns true if this server is allowed to produce a Capabilities document
+     * that includes {@link #getDatasets() all datasets} on this server.  This
+     * document could get extremely large so return true with caution.</p>
+     * @return true if this server is allowed to produce a Capabilities document
+     * that includes all datasets
      */
-    public Set<Dataset> getDatasets();
+    public boolean getAllowsGlobalCapabilities();
+
+    /**
+     * Gets an unmodifiable Map of dataset IDs to Dataset objects for all datasets
+     * on this server, or null if this is not possible on this server.  (For
+     * example, datasets in THREDDS servers come and go dynamically, so it's not
+     * possibe to find all the datasets at any given time.)
+     */
+    public Map<String, ? extends Dataset> getAllDatasets();
 
     /**
      * <p>Returns the date/time at which the data on this server were last updated.

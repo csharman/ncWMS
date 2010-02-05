@@ -23,7 +23,7 @@
     <!-- Configuration of this ncWMS server.  This gets the location of the 
          config file from the ncwmsContext. -->
     <bean id="config" class="uk.ac.rdg.resc.ncwms.config.Config"
-           factory-method="readConfig" destroy-method="close">
+           factory-method="readConfig" destroy-method="shutdown">
         <constructor-arg ref="ncwmsContext"/>
         <property name="credentialsProvider"><ref local="credentialsProvider"/></property>
     </bean>
@@ -73,7 +73,7 @@
             <value>
                 / = displayAdminPage
                 /index.jsp = displayAdminPage
-                /error.jsp = displayErrorPage
+                /datasetStatus.jsp = displayDatasetStatusPage
                 /loading.jsp = displayLoadingPage
                 /usage.jsp = displayUsagePage
                 /updateConfig = updateConfig

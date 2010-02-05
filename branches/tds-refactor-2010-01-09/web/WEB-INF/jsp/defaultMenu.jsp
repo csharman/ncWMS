@@ -18,6 +18,6 @@ response.setDateHeader ("Expires", 0); //prevents caching at the proxy server
 --%>
 <menu:folder label="${serverTitle}">
     <c:forEach var="dataset" items="${datasets}">
-        <menu:dataset dataset="${dataset}"/>
+        <menu:dataset dataset="${dataset.value}"/>
     </c:forEach>
 </menu:folder>

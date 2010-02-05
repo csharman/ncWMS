@@ -53,6 +53,7 @@ import uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry;
 import uk.ac.rdg.resc.ncwms.util.Range;
 import uk.ac.rdg.resc.ncwms.util.Ranges;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
+import uk.ac.rdg.resc.ncwms.wms.Dataset;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
 import uk.ac.rdg.resc.ncwms.wms.ServerConfig;
@@ -184,6 +185,11 @@ class MetadataController
     private ModelAndView showMenu(HttpServletRequest request, UsageLogEntry usageLogEntry)
         throws Exception
     {
+        Map<String, ? extends Dataset> allDatasets = this.serverConfig.getAllDatasets();
+        if (allDatasets == null)
+        {
+            throw new Exception("Can't get a collection of all the datasets on this server");
+        }
         String menu = "default";
         // Let's see if the client has requested a specific menu.  If so, we'll
         // construct the menu based on the appropriate JSP.
@@ -195,7 +201,7 @@ class MetadataController
         usageLogEntry.setMenu(menu);
         Map<String, Object> models = new HashMap<String, Object>();
         models.put("serverTitle", this.serverConfig.getTitle());
-        models.put("datasets", this.serverConfig.getDatasets());
+        models.put("datasets", allDatasets);
         return new ModelAndView(menu + "Menu", models);
     }
     

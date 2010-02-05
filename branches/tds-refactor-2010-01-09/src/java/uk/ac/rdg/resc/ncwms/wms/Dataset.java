@@ -62,10 +62,12 @@ public interface Dataset
      * <p>Returns the date/time at which this dataset was last updated.
      * This is used for Capabilities document version control in the
      * UPDATESEQUENCE part of the Capabilities document.</p>
+     * <p>If the dataset has never been loaded, this method will return null.</p>
      * <p>If the last update time is unknown, the safest
      * thing to do is to return the current date/time.  This will mean that
      * clients should never cache the Capabilities document.</p>
-     * @return the date/time at which this dataset was last updated.
+     * @return the date/time at which this dataset was last updated, or null if
+     * the dataset has never been loaded.
      */
     public DateTime getLastUpdateTime();
 
@@ -75,20 +77,27 @@ public interface Dataset
     public Set<Layer> getLayers();
 
     /**
-     * Returns true if the dataset is ready for use.
+     * Returns true if the dataset is ready for use.  If the dataset is ready,
+     * {@link #isLoading()} and {@link #isError()} will return false and
+     * {@link #getException()} will return null.
      * @return true if the dataset is ready for use.
      */
     public boolean isReady();
 
     /**
      * Returns true if the dataset is not ready because it is being loaded.
+     * Note that there could be an outstanding error from a previous loading
+     * attempt, in which case {@link #isError()} will also return true and
+     * {@link #getException()} will return the exception.
      * @return true if the dataset is not ready because it is being loaded.
      */
     public boolean isLoading();
 
     /**
      * Returns true if there is an error with this dataset. More details about
-     * the error can be found by calling {@link #getException()}.
+     * the error can be found by calling {@link #getException()}.  Note that a
+     * dataset could be loading, in which case this returns the error from the
+     * previous attempt at loading.
      * @return true if there is an error with this dataset.
      */
     public boolean isError();

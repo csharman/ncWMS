@@ -46,9 +46,6 @@ import uk.ac.rdg.resc.ncwms.wms.Layer;
  * Displays the administrative pages of the ncWMS application (i.e. /admin/*)
  *
  * @author Jon Blower
- * $Revision$
- * $Date$
- * $Log$
  */
 public class AdminController extends MultiActionController
 {
@@ -66,12 +63,12 @@ public class AdminController extends MultiActionController
     }
     
     /**
-     * Displays the errors associated with a particular dataset
+     * Displays the status of a particular dataset
      */
-    public ModelAndView displayErrorPage(HttpServletRequest request,
+    public ModelAndView displayDatasetStatusPage(HttpServletRequest request,
         HttpServletResponse response) throws Exception
     {
-        return new ModelAndView("admin_error", "dataset", this.getDataset(request));
+        return new ModelAndView("admin_datasetStatus", "dataset", this.getDataset(request));
     }
 
     /**

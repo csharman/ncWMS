@@ -392,34 +392,13 @@ public class Config implements ServerConfig, ApplicationContextAware
     }
 
     /**
-     * Gets a Map of dataset IDs to Dataset objects for all datasets on this
-     * server, whether or not they are ready for use.  This operation is used
-     * only by the ncWMS configuration system, and hence does not appear in the
-     * {@link ServerConfig} interface.
-     */
-    Map<String, Dataset> getAllDatasets()
-    {
-        return this.datasets;
-    }
-
-    /**
-     * Returns an unmodifiable {@link Set} of all the {@link Dataset}s on this server that are
-     * ready for use.  (Note that implementations may have other datasets
-     * in the system that are not ready for use, perhaps because a lengthy
-     * metadata-loading operation is in progress.  Such datasets would not
-     * appear in this Set.)
-     * @return a {@link Set} of all the {@link Dataset}s on this server that are
-     * ready for use.
-     * @todo changing to a collection would be more convenient!
+     * Gets an unmodifiable Map of dataset IDs to Dataset objects for all datasets
+     * on this server.
      */
     @Override
-    public synchronized Set<uk.ac.rdg.resc.ncwms.wms.Dataset> getDatasets()
+    public Map<String, Dataset> getAllDatasets()
     {
-        // preserve iteration order in the set with a LinkedHashSet
-        Set<uk.ac.rdg.resc.ncwms.wms.Dataset> dss =
-            new LinkedHashSet<uk.ac.rdg.resc.ncwms.wms.Dataset>();
-        for (Dataset ds : this.datasets.values()) dss.add(ds);
-        return Collections.unmodifiableSet(dss);
+        return Collections.unmodifiableMap(this.datasets);
     }
 
     /**
@@ -519,7 +498,7 @@ public class Config implements ServerConfig, ApplicationContextAware
      */
     public void shutdown()
     {
-        this.scheduler.shutdown();
+        this.scheduler.shutdownNow(); // Tries its best to stop ongoing threads
         NetcdfDataset.shutdown();
         this.tileCache.shutdown();
         logger.info("Cleaned up Config object");

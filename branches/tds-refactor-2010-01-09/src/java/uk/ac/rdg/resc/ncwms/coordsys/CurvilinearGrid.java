@@ -109,6 +109,15 @@ final class CurvilinearGrid implements Iterable<Cell>
         CoordinateAxis2D lonAxis = (CoordinateAxis2D)coordSys.getXHorizAxis();
         CoordinateAxis2D latAxis = (CoordinateAxis2D)coordSys.getYHorizAxis();
 
+        // Sanity check
+        if (!Arrays.equals(lonAxis.getShape(), latAxis.getShape()))
+        {
+            throw new IllegalArgumentException(String.format(
+                "Lon and Lat axes must have the same shape. Lon: %s; Lat: %s",
+                Arrays.toString(lonAxis.getShape()), Arrays.toString(latAxis.getShape())
+            ));
+        }
+
         // Make sure that scale/offset/missing are processed for the coordinate
         // axis values
         // TODO: we could do this in DefaultDataReader, but this means we need

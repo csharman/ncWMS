@@ -36,13 +36,12 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import javax.imageio.ImageIO;
@@ -74,7 +73,6 @@ import org.springframework.web.servlet.mvc.AbstractController;
 import uk.ac.rdg.resc.ncwms.coordsys.CrsHelper;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.coordsys.LonLatPosition;
-import uk.ac.rdg.resc.ncwms.datareader.DataReader;
 import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.datareader.LineString;
 import uk.ac.rdg.resc.ncwms.datareader.PixelMap;
@@ -299,19 +297,20 @@ public class WmsController extends AbstractController {
         // The DATASET parameter is an optional parameter that allows a 
         // Capabilities document to be generated for a single dataset only
         String datasetId = params.getString("dataset");
-        Set<Dataset> datasets;
+        Collection<? extends Dataset> datasets;
         DateTime lastUpdate;
         if (datasetId == null || datasetId.trim().equals("")) {
             // No specific dataset has been chosen so we create a Capabilities
             // document including every dataset.
             // First we check to see that the system admin has allowed us to
             // create a global Capabilities doc (this can be VERY large)
-            if (this.serverConfig.getAllowsGlobalCapabilities()) {
-                datasets = this.serverConfig.getDatasets();
+            Map<String, ? extends Dataset> allDatasets = this.serverConfig.getAllDatasets();
+            if (this.serverConfig.getAllowsGlobalCapabilities() && allDatasets != null) {
+                datasets = allDatasets.values();
             } else {
                 throw new WmsException("Cannot create a Capabilities document "
-                        + "that includes all datasets on this server. "
-                        + "You must specify a dataset identifier with &amp;DATASET=");
+                    + "that includes all datasets on this server. "
+                    + "You must specify a dataset identifier with &amp;DATASET=");
             }
             // The last update time for the Capabilities doc is the last time
             // any of the datasets were updated
@@ -321,9 +320,11 @@ public class WmsController extends AbstractController {
             Dataset ds = this.serverConfig.getDatasetById(datasetId);
             if (ds == null) {
                 throw new WmsException("There is no dataset with ID " + datasetId);
+            } else if (!ds.isReady()) {
+                throw new WmsException("The dataset with ID " + datasetId +
+                    "is not ready for use");
             }
-            datasets = new HashSet<Dataset>(1);
-            datasets.add(ds);
+            datasets = Arrays.asList(ds);
             // The last update time for the Capabilities doc is the last time
             // this particular dataset was updated
             lastUpdate = ds.getLastUpdateTime();

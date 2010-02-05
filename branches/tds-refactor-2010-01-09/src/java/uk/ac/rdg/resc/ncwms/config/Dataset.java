@@ -111,8 +111,9 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
     private State state = State.NEEDS_REFRESH;     // State of this dataset.
     
     private Exception err;   // Set if there is an error loading the dataset
-    private StringBuilder loadingProgress = new StringBuilder(); // Used to express progress with loading
-                                         // the metadata for this dataset
+    private List<String> loadingProgress = new ArrayList<String>(); // Used to express progress with loading
+                                         // the metadata for this dataset,
+                                         // one line at a time
 
     /**
      * This contains the map of variable IDs to Variable objects.  We use a
@@ -222,7 +223,10 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
     @Override
     public boolean isError()
     {
-        return this.state == State.ERROR;
+        // Note that we don't use state == ERROR here because it's possible for
+        // a dataset to be loading and have an error from a previous loading
+        // attempt that an admin might want to see
+        return this.err != null;
     }
 
     /**
@@ -232,7 +236,7 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
     @Override
     public Exception getException()
     {
-        return this.state == State.ERROR ? this.err : null;
+        return this.err;
     }
 
     public State getState()
@@ -301,13 +305,12 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
     
     /**
      * @return a DateTime object representing the time at which this dataset was
-     * last updated, or the present time if this is unknown.  This is only used
-     * in the generation of Capabilities documents.
+     * last updated, or null if the dataset has never been loaded.
      */
     @Override
     public DateTime getLastUpdateTime()
     {
-        return this.lastUpdateTime == null ? new DateTime() : this.lastUpdateTime;
+        return this.lastUpdateTime;
     }
 
     /**
@@ -400,15 +403,16 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
     /**
      * Gets an explanation of the current progress with loading this dataset.
      * Will be displayed in the admin application when isLoading() == true.
+     * Each element in the returned list is a stage in loading the dataset.
      */
-    public String getLoadingProgress()
+    public List<String> getLoadingProgress()
     {
-        return this.loadingProgress.toString();
+        return this.loadingProgress;
     }
 
     private void appendLoadingProgress(String loadingProgress)
     {
-        this.loadingProgress.append(String.format("%s%n", loadingProgress));
+        this.loadingProgress.add(loadingProgress);
     }
     
     /**
@@ -436,6 +440,7 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
      */
     void forceRefresh()
     {
+        this.err = null;
         this.state = State.NEEDS_REFRESH;
     }
 
@@ -450,7 +455,7 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
      */
     void loadLayers()
     {
-        this.loadingProgress = new StringBuilder();
+        this.loadingProgress = new ArrayList<String>();
         // Include the id of the dataset in the thread for debugging purposes
         // Comment this out to use the default thread names (e.g. "pool-2-thread-1")
         Thread.currentThread().setName("load-metadata-" + this.id);
@@ -467,6 +472,7 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
             this.doLoadLayers();
 
             // Update the state of this dataset
+            this.err = null;
             this.state = State.READY;
             this.lastUpdateTime = new DateTime();
 
