@@ -42,9 +42,10 @@ import org.joda.time.DateTime;
 import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import uk.ac.rdg.resc.ncwms.config.LayerImpl;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.coordsys.LonLatPosition;
-import uk.ac.rdg.resc.ncwms.config.LayerImpl;
+import uk.ac.rdg.resc.ncwms.wms.Layer;
 
 /**
  * DataReader for NSIDC snow/water data.  This is an example of how to create
@@ -125,7 +126,7 @@ public class NSIDCSnowWaterDataReader extends DataReader
      * by null.
      *
      * @param filename Location of the file, NcML aggregation or OPeNDAP URL
-     * @param layer {@link LayerImpl} object representing the variable
+     * @param layer {@link Layer} object representing the variable
      * @param tIndex The index along the time axis (or -1 if there is no time axis)
      * @param zIndex The index along the vertical axis (or -1 if there is no vertical axis)
      * @param pointList The list of real-world x-y points for which we need data
@@ -134,7 +135,7 @@ public class NSIDCSnowWaterDataReader extends DataReader
      * @throws IOException if there is an error reading from the source data
      */
     @Override
-    public List<Float> read(String filename, LayerImpl layer, int tIndex, int zIndex, PointList pointList)
+    public List<Float> read(String filename, Layer layer, int tIndex, int zIndex, PointList pointList)
         throws IOException
     {
         // Find the file containing the data

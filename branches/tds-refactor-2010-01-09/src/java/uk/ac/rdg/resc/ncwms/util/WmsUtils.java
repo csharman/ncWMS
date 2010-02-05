@@ -30,20 +30,29 @@ package uk.ac.rdg.resc.ncwms.util;
 
 import java.io.File;
 import java.io.FilenameFilter;
+import java.io.IOException;
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.apache.oro.io.GlobFilenameFilter;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
+import uk.ac.rdg.resc.ncwms.config.LayerImpl;
+import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
+import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.exceptions.WmsException;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
+import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
+import uk.ac.rdg.resc.ncwms.wms.SimpleVectorLayer;
 import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
 
 /**
@@ -384,6 +393,102 @@ public class WmsUtils
             if (path.isFile()) files.add(path);
         }
         return files;
+    }
+
+    /**
+     * Estimate the range of values in this layer by reading a sample of data
+     * from the default time and elevation.  Works for both Scalar and Vector
+     * layers.
+     * @return
+     * @throws IOException if there was an error reading from the source data
+     */
+    public static Range<Float> estimateValueRange(Layer layer) throws IOException
+    {
+        if (layer instanceof ScalarLayer)
+        {
+            List<Float> dataSample = readDataSample((ScalarLayer)layer);
+            return Ranges.findMinMax(dataSample);
+        }
+        else if (layer instanceof VectorLayer)
+        {
+            VectorLayer vecLayer = (VectorLayer)layer;
+            List<Float> eastDataSample = readDataSample(vecLayer.getEastwardComponent());
+            List<Float> northDataSample = readDataSample(vecLayer.getEastwardComponent());
+            List<Float> magnitudes = WmsUtils.getMagnitudes(eastDataSample, northDataSample);
+            return Ranges.findMinMax(magnitudes);
+        }
+        else
+        {
+            throw new IllegalStateException("Unrecognized layer type");
+        }
+    }
+
+    private static List<Float> readDataSample(ScalarLayer layer) throws IOException
+    {
+        try {
+            // Read a low-resolution grid of data covering the entire spatial extent
+            return layer.readPointList(
+                layer.getDefaultTimeValue(),
+                layer.getDefaultElevationValue(),
+                new HorizontalGrid(100, 100, layer.getGeographicBoundingBox())
+            );
+        } catch (InvalidDimensionValueException idve) {
+            // This would only happen due to a programming error in getDefaultXValue()
+            throw new IllegalStateException(idve);
+        }
+    }
+
+    /**
+     * Finds the VectorLayers that can be derived from the given collection of
+     * ScalarLayers, by examining the layer Titles (usually CF standard names)
+     * and looking for "eastward_X"/"northward_X" pairs.  Also looks for
+     * "X_eastward_Y"/"X_northward_Y" pairs.
+     */
+    public static Map<String, VectorLayer> findVectorLayers(Collection<? extends ScalarLayer> scalarLayers)
+    {
+        // This hashtable will store pairs of components in eastward-northward
+        // order, keyed by the standard name for the vector quantity
+        Map<String, ScalarLayer[]> components = new LinkedHashMap<String, ScalarLayer[]>();
+        for (ScalarLayer layer : scalarLayers)
+        {
+            if (layer.getTitle().contains("eastward"))
+            {
+                String vectorKey = layer.getTitle().replaceFirst("eastward_", "");
+                // Look to see if we've already found the northward component
+                if (!components.containsKey(vectorKey))
+                {
+                    // We haven't found the northward component yet
+                    components.put(vectorKey, new LayerImpl[2]);
+                }
+                components.get(vectorKey)[0] = layer;
+            }
+            else if (layer.getTitle().contains("northward"))
+            {
+                String vectorKey = layer.getTitle().replaceFirst("northward_", "");
+                // Look to see if we've already found the eastward component
+                if (!components.containsKey(vectorKey))
+                {
+                    // We haven't found the eastward component yet
+                    components.put(vectorKey, new LayerImpl[2]);
+                }
+                components.get(vectorKey)[1] = layer;
+            }
+        }
+
+        // Now add the vector quantities to the collection of Layer objects
+        Map<String, VectorLayer> vectorLayers = new LinkedHashMap<String, VectorLayer>();
+        for (String key : components.keySet())
+        {
+            ScalarLayer[] comps = components.get(key);
+            if (comps[0] != null && comps[1] != null)
+            {
+                // We've found both components.  Create a new Layer object
+                VectorLayer vec = new SimpleVectorLayer(key, comps[0], comps[1]);
+                vectorLayers.put(key, vec);
+            }
+        }
+
+        return vectorLayers;
     }
 
     /**

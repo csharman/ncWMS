@@ -34,93 +34,27 @@ import org.opengis.metadata.extent.GeographicBoundingBox;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalCoordSys;
 import uk.ac.rdg.resc.ncwms.graphics.ColorPalette;
 import uk.ac.rdg.resc.ncwms.util.Range;
-import uk.ac.rdg.resc.ncwms.util.WmsUtils;
-import uk.ac.rdg.resc.ncwms.wms.Dataset;
 import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
 import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
 
 /**
- * Implementation of a {@link VectorLayer} that wraps two Layer objects,
- * one for the eastward and one for the northward component.  Most of the
- * properties are derived directly from the eastward component.  The components
- * must share the same domain, although this class does not verify this.
+ * A VectorLayer, some of whose properties can be overridden by the ncWMS
+ * config system.
  * @author Jon
  */
 public final class VectorLayerImpl implements VectorLayer
 {
-    private final String id;
-    private final LayerImpl east;
-    private final LayerImpl north;
+    private Dataset ds;
+    private VectorLayer wrappedLayer;
 
-    public VectorLayerImpl(String id, LayerImpl east, LayerImpl north)
+    /** Wraps an existing VectorLayer */
+    public VectorLayerImpl(Dataset ds, VectorLayer vecLayer)
     {
-        this.id = id;
-        this.east = east;
-        this.north = north;
+        this.ds = ds;
+        this.wrappedLayer = vecLayer;
     }
 
-    @Override
-    public ScalarLayer getEastwardComponent() { return this.east; }
-
-    @Override
-    public ScalarLayer getNorthwardComponent() { return this.north; }
-
-    @Override
-    public String getId() { return this.id; }
-
-    @Override
-    public String getAbstract() {
-        return "Automatically-generated vector field, composed of the fields "
-            + this.east.getTitle() + " and " + this.north.getTitle(); 
-    }
-
-    /**
-     * Returns a layer name that is unique on this server, created from the
-     * {@link #getDataset() dataset} id and the {@link #getId() layer id} by the
-     * {@link WmsUtils#createUniqueLayerName(java.lang.String, java.lang.String)}
-     * method.
-     */
-    @Override
-    public String getName()
-    {
-        return WmsUtils.createUniqueLayerName(this.getDataset().getId(), this.getId());
-    }
-
-    @Override
-    public Dataset getDataset() { return this.east.getDataset(); }
-
-    @Override
-    public String getUnits() { return this.east.getUnits(); }
-
-    @Override
-    public boolean isQueryable() { return this.east.isQueryable(); }
-
-    @Override
-    public GeographicBoundingBox getGeographicBoundingBox() { return this.east.getGeographicBoundingBox(); }
-
-    @Override
-    public HorizontalCoordSys getHorizontalCoordSys() { return this.east.getHorizontalCoordSys(); }
-
-    @Override
-    public List<DateTime> getTimeValues() { return this.east.getTimeValues(); }
-
-    @Override
-    public DateTime getCurrentTimeValue() { return this.east.getCurrentTimeValue(); }
-
-    @Override
-    public DateTime getDefaultTimeValue() { return this.east.getDefaultTimeValue(); }
-
-    @Override
-    public List<Double> getElevationValues() { return this.east.getElevationValues(); }
-
-    @Override
-    public double getDefaultElevationValue() { return this.east.getDefaultElevationValue(); }
-
-    @Override
-    public String getElevationUnits() { return this.east.getElevationUnits(); }
-    
-    @Override
-    public boolean isElevationPositive() { return this.east.isElevationPositive(); }
+    @Override public Dataset getDataset() { return this.ds; }
 
     ////////////////////////////////////////////
     //// Values overridden in configuration ////
@@ -132,7 +66,7 @@ public final class VectorLayerImpl implements VectorLayer
      */
     private Variable getVariable()
     {
-        return this.east.getDataset().getVariables().get(this.id);
+        return this.ds.getVariables().get(this.getId());
     }
 
     /**
@@ -145,7 +79,7 @@ public final class VectorLayerImpl implements VectorLayer
     {
         Variable var = this.getVariable();
         if (var != null && var.getTitle() != null) return var.getTitle();
-        else return this.id;
+        else return this.getId();
     }
 
     @Override
@@ -164,6 +98,81 @@ public final class VectorLayerImpl implements VectorLayer
     public ColorPalette getDefaultColorPalette()
     {
         return ColorPalette.get(this.getVariable().getPaletteName());
+    }
+
+
+    /////////////////////////
+    //// Wrapped methods ////
+    /////////////////////////
+
+    @Override
+    public ScalarLayer getEastwardComponent() {
+       return this.wrappedLayer.getEastwardComponent();
+    }
+
+    @Override
+    public ScalarLayer getNorthwardComponent() {
+        return this.wrappedLayer.getNorthwardComponent();
+    }
+
+    @Override
+    public String getId() { return this.wrappedLayer.getId(); }
+
+    @Override
+    public String getAbstract()  { return this.wrappedLayer.getAbstract(); }
+
+    @Override
+    public String getName()  { return this.wrappedLayer.getName(); }
+
+    @Override
+    public String getUnits()  { return this.wrappedLayer.getUnits(); }
+
+    @Override
+    public boolean isQueryable()  { return this.wrappedLayer.isQueryable(); }
+
+    @Override
+    public GeographicBoundingBox getGeographicBoundingBox() {
+        return this.wrappedLayer.getGeographicBoundingBox();
+    }
+
+    @Override
+    public HorizontalCoordSys getHorizontalCoordSys() {
+        return this.wrappedLayer.getHorizontalCoordSys();
+    }
+
+    @Override
+    public List<DateTime> getTimeValues() {
+        return this.wrappedLayer.getTimeValues();
+    }
+
+    @Override
+    public DateTime getCurrentTimeValue() {
+        return this.wrappedLayer.getCurrentTimeValue();
+    }
+
+    @Override
+    public DateTime getDefaultTimeValue() {
+        return this.wrappedLayer.getDefaultTimeValue();
+    }
+
+    @Override
+    public List<Double> getElevationValues() {
+        return this.wrappedLayer.getElevationValues();
+    }
+
+    @Override
+    public double getDefaultElevationValue() {
+        return this.wrappedLayer.getDefaultElevationValue();
+    }
+
+    @Override
+    public String getElevationUnits() {
+        return this.wrappedLayer.getElevationUnits();
+    }
+
+    @Override
+    public boolean isElevationPositive() {
+        return this.wrappedLayer.isElevationPositive();
     }
 
 }

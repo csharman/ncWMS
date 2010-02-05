@@ -28,7 +28,7 @@
 
 package uk.ac.rdg.resc.ncwms.wms;
 
-import java.util.Set;
+import java.util.Map;
 import org.joda.time.DateTime;
 
 /**
@@ -72,9 +72,11 @@ public interface Dataset
     public DateTime getLastUpdateTime();
 
     /**
-     * Gets the {@link Layer}s that comprise this dataset.
+     * Gets the {@link Layer}s that comprise this dataset as a Map of
+     * {@link Layer#getId() Layer ID}s to Layer objects.
+     * to Layer objects.
      */
-    public Set<Layer> getLayers();
+    public Map<String, ? extends Layer> getLayers();
 
     /**
      * Returns true if the dataset is ready for use.  If the dataset is ready,

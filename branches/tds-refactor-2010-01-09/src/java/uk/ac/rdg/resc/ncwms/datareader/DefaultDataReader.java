@@ -58,12 +58,13 @@ import ucar.nc2.dt.GridDatatype;
 import ucar.nc2.dt.TypedDatasetFactory;
 import ucar.unidata.geoloc.LatLonPoint;
 import ucar.unidata.geoloc.LatLonRect;
-import uk.ac.rdg.resc.ncwms.coordsys.HorizontalCoordSys;
 import uk.ac.rdg.resc.ncwms.config.LayerImpl;
+import uk.ac.rdg.resc.ncwms.coordsys.HorizontalCoordSys;
 import uk.ac.rdg.resc.ncwms.coordsys.CrsHelper;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.coordsys.LonLatPosition;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
+import uk.ac.rdg.resc.ncwms.wms.Layer;
 
 /**
  * Default data reading class for CF-compliant NetCDF datasets.
@@ -95,7 +96,7 @@ public class DefaultDataReader extends DataReader
      * populatePixelArray()}</p>
      *
      * @param filename Location of the file, NcML aggregation or OPeNDAP URL
-     * @param layer {@link LayerImpl} object representing the variable
+     * @param layer {@link Layer} object representing the variable
      * @param tIndex The index along the time axis (or -1 if there is no time axis)
      * @param zIndex The index along the vertical axis (or -1 if there is no vertical axis)
      * @param pointList The list of real-world x-y points for which we need data.
@@ -105,7 +106,7 @@ public class DefaultDataReader extends DataReader
      * @throws IOException if an input/output exception occurred when reading data
      */
     @Override
-    public List<Float> read(String filename, LayerImpl layer, int tIndex, int zIndex,
+    public List<Float> read(String filename, Layer layer, int tIndex, int zIndex,
         PointList pointList) throws IOException
     {
         NetcdfDataset nc = null;
@@ -227,7 +228,7 @@ public class DefaultDataReader extends DataReader
      * therefore expected to be more efficient, particularly when reading from
      * OPeNDAP servers.</p>
      * @param filename Location of the file, NcML aggregation or OPeNDAP URL
-     * @param layer {@link LayerImpl} object representing the variable
+     * @param layer {@link Layer} object representing the variable
      * @param tIndices the indices along the time axis within this file
      * @param zIndex The index along the vertical axis (or -1 if there is no vertical axis)
      * @param xy the horizontal position of the point
@@ -237,7 +238,7 @@ public class DefaultDataReader extends DataReader
      * @todo Validity checking on tIndices and layer.hasTAxis()?
      */
     @Override
-    public List<Float> readTimeseries(String filename, LayerImpl layer,
+    public List<Float> readTimeseries(String filename, Layer layer,
         List<Integer> tIndices, int zIndex, HorizontalPosition xy)
         throws IOException
     {
@@ -317,7 +318,9 @@ public class DefaultDataReader extends DataReader
                 if (tIndexOffset < 0) tIndexOffset = 0; // This will happen if the layer has no t axis
                 float val = arr.getFloat(tIndexOffset);
                 // Convert scale-offset-missing
-                tsData.add((float)var.convertScaleOffsetMissing(val));
+                val = (float)var.convertScaleOffsetMissing(val);
+                // Replace missing values with nulls
+                tsData.add(Float.isNaN(val) ? null : val);
             }
             return tsData;
         }

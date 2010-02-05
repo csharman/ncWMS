@@ -28,13 +28,10 @@
 
 package uk.ac.rdg.resc.ncwms.config;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,13 +42,10 @@ import org.simpleframework.xml.load.Commit;
 import org.simpleframework.xml.load.PersistenceException;
 import org.simpleframework.xml.load.Validate;
 import uk.ac.rdg.resc.ncwms.datareader.DataReader;
-import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
-import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.util.Range;
 import uk.ac.rdg.resc.ncwms.util.Ranges;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
-import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
 import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
 
 /**
@@ -332,16 +326,12 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
      * @return a Set of all the layers in this dataset.
      */
     @Override
-    public Set<Layer> getLayers()
+    public Map<String, ? extends Layer> getLayers()
     {
-        Set<Layer> layerSet = new LinkedHashSet<Layer>(this.scalarLayers.size());
-        for (Layer scalarLayer : this.scalarLayers.values()) {
-            layerSet.add(scalarLayer);
-        }
-        for (VectorLayer vectorLayer : this.vectorLayers.values()) {
-            layerSet.add(vectorLayer);
-        }
-        return layerSet;
+        Map<String, Layer> allLayers = new LinkedHashMap<String, Layer>();
+        allLayers.putAll(this.scalarLayers);
+        allLayers.putAll(this.vectorLayers);
+        return allLayers;
     }
 
     /**
@@ -562,46 +552,11 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
      */
     private void findVectorQuantities()
     {
-        // This hashtable will store pairs of components in eastward-northward
-        // order, keyed by the standard name for the vector quantity
-        Map<String, LayerImpl[]> components = new LinkedHashMap<String, LayerImpl[]>();
-        this.vectorLayers = new LinkedHashMap<String, VectorLayerImpl>();
-        for (LayerImpl layer : this.scalarLayers.values())
-        {
-            if (layer.getTitle().contains("eastward"))
-            {
-                String vectorKey = layer.getTitle().replaceFirst("eastward_", "");
-                // Look to see if we've already found the northward component
-                if (!components.containsKey(vectorKey))
-                {
-                    // We haven't found the northward component yet
-                    components.put(vectorKey, new LayerImpl[2]);
-                }
-                components.get(vectorKey)[0] = layer;
-            }
-            else if (layer.getTitle().contains("northward"))
-            {
-                String vectorKey = layer.getTitle().replaceFirst("northward_", "");
-                // Look to see if we've already found the eastward component
-                if (!components.containsKey(vectorKey))
-                {
-                    // We haven't found the eastward component yet
-                    components.put(vectorKey, new LayerImpl[2]);
-                }
-                components.get(vectorKey)[1] = layer;
-            }
-        }
-
         // Now add the vector quantities to the collection of Layer objects
-        for (String key : components.keySet())
+        this.vectorLayers = new LinkedHashMap<String, VectorLayerImpl>();
+        for (VectorLayer vecLayer : WmsUtils.findVectorLayers(this.scalarLayers.values()).values())
         {
-            LayerImpl[] comps = components.get(key);
-            if (comps[0] != null && comps[1] != null)
-            {
-                // We've found both components.  Create a new Layer object
-                VectorLayerImpl vec = new VectorLayerImpl(key, comps[0], comps[1]);
-                this.vectorLayers.put(key, vec);
-            }
+            this.vectorLayers.put(vecLayer.getId(), new VectorLayerImpl(this, vecLayer));
         }
     }
 
@@ -611,7 +566,7 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
      */
     private void readLayerConfig()
     {
-        for (Layer layer : this.getLayers()) // all the layers, scalars and vectors
+        for (Layer layer : this.getLayers().values()) // all the layers, scalars and vectors
         {
             // Load the Variable object from the config file or create a new
             // one if it doesn't exist.
@@ -636,7 +591,7 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
                 Range<Float> valueRange;
                 try
                 {
-                    valueRange = estimateValueRange(layer);
+                    valueRange = WmsUtils.estimateValueRange(layer);
                     if (valueRange.isEmpty())
                     {
                         // We failed to get a valid range.  Just guess at a scale
@@ -670,48 +625,6 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
                 }
                 var.setColorScaleRange(valueRange);
             }
-        }
-    }
-
-    /**
-     * Estimate the range of values in this layer by reading a sample of data
-     * from the default time and elevation.
-     * @return
-     * @throws IOException if there was an error reading from the source data
-     */
-    private static Range<Float> estimateValueRange(Layer layer) throws IOException
-    {
-        if (layer instanceof ScalarLayer)
-        {
-            List<Float> dataSample = readDataSample((ScalarLayer)layer);
-            return Ranges.findMinMax(dataSample);
-        }
-        else if (layer instanceof VectorLayer)
-        {
-            VectorLayer vecLayer = (VectorLayer)layer;
-            List<Float> eastDataSample = readDataSample(vecLayer.getEastwardComponent());
-            List<Float> northDataSample = readDataSample(vecLayer.getEastwardComponent());
-            List<Float> magnitudes = WmsUtils.getMagnitudes(eastDataSample, northDataSample);
-            return Ranges.findMinMax(magnitudes);
-        }
-        else
-        {
-            throw new IllegalStateException("Unrecognized layer type");
-        }
-    }
-
-    private static List<Float> readDataSample(ScalarLayer layer) throws IOException
-    {
-        try {
-            // Read a low-resolution grid of data covering the entire spatial extent
-            return layer.readPointList(
-                layer.getDefaultTimeValue(),
-                layer.getDefaultElevationValue(),
-                new HorizontalGrid(100, 100, layer.getGeographicBoundingBox())
-            );
-        } catch (InvalidDimensionValueException idve) {
-            // This would only happen due to a programming error in getDefaultXValue()
-            throw new IllegalStateException(idve);
         }
     }
 

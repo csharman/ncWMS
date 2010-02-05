@@ -39,6 +39,7 @@ import uk.ac.rdg.resc.ncwms.config.Dataset;
 import uk.ac.rdg.resc.ncwms.config.LayerImpl;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
+import uk.ac.rdg.resc.ncwms.wms.Layer;
 
 /**
  * Abstract superclass for classes that read data and metadata from datasets.
@@ -96,7 +97,7 @@ public abstract class DataReader
      * by null.
      *
      * @param filename Location of the file, NcML aggregation or OPeNDAP URL
-     * @param layer {@link LayerImpl} object representing the variable
+     * @param layer {@link Layer} object representing the variable
      * @param tIndex The index along the time axis (or -1 if there is no time axis)
      * @param zIndex The index along the vertical axis (or -1 if there is no vertical axis)
      * @param pointList The list of real-world x-y points for which we need data
@@ -104,7 +105,7 @@ public abstract class DataReader
      * the {@code pointList}, in the same order.
      * @throws IOException if an input/output exception occurred when reading data
      */
-    public abstract List<Float> read(String filename, LayerImpl layer,
+    public abstract List<Float> read(String filename, Layer layer,
         int tIndex, int zIndex, PointList pointList)
         throws IOException;
 
@@ -124,7 +125,7 @@ public abstract class DataReader
      * multiple times (a particular problem when reading from OPeNDAP servers).
      * Subclasses are encouraged to override this with a more efficient method.</p>
      * @param filename Location of the file, NcML aggregation or OPeNDAP URL
-     * @param layer {@link LayerImpl} object representing the variable
+     * @param layer {@link Layer} object representing the variable
      * @param tIndices the indices along the time axis within this file
      * @param zIndex The index along the vertical axis (or -1 if there is no vertical axis)
      * @param xy the horizontal position of the point
@@ -133,7 +134,7 @@ public abstract class DataReader
      * @throws IOException if an input/output exception occurred when reading data
      * @todo Validity checking on tIndices and layer.hasTAxis()?
      */
-    public List<Float> readTimeseries(String filename, LayerImpl layer,
+    public List<Float> readTimeseries(String filename, Layer layer,
         List<Integer> tIndices, int zIndex, HorizontalPosition xy)
         throws IOException {
 

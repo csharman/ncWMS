@@ -64,11 +64,10 @@ import uk.ac.rdg.resc.ncwms.cache.TileCacheKey;
 import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.datareader.NcwmsCredentialsProvider;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
-import uk.ac.rdg.resc.ncwms.exceptions.LayerNotDefinedException;
 import uk.ac.rdg.resc.ncwms.security.Users;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
-import uk.ac.rdg.resc.ncwms.wms.Layer;
+import uk.ac.rdg.resc.ncwms.wms.AbstractServerConfig;
 import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
 import uk.ac.rdg.resc.ncwms.wms.ServerConfig;
 
@@ -82,7 +81,7 @@ import uk.ac.rdg.resc.ncwms.wms.ServerConfig;
  * @author Jon Blower
  */
 @Root(name="config")
-public class Config implements ServerConfig, ApplicationContextAware
+public class Config extends AbstractServerConfig implements ApplicationContextAware
 {
     private static final Logger logger = LoggerFactory.getLogger(Config.class);
     
@@ -322,30 +321,6 @@ public class Config implements ServerConfig, ApplicationContextAware
     }
 
     /**
-     * Gets the Layer object with the given unique name.
-     * @throws LayerNotDefinedException if the given name does not match a layer
-     * on this server
-     */
-    @Override
-    public Layer getLayerByUniqueName(String uniqueLayerName)
-        throws LayerNotDefinedException
-    {
-        try
-        {
-            String[] els = WmsUtils.parseUniqueLayerName(uniqueLayerName);
-            Dataset ds = this.datasets.get(els[0]);
-            if (ds == null) throw new NullPointerException();
-            Layer layer = ds.getLayer(els[1]);
-            if (layer == null) throw new NullPointerException();
-            return layer;
-        }
-        catch(Exception e)
-        {
-            throw new LayerNotDefinedException(uniqueLayerName);
-        }
-    }
-
-    /**
      * {@inheritDoc}
      * <p>This implementation uses a {@link TileCache} to store data arrays,
      * speeding up repeat requests.</p>
@@ -372,8 +347,7 @@ public class Config implements ServerConfig, ApplicationContextAware
         );
 
         List<Float> data = null;
-        // Search the cache
-         // returns null if key is not found
+        // Search the cache.  Returns null if key is not found
         if (this.cache.isEnabled()) data = this.tileCache.get(key);
 
         // Record whether or not we got a hit in the cache
