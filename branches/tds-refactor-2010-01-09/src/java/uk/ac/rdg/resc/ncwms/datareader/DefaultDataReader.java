@@ -59,8 +59,10 @@ import ucar.nc2.dt.TypedDatasetFactory;
 import ucar.unidata.geoloc.LatLonPoint;
 import ucar.unidata.geoloc.LatLonRect;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalCoordSys;
-import uk.ac.rdg.resc.ncwms.coordsys.LonLatPosition;
 import uk.ac.rdg.resc.ncwms.config.LayerImpl;
+import uk.ac.rdg.resc.ncwms.coordsys.CrsHelper;
+import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
+import uk.ac.rdg.resc.ncwms.coordsys.LonLatPosition;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 
 /**
@@ -228,7 +230,7 @@ public class DefaultDataReader extends DataReader
      * @param layer {@link LayerImpl} object representing the variable
      * @param tIndices the indices along the time axis within this file
      * @param zIndex The index along the vertical axis (or -1 if there is no vertical axis)
-     * @param lonLat The longitude and latitude of the point
+     * @param xy the horizontal position of the point
      * @return an array of floating-point data values, one for each point in
      * {@code tIndices}, in the same order.
      * @throws IOException if an input/output exception occurred when reading data
@@ -236,13 +238,40 @@ public class DefaultDataReader extends DataReader
      */
     @Override
     public List<Float> readTimeseries(String filename, LayerImpl layer,
-        List<Integer> tIndices, int zIndex, LonLatPosition lonLat)
+        List<Integer> tIndices, int zIndex, HorizontalPosition xy)
         throws IOException
     {
-        int firstTIndex = tIndices.get(0);
-        int lastTIndex = tIndices.get(tIndices.size() - 1);
+        LonLatPosition lonLat;
+        if (xy instanceof LonLatPosition)
+        {
+            lonLat = (LonLatPosition)xy;
+        }
+        else if (xy.getCoordinateReferenceSystem() == null)
+        {
+            throw new IllegalArgumentException("Horizontal position must have a"
+                + " coordinate reference system");
+        }
+        else
+        {
+            CrsHelper crsHelper = CrsHelper.fromCrs(xy.getCoordinateReferenceSystem());
+            try
+            {
+                lonLat = crsHelper.crsToLonLat(xy);
+            }
+            catch(TransformException te)
+            {
+                // This would only happen if there were an internal error transforming
+                // between coordinate systems in making the PixelMap.  There is
+                // nothing a client could do to recover from this so we turn it into
+                // a runtime exception
+                // TODO: think of a better exception type
+                throw new RuntimeException(te);
+            }
+        }
         int[] gridCoords = layer.getHorizontalCoordSys().lonLatToGrid(lonLat);
 
+        int firstTIndex = tIndices.get(0);
+        int lastTIndex = tIndices.get(tIndices.size() - 1);
         // Prevent InvalidRangeExceptions if z or t axes are missing
         if (firstTIndex < 0 || lastTIndex < 0)
         {

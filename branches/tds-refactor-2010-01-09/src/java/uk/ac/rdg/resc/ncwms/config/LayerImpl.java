@@ -29,7 +29,10 @@
 package uk.ac.rdg.resc.ncwms.config;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.joda.time.DateTime;
 import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.datareader.DataReader;
@@ -209,5 +212,43 @@ public final class LayerImpl extends AbstractTimeAggregatedLayer
     {
         PointList singlePoint = PointList.fromPoint(xy);
         return this.readPointList(time, elevation, singlePoint).get(0);
+    }
+
+    @Override
+    public List<Float> readTimeseries(List<DateTime> times, double elevation,
+        HorizontalPosition xy) throws InvalidDimensionValueException, IOException
+    {
+        if (times == null) throw new NullPointerException("times");
+        int zIndex = this.findAndCheckElevationIndex(elevation);
+
+        // We need to group the tIndices by their containing file.  That way, we
+        // can read all the time data from the same file in the same operation.
+        // This maps filenames to lists of t indices within the file.  We must
+        // preserve the insertion order so we use a LinkedHashMap.
+        Map<String, List<Integer>> files = new LinkedHashMap<String, List<Integer>>();
+        for (DateTime dt : times) {
+            FilenameAndTimeIndex ft = this.findAndCheckFilenameAndTimeIndex(dt);
+            List<Integer> tIndicesInFile = files.get(ft.filename);
+            if (tIndicesInFile == null) {
+                tIndicesInFile = new ArrayList<Integer>();
+                files.put(ft.filename, tIndicesInFile);
+            }
+            tIndicesInFile.add(ft.tIndexInFile);
+        }
+
+        // Now we read the data from each file and add it to the timeseries
+        List<Float> data = new ArrayList<Float>();
+        for (String filename : files.keySet()) {
+            List<Integer> tIndicesInFile = files.get(filename);
+            List<Float> arr = this.dataReader.readTimeseries(filename, this, tIndicesInFile, zIndex, xy);
+            data.addAll(arr);
+        }
+
+        // Check that we have the right number of data points
+        if (data.size() != times.size()) {
+            throw new AssertionError("Timeseries length inconsistency");
+        }
+
+        return data;
     }
 }

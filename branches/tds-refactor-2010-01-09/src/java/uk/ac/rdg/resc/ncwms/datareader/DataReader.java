@@ -36,8 +36,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import uk.ac.rdg.resc.ncwms.config.Dataset;
-import uk.ac.rdg.resc.ncwms.coordsys.LonLatPosition;
 import uk.ac.rdg.resc.ncwms.config.LayerImpl;
+import uk.ac.rdg.resc.ncwms.coordsys.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 
 /**
@@ -127,17 +127,17 @@ public abstract class DataReader
      * @param layer {@link LayerImpl} object representing the variable
      * @param tIndices the indices along the time axis within this file
      * @param zIndex The index along the vertical axis (or -1 if there is no vertical axis)
-     * @param lonLat The longitude and latitude of the point
+     * @param xy the horizontal position of the point
      * @return an array of floating-point data values, one for each point in
      * {@code tIndices}, in the same order.
      * @throws IOException if an input/output exception occurred when reading data
      * @todo Validity checking on tIndices and layer.hasTAxis()?
      */
     public List<Float> readTimeseries(String filename, LayerImpl layer,
-        List<Integer> tIndices, int zIndex, LonLatPosition lonLat)
+        List<Integer> tIndices, int zIndex, HorizontalPosition xy)
         throws IOException {
 
-        PointList pointList = PointList.fromPoint(lonLat);
+        PointList pointList = PointList.fromPoint(xy);
         List<Float> tsData = new ArrayList<Float>();
         for (int tIndex : tIndices) {
             tsData.add(this.read(filename, layer, tIndex, zIndex, pointList).get(0));
