@@ -46,7 +46,12 @@ response.setDateHeader ("Expires", 0); //prevents caching at the proxy server
             </c:forEach>
             <th>FeatureInfo</th>
         </tr>
-        <c:forEach var="datasetEntry" items="${config.allDatasets}">
+        <c:set var="allDatasets" value="${config.allDatasets}"/>
+        <c:if test="${empty allDatasets}">
+            This server contains no datasets, or it is not possible to list all
+            the datasets on this server.
+        </c:if>
+        <c:forEach var="datasetEntry" items="${allDatasets}">
         <c:set var="dataset" value="${datasetEntry.value}"/>
         <c:if test="${dataset.ready}">
         <tr>
