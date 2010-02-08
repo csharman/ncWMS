@@ -46,7 +46,6 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
-import uk.ac.rdg.resc.ncwms.config.LayerImpl;
 import uk.ac.rdg.resc.ncwms.coords.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.exceptions.WmsException;
@@ -441,8 +440,7 @@ public class WmsUtils
     /**
      * Finds the VectorLayers that can be derived from the given collection of
      * ScalarLayers, by examining the layer Titles (usually CF standard names)
-     * and looking for "eastward_X"/"northward_X" pairs.  Also looks for
-     * "X_eastward_Y"/"X_northward_Y" pairs.
+     * and looking for "eastward_X"/"northward_X" pairs.
      */
     public static List<VectorLayer> findVectorLayers(Collection<? extends ScalarLayer> scalarLayers)
     {
@@ -458,7 +456,7 @@ public class WmsUtils
                 if (!components.containsKey(vectorKey))
                 {
                     // We haven't found the northward component yet
-                    components.put(vectorKey, new LayerImpl[2]);
+                    components.put(vectorKey, new ScalarLayer[2]);
                 }
                 components.get(vectorKey)[0] = layer;
             }
@@ -469,7 +467,7 @@ public class WmsUtils
                 if (!components.containsKey(vectorKey))
                 {
                     // We haven't found the eastward component yet
-                    components.put(vectorKey, new LayerImpl[2]);
+                    components.put(vectorKey, new ScalarLayer[2]);
                 }
                 components.get(vectorKey)[1] = layer;
             }
