@@ -43,7 +43,8 @@ class ThreddsDataset implements Dataset {
     }
 
     /**
-     * Returns the current time.
+     * Returns the current time, since datasets could change at any time without
+     * our knowledge.
      * @see ThreddsServerConfig#getLastUpdateTime()
      */
     @Override

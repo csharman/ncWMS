@@ -26,7 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.coordsys;
+package uk.ac.rdg.resc.ncwms.coords;
 
 import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
@@ -46,7 +46,7 @@ import ucar.nc2.dataset.CoordinateAxis;
 import ucar.nc2.dataset.CoordinateAxis2D;
 import ucar.nc2.dataset.NetcdfDataset.Enhance;
 import ucar.nc2.dt.GridCoordSystem;
-import uk.ac.rdg.resc.ncwms.coordsys.CurvilinearGrid.Cell;
+import uk.ac.rdg.resc.ncwms.coords.CurvilinearGrid.Cell;
 
 /**
  * A horizontal (2D) grid that is defined by explicitly specifying the longitude and

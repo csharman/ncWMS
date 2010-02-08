@@ -41,7 +41,7 @@ import org.simpleframework.xml.Root;
 import org.simpleframework.xml.load.Commit;
 import org.simpleframework.xml.load.PersistenceException;
 import org.simpleframework.xml.load.Validate;
-import uk.ac.rdg.resc.ncwms.datareader.DataReader;
+import uk.ac.rdg.resc.ncwms.config.datareader.DataReader;
 import uk.ac.rdg.resc.ncwms.util.Range;
 import uk.ac.rdg.resc.ncwms.util.Ranges;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
@@ -554,7 +554,7 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
     {
         // Now add the vector quantities to the collection of Layer objects
         this.vectorLayers = new LinkedHashMap<String, VectorLayerImpl>();
-        for (VectorLayer vecLayer : WmsUtils.findVectorLayers(this.scalarLayers.values()).values())
+        for (VectorLayer vecLayer : WmsUtils.findVectorLayers(this.scalarLayers.values()))
         {
             this.vectorLayers.put(vecLayer.getId(), new VectorLayerImpl(this, vecLayer));
         }

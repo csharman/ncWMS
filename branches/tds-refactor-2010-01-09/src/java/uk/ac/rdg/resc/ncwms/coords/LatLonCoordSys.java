@@ -26,8 +26,38 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+package uk.ac.rdg.resc.ncwms.coords;
+
 /**
- * Coordinate system handling, primarily dealing with the conversion between
- * real-world points and indices within arrays of data.
+ * Special case of a {@link HorizontalCoordSys} in which the axes are both
+ * one-dimensional and are latitude and longitude.  Instances of this class
+ * can only be created through
+ * {@link HorizontalCoordSys#fromCoordSys(ucar.nc2.dt.GridCoordSystem)}.
  */
-package uk.ac.rdg.resc.ncwms.coordsys;
+public final class LatLonCoordSys extends OneDCoordSys
+{
+
+    /** Package-private constructor to prevent direct instantiation */
+    LatLonCoordSys(OneDCoordAxis lonAxis, OneDCoordAxis latAxis)
+    {
+        super(lonAxis, latAxis, null);
+    }
+
+    /**
+     * @return the nearest point along the longitude axis to the given
+     * longitude coordinate, or -1 if the value is out of range for this axis.
+     */
+    public int getLonIndex(double longitude)
+    {
+        return this.getXIndex(longitude);
+    }
+
+    /**
+     * @return the nearest point along the latitude axis to the given
+     * latitude coordinate, or -1 if the value is out of range for this axis.
+     */
+    public int getLatIndex(double latitude)
+    {
+        return this.getYIndex(latitude);
+    }
+}

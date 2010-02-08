@@ -47,7 +47,7 @@ import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 import uk.ac.rdg.resc.ncwms.config.LayerImpl;
-import uk.ac.rdg.resc.ncwms.datareader.HorizontalGrid;
+import uk.ac.rdg.resc.ncwms.coords.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.exceptions.WmsException;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
@@ -444,7 +444,7 @@ public class WmsUtils
      * and looking for "eastward_X"/"northward_X" pairs.  Also looks for
      * "X_eastward_Y"/"X_northward_Y" pairs.
      */
-    public static Map<String, VectorLayer> findVectorLayers(Collection<? extends ScalarLayer> scalarLayers)
+    public static List<VectorLayer> findVectorLayers(Collection<? extends ScalarLayer> scalarLayers)
     {
         // This hashtable will store pairs of components in eastward-northward
         // order, keyed by the standard name for the vector quantity
@@ -476,7 +476,7 @@ public class WmsUtils
         }
 
         // Now add the vector quantities to the collection of Layer objects
-        Map<String, VectorLayer> vectorLayers = new LinkedHashMap<String, VectorLayer>();
+        List<VectorLayer> vectorLayers = new ArrayList<VectorLayer>();
         for (String key : components.keySet())
         {
             ScalarLayer[] comps = components.get(key);
@@ -484,7 +484,7 @@ public class WmsUtils
             {
                 // We've found both components.  Create a new Layer object
                 VectorLayer vec = new SimpleVectorLayer(key, comps[0], comps[1]);
-                vectorLayers.put(key, vec);
+                vectorLayers.add(vec);
             }
         }
 

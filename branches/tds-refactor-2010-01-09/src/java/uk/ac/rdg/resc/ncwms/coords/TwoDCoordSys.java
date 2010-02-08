@@ -26,14 +26,14 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.coordsys;
+package uk.ac.rdg.resc.ncwms.coords;
 
 import java.util.HashMap;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ucar.nc2.dt.GridCoordSystem;
-import uk.ac.rdg.resc.ncwms.coordsys.CurvilinearGrid.Cell;
+import uk.ac.rdg.resc.ncwms.coords.CurvilinearGrid.Cell;
 
 /**
  * A HorizontalCoordSys that is created from a "curvilinear" coordinate system,

@@ -26,46 +26,15 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.coordsys;
-
-import org.opengis.geometry.DirectPosition;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
+package uk.ac.rdg.resc.ncwms.coords;
 
 /**
- * Defines the position of a point in the horizontal plane.
+ * Exception that is thrown when a {@link LineString} is constructed with an
+ * invalid line string specification
  * @author Jon
  */
-public interface HorizontalPosition extends DirectPosition {
-
-    /** Returns the x coordinate of this position, equivalent to getOrdinate(0) */
-    public double getX();
-
-    /** Returns the y coordinate of this position, equivalent to getOrdinate(1) */
-    public double getY();
-
-    /**
-     * Returns a two-dimensional coordinate reference system.
-     * The first coordinate in the CRS is the {@link #getX() x coordinate};
-     * the second is the {@link #getY() y coordinate}.
-     * @return a two-dimensional coordinate reference system
-     */
-    @Override public CoordinateReferenceSystem getCoordinateReferenceSystem();
-
-    /** Returns 2 */
-    @Override public int getDimension();
-
-    /**
-     * Returns an array of two coordinates [x,y]
-     */
-    @Override public double[] getCoordinate();
-
-    /**
-     * Returns the ordinate at the specified dimension.
-     * @param dimension - The dimension in the range 0 to 1 (inclusive)
-     * @return The coordinate at the specified dimension (index = 0 gives the
-     * x coordinate; index = 1 gives the y coordinate)
-     * @throws IndexOutOfBoundsException if {@code index < 0 || index > 1}
-     */
-    @Override public double getOrdinate(int index);
-
+public class InvalidLineStringException extends Exception {
+    public InvalidLineStringException(String message) {
+        super(message);
+    }
 }

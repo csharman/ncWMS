@@ -26,37 +26,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.coordsys;
-
-import org.geotoolkit.referencing.crs.DefaultGeographicCRS;
-
 /**
- * Immutable implementation of {@link LonLatPosition}.
- * @author Jon
+ * Coordinate system handling, primarily dealing with the conversion between
+ * real-world points and indices within arrays of data.  Also includes classes
+ * that hold groupings of coordinates, e.g. as {@link LineString}s and
+ * {@link HorizontalGrid}s.
  */
-public final class LonLatPositionImpl extends HorizontalPositionImpl implements LonLatPosition {
-
-    /**
-     * Returns the longitude, in the range [-180:180] degrees.
-     * @return the longitude, in the range [-180:180] degrees.
-     */
-    @Override public double getLongitude() { return this.getX(); }
-
-    /**
-     * Returns the geodetic latitude in degrees.
-     * @return the geodetic latitude in degrees.
-     */
-    @Override public double getLatitude() { return this.getY(); }
-
-    /**
-     * Creates a new LonLatPositionImpl with the given coordinates.
-     * @param longitude The longitude.  Will be converted internally to a
-     * longitude in the range [-180:180], so all getter methods will return
-     * values in this range.
-     * @param latitude The geodetic latitude
-     */
-    public LonLatPositionImpl(double longitude, double latitude) {
-        super(DefaultGeographicCRS.WGS84, Longitude.constrain180(longitude), latitude);
-    }
-
-}
+package uk.ac.rdg.resc.ncwms.coords;

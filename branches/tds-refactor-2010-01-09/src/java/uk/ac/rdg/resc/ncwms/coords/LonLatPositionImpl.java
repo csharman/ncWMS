@@ -26,38 +26,37 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.coordsys;
+package uk.ac.rdg.resc.ncwms.coords;
+
+import org.geotoolkit.referencing.crs.DefaultGeographicCRS;
 
 /**
- * Special case of a {@link HorizontalCoordSys} in which the axes are both
- * one-dimensional and are latitude and longitude.  Instances of this class
- * can only be created through
- * {@link HorizontalCoordSys#fromCoordSys(ucar.nc2.dt.GridCoordSystem)}.
+ * Immutable implementation of {@link LonLatPosition}.
+ * @author Jon
  */
-public final class LatLonCoordSys extends OneDCoordSys
-{
-
-    /** Package-private constructor to prevent direct instantiation */
-    LatLonCoordSys(OneDCoordAxis lonAxis, OneDCoordAxis latAxis)
-    {
-        super(lonAxis, latAxis, null);
-    }
+public final class LonLatPositionImpl extends HorizontalPositionImpl implements LonLatPosition {
 
     /**
-     * @return the nearest point along the longitude axis to the given
-     * longitude coordinate, or -1 if the value is out of range for this axis.
+     * Returns the longitude, in the range [-180:180] degrees.
+     * @return the longitude, in the range [-180:180] degrees.
      */
-    public int getLonIndex(double longitude)
-    {
-        return this.getXIndex(longitude);
-    }
+    @Override public double getLongitude() { return this.getX(); }
 
     /**
-     * @return the nearest point along the latitude axis to the given
-     * latitude coordinate, or -1 if the value is out of range for this axis.
+     * Returns the geodetic latitude in degrees.
+     * @return the geodetic latitude in degrees.
      */
-    public int getLatIndex(double latitude)
-    {
-        return this.getYIndex(latitude);
+    @Override public double getLatitude() { return this.getY(); }
+
+    /**
+     * Creates a new LonLatPositionImpl with the given coordinates.
+     * @param longitude The longitude.  Will be converted internally to a
+     * longitude in the range [-180:180], so all getter methods will return
+     * values in this range.
+     * @param latitude The geodetic latitude
+     */
+    public LonLatPositionImpl(double longitude, double latitude) {
+        super(DefaultGeographicCRS.WGS84, Longitude.constrain180(longitude), latitude);
     }
+
 }

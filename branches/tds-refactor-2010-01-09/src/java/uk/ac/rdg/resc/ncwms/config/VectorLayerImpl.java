@@ -31,7 +31,7 @@ package uk.ac.rdg.resc.ncwms.config;
 import java.util.List;
 import org.joda.time.DateTime;
 import org.opengis.metadata.extent.GeographicBoundingBox;
-import uk.ac.rdg.resc.ncwms.coordsys.HorizontalCoordSys;
+import uk.ac.rdg.resc.ncwms.coords.HorizontalCoordSys;
 import uk.ac.rdg.resc.ncwms.graphics.ColorPalette;
 import uk.ac.rdg.resc.ncwms.util.Range;
 import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
@@ -44,8 +44,8 @@ import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
  */
 public final class VectorLayerImpl implements VectorLayer
 {
-    private Dataset ds;
-    private VectorLayer wrappedLayer;
+    private final Dataset ds;
+    private final VectorLayer wrappedLayer;
 
     /** Wraps an existing VectorLayer */
     public VectorLayerImpl(Dataset ds, VectorLayer vecLayer)
@@ -72,14 +72,14 @@ public final class VectorLayerImpl implements VectorLayer
     /**
      * Gets the human-readable Title of this Layer.  If the sysadmin has set a
      * title for this layer in the config file, this title will be returned.
-     * If not, the id will be used.
+     * If not, the wrapped layer's title will be used.
      */
     @Override
     public String getTitle()
     {
         Variable var = this.getVariable();
         if (var != null && var.getTitle() != null) return var.getTitle();
-        else return this.getId();
+        else return this.wrappedLayer.getTitle();
     }
 
     @Override
