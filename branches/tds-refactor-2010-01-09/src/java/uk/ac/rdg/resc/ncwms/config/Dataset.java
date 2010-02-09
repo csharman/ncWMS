@@ -30,8 +30,10 @@ package uk.ac.rdg.resc.ncwms.config;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -315,7 +317,8 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
      * @return the layer in this dataset with the given id, or null if there is
      * no layer in this dataset with the given id.
      */
-    Layer getLayer(String layerId)
+    @Override
+    public Layer getLayerById(String layerId)
     {
         Layer layer = this.scalarLayers.get(layerId);
         if (layer == null) layer = this.vectorLayers.get(layerId);
@@ -326,11 +329,11 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
      * @return a Set of all the layers in this dataset.
      */
     @Override
-    public Map<String, ? extends Layer> getLayers()
+    public Set<Layer> getLayers()
     {
-        Map<String, Layer> allLayers = new LinkedHashMap<String, Layer>();
-        allLayers.putAll(this.scalarLayers);
-        allLayers.putAll(this.vectorLayers);
+        Set<Layer> allLayers = new LinkedHashSet<Layer>();
+        allLayers.addAll(this.scalarLayers.values());
+        allLayers.addAll(this.vectorLayers.values());
         return allLayers;
     }
 
@@ -566,7 +569,7 @@ public class Dataset implements uk.ac.rdg.resc.ncwms.wms.Dataset
      */
     private void readLayerConfig()
     {
-        for (Layer layer : this.getLayers().values()) // all the layers, scalars and vectors
+        for (Layer layer : this.getLayers()) // all the layers, scalars and vectors
         {
             // Load the Variable object from the config file or create a new
             // one if it doesn't exist.

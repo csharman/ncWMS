@@ -5,16 +5,13 @@
 
 package uk.ac.rdg.resc.ncwms.thredds;
 
-import java.util.Collection;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import org.joda.time.DateTime;
 import ucar.nc2.dt.GridDataset;
 import ucar.nc2.dt.GridDataset.Gridset;
-import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Dataset;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
-import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
 
 /**
  *
@@ -53,14 +50,19 @@ class ThreddsDataset implements Dataset {
     }
 
     @Override
-    public Map<String, ? extends Layer> getLayers() {
-        Map<String, Layer> layers = new LinkedHashMap<String, Layer>();
+    public Layer getLayerById(String layerId) {
+        return null; // TODO
+    }
+
+    @Override
+    public Set<Layer> getLayers() {
+        Set<Layer> layers = new LinkedHashSet<Layer>();
 
         for (Gridset gridset : this.gd.getGridsets())
         {
 
         }
-        Collection<VectorLayer> vecLayers = WmsUtils.findVectorLayers(layers.values());
+        //Collection<VectorLayer> vecLayers = WmsUtils.findVectorLayers(layers.values());
         
         return layers;
     }

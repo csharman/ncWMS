@@ -62,7 +62,7 @@ public abstract class AbstractServerConfig implements ServerConfig
             String[] els = WmsUtils.parseUniqueLayerName(uniqueLayerName);
             Dataset ds = this.getDatasetById(els[0]);
             if (ds == null) throw new NullPointerException();
-            Layer layer = ds.getLayers().get(els[1]);
+            Layer layer = ds.getLayerById(els[1]);
             if (layer == null) throw new NullPointerException();
             return layer;
         }
