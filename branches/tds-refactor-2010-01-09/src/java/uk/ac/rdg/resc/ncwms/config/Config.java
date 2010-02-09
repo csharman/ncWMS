@@ -112,7 +112,7 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
     
     private File configFile; // Location of the file from which this information has been read
 
-    // Cache of recently-extracted data arrays
+    // Cache of recently-extracted data arrays: will be set by Spring
     private TileCache tileCache;
     
     // Will be injected by Spring: handles authenticated OPeNDAP calls
@@ -137,16 +137,14 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
     private Config() {}
     
     /**
-     * Reads configuration information from the file location given by the
-     * provided Context object
-     * @param ncwmsContext object containing the context of this ncWMS application
-     * (including the location of the config file)
-     * @param credentialsProvider object that handles authenticated calls to OPeNDAP servers
+     * Reads configuration information from the given working directory
+     * @param workingDirectory The ncWMS working directory, which must contain
+     * config.xml
      */
-    public static Config readConfig(NcwmsContext ncwmsContext) throws Exception
+    public static Config readConfig(File configFile) throws Exception
     {
         Config config;
-        File configFile = ncwmsContext.getConfigFile();
+
         if (configFile.exists())
         {
             config = new Persister().read(Config.class, configFile);
@@ -192,9 +190,6 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
             config.scheduleReloading(ds);
         }
 
-        // Initialize the TileCache
-        config.tileCache = new TileCache(ncwmsContext.getWorkingDirectory(), config);
-        
         return config;
     }
     
@@ -554,6 +549,12 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
     public void setCredentialsProvider(NcwmsCredentialsProvider credentialsProvider)
     {
         this.credentialsProvider = credentialsProvider;
+    }
+
+    /** Called by Spring to set the tile cache */
+    public void setTileCache(TileCache tileCache)
+    {
+        this.tileCache = tileCache;
     }
 
     /**

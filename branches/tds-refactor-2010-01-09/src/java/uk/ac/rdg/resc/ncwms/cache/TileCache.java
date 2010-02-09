@@ -95,31 +95,37 @@ public class TileCache
 
     private CacheManager cacheManager;
 
+    /** The location of the tile cache: will be injected by Spring */
+    private File cacheDirectory;
+
+    /** The Config object containing the cache configuration: will be injected by Spring */
+    private Config ncwmsConfig;
+
     /** Creates a TileCache in the given working directory. */
-    public TileCache(File workingDirectory, Config ncwmsConfig)
+    public void init()
     {
         // Setting the location of the disk store programmatically is tedious,
         // requiring the creation of lots of objects...
-        Configuration config = new Configuration();
+        Configuration tileCacheConfig = new Configuration();
         DiskStoreConfiguration diskStore = new DiskStoreConfiguration();
-        diskStore.setPath(new File(workingDirectory, "tilecache").getPath());
-        config.addDiskStore(diskStore);
-        config.addDefaultCache(new CacheConfiguration());
-        this.cacheManager = new CacheManager(config);
+        diskStore.setPath(this.cacheDirectory.getPath());
+        tileCacheConfig.addDiskStore(diskStore);
+        tileCacheConfig.addDefaultCache(new CacheConfiguration());
+        this.cacheManager = new CacheManager(tileCacheConfig);
         
         Cache tileCache = new Cache(
-            CACHE_NAME,                                           // Name for the cache
+            CACHE_NAME,                                      // Name for the cache
             ncwmsConfig.getCache().getMaxNumItemsInMemory(), // Maximum number of elements in memory
-            MemoryStoreEvictionPolicy.LRU,                        // evict least-recently-used elements
+            MemoryStoreEvictionPolicy.LRU,                   // evict least-recently-used elements
             ncwmsConfig.getCache().isEnableDiskStore(),      // Use the disk store?
-            "",                                                   // disk store path (ignored)
-            false,                                                // elements are not eternal
+            "",                                              // disk store path (ignored)
+            false,                                           // elements are not eternal
             ncwmsConfig.getCache().getElementLifetimeMinutes() * 60, // Elements will last for this number of seconds in the cache
-            0,                                                    // Ignore time since last access/modification
+            0,                                               // Ignore time since last access/modification
             ncwmsConfig.getCache().isEnableDiskStore(),      // Will persist cache to disk in between JVM restarts
-            1000,                                                 // number of seconds between clearouts of disk store
-            null,                                                 // no registered event listeners
-            null,                                                 // no bootstrap cache loader
+            1000,                                            // number of seconds between clearouts of disk store
+            null,                                            // no registered event listeners
+            null,                                            // no bootstrap cache loader
             ncwmsConfig.getCache().getMaxNumItemsOnDisk()    // Maximum number of elements on disk
         );
         
@@ -165,5 +171,17 @@ public class TileCache
         Float[] arr = data.toArray(EMPTY_FLOAT_ARRAY);
         this.cacheManager.getCache(CACHE_NAME).put(new Element(key, arr));
         logger.debug("Data put into tile cache: {}", key);
+    }
+
+    /** Called by Spring to set the directory for the cached tiles */
+    public void setCacheDirectory(File cacheDirectory)
+    {
+        this.cacheDirectory = cacheDirectory;
+    }
+
+    /** Called by Spring to set the Config object */
+    public void setConfig(Config config)
+    {
+        this.ncwmsConfig = config;
     }
 }

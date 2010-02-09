@@ -316,7 +316,7 @@ public class AdminController extends MultiActionController
         if (request.getParameter("save") != null)
         {
             Dataset ds = this.config.getAllDatasets().get(request.getParameter("dataset.id"));
-            for (Layer layer : ds.getLayers().values())
+            for (Layer layer : ds.getLayers())
             {
                 String newTitle = request.getParameter(layer.getId() + ".title").trim();
                 // Find the min and max colour scale range for this variable
