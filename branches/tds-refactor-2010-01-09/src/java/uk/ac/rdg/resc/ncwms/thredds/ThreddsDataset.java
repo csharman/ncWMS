@@ -5,27 +5,56 @@
 
 package uk.ac.rdg.resc.ncwms.thredds;
 
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.joda.time.DateTime;
 import ucar.nc2.dt.GridDataset;
-import ucar.nc2.dt.GridDataset.Gridset;
+import uk.ac.rdg.resc.ncwms.cdm.AbstractScalarLayerBuilder;
+import uk.ac.rdg.resc.ncwms.cdm.CdmUtils;
+import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Dataset;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
+import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
 
 /**
  *
  * @author Jon
  */
-class ThreddsDataset implements Dataset {
+class ThreddsDataset implements Dataset
+{
 
-    private String id;
-    private GridDataset gd;
+    private static final ThreddsLayerBuilder THREDDS_LAYER_BUILDER = new ThreddsLayerBuilder();
+
+    private final String id;
+    private final GridDataset gd;
+    private final Map<String, ThreddsLayer> scalarLayers = new LinkedHashMap<String, ThreddsLayer>();
+    private final Map<String, VectorLayer> vectorLayers = new LinkedHashMap<String, VectorLayer>();
 
     public ThreddsDataset(String id, GridDataset gd)
     {
         this.id = id;
         this.gd = gd;
+        
+        // Now load the scalar layers
+        CdmUtils.findAndUpdateLayers(this.gd, THREDDS_LAYER_BUILDER, this.scalarLayers);
+        // Add the necessary properties
+        for (ThreddsLayer layer : this.scalarLayers.values())
+        {
+            layer.setGridDatatype(this.gd.findGridDatatype(layer.getId()));
+            layer.setDataset(this);
+        }
+
+        // Find the vector quantities
+        Collection<VectorLayer> vectorLayersColl = WmsUtils.findVectorLayers(this.scalarLayers.values());
+        // Add the vector quantities to the map of layers
+        for (VectorLayer vecLayer : vectorLayersColl)
+        {
+            this.vectorLayers.put(vecLayer.getId(), vecLayer);
+        }
     }
 
     /** Returns the ID of this dataset, unique on the server. */
@@ -49,22 +78,46 @@ class ThreddsDataset implements Dataset {
         return new DateTime();
     }
 
+    /**
+     * Gets the {@link Layer} with the given {@link Layer#getId() id}.  The id
+     * is unique within the dataset, not necessarily on the whole server.
+     * @return The layer with the given id, or null if there is no layer with
+     * the given id.
+     * @todo repetitive of code in ncwms.config.Dataset: any way to refactor?
+     */
     @Override
-    public Layer getLayerById(String layerId) {
-        return null; // TODO
+    public Layer getLayerById(String layerId)
+    {
+        Layer layer = this.scalarLayers.get(layerId);
+        if (layer == null) layer = this.vectorLayers.get(layerId);
+        return layer;
     }
 
+    /**
+     * @todo repetitive of code in ncwms.config.Dataset: any way to refactor?
+     */
     @Override
-    public Set<Layer> getLayers() {
-        Set<Layer> layers = new LinkedHashSet<Layer>();
+    public Set<Layer> getLayers()
+    {
+        Set<Layer> layerSet = new LinkedHashSet<Layer>();
+        layerSet.addAll(this.scalarLayers.values());
+        layerSet.addAll(this.vectorLayers.values());
+        return layerSet;
+    }
 
-        for (Gridset gridset : this.gd.getGridsets())
-        {
+    private static final class ThreddsLayerBuilder extends AbstractScalarLayerBuilder<ThreddsLayer>
+    {
 
+        @Override
+        public ThreddsLayer newLayer(String id) {
+            return new ThreddsLayer(id);
         }
-        //Collection<VectorLayer> vecLayers = WmsUtils.findVectorLayers(layers.values());
-        
-        return layers;
+
+        @Override
+        public void setTimeValues(ThreddsLayer layer, List<DateTime> times) {
+            layer.setTimeValues(times);
+        }
+
     }
 
     /** Returns an empty string */

@@ -43,7 +43,7 @@ import uk.ac.rdg.resc.ncwms.util.WmsUtils;
  * logic implements the "best estimate" timeseries of a forecast model run collection.
  * @author Jon
  */
-public abstract class AbstractTimeAggregatedLayer extends AbstractLayer
+public abstract class AbstractTimeAggregatedLayer extends AbstractScalarLayer
 {
     /** These are sorted into ascending order of time */
     protected final List<TimestepInfo> timesteps = new ArrayList<TimestepInfo>();

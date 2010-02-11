@@ -52,7 +52,7 @@ import uk.ac.rdg.resc.ncwms.util.WmsUtils;
  * all future operations are read-only.
  * @author Jon
  */
-public abstract class AbstractLayer implements ScalarLayer
+public abstract class AbstractScalarLayer implements ScalarLayer
 {
     protected String id;
     protected String title = null;
@@ -71,7 +71,7 @@ public abstract class AbstractLayer implements ScalarLayer
      * {@link #getDataset() dataset}.
      * @throws NullPointerException if {@code id == null}
      */
-    public AbstractLayer(String id)
+    public AbstractScalarLayer(String id)
     {
         if (id == null) throw new NullPointerException("id cannot be null");
         this.id = id;
@@ -118,7 +118,7 @@ public abstract class AbstractLayer implements ScalarLayer
     {
         if (bbox == null) throw new NullPointerException();
         if (bbox.length != 4) throw new IllegalArgumentException("Bounding box must have four elements");
-        // Note that these arguments are different from OGC BBOX order!
+        // Note that the order of these arguments are different from OGC BBOX order!
         this.bbox = new DefaultGeographicBoundingBox(bbox[0], bbox[2], bbox[1], bbox[3]);
     }
 
@@ -128,16 +128,15 @@ public abstract class AbstractLayer implements ScalarLayer
 
     /**
      * Returns true if this layer has a time axis.  This is a convenience method
-     * that simply checks if the length of the list of timesteps is non-zero.
+     * that simply checks if the list of timesteps is not empty.
      */
-    protected boolean hasTimeAxis() { return this.getTimeValues().size() > 0; }
+    protected boolean hasTimeAxis() { return !this.getTimeValues().isEmpty(); }
 
     /**
      * Returns true if this layer has an elevation axis.  This is a convenience
-     * method that simply checks if the length of the list of elevation values is
-     * non-zero.
+     * method that simply checks if the list of elevation values is not empty.
      */
-    protected boolean hasElevationAxis() { return this.getElevationValues().size() > 0; }
+    protected boolean hasElevationAxis() { return !this.getElevationValues().isEmpty(); }
     
     /**
      * Get the time value that is nearest to the current time.  This will be

@@ -32,40 +32,32 @@ import uk.ac.rdg.resc.ncwms.coords.PointList;
 import uk.ac.rdg.resc.ncwms.coords.PixelMap;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.geotoolkit.metadata.iso.extent.DefaultGeographicBoundingBox;
 import org.joda.time.DateTime;
-import org.opengis.metadata.extent.GeographicBoundingBox;
 import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ucar.ma2.Array;
 import ucar.ma2.InvalidRangeException;
 import ucar.ma2.Range;
-import ucar.nc2.Attribute;
 import ucar.nc2.constants.FeatureType;
-import ucar.nc2.dataset.CoordinateAxis1D;
 import ucar.nc2.dataset.NetcdfDataset;
 import ucar.nc2.dataset.NetcdfDataset.Enhance;
 import ucar.nc2.dataset.VariableDS;
-import ucar.nc2.dataset.VariableEnhanced;
-import ucar.nc2.dt.GridCoordSystem;
 import ucar.nc2.dt.GridDataset;
-import ucar.nc2.dt.GridDataset.Gridset;
 import ucar.nc2.dt.GridDatatype;
 import ucar.nc2.dt.TypedDatasetFactory;
-import ucar.unidata.geoloc.LatLonPoint;
-import ucar.unidata.geoloc.LatLonRect;
+import uk.ac.rdg.resc.ncwms.cdm.AbstractScalarLayerBuilder;
+import uk.ac.rdg.resc.ncwms.cdm.CdmUtils;
 import uk.ac.rdg.resc.ncwms.config.LayerImpl;
-import uk.ac.rdg.resc.ncwms.coords.HorizontalCoordSys;
 import uk.ac.rdg.resc.ncwms.coords.CrsHelper;
 import uk.ac.rdg.resc.ncwms.coords.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.coords.LonLatPosition;
 import uk.ac.rdg.resc.ncwms.cdm.DataReadingStrategy;
+import uk.ac.rdg.resc.ncwms.coords.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 
@@ -372,87 +364,9 @@ public class DefaultDataReader extends DataReader
             nc = openDataset(location);
             GridDataset gd = (GridDataset)TypedDatasetFactory.open(FeatureType.GRID,
                 nc, null, null);
-            
-            // Search through all coordinate systems, creating appropriate metadata
-            // for each.  This allows metadata objects to be shared among Layer objects,
-            // saving memory.
-            for (Gridset gridset : gd.getGridsets())
-            {
-                GridCoordSystem coordSys = gridset.getGeoCoordSystem();
-                
-                // Look for new variables in this coordinate system.
-                List<GridDatatype> grids = gridset.getGrids();
-                List<GridDatatype> newGrids = new ArrayList<GridDatatype>();
-                for (GridDatatype grid : grids)
-                {
-                    if (!layers.containsKey(grid.getName()) &&
-                        this.includeGrid(grid))
-                    {
-                        // We haven't seen this variable before so we must create
-                        // a Layer object later
-                        logger.debug("{} is a new grid", grid.getName());
-                        newGrids.add(grid);
-                    }
-                    else
-                    {
-                        logger.debug("We already have data for {}", grid.getName());
-                    }
-                }
-                
-                // We only create all the coordsys-related objects if we have
-                // new Layers to create
-                if (newGrids.size() > 0)
-                {
-                    logger.debug("Creating coordinate system objects");
-                    // Create an object that will map lat-lon points to nearest grid points
-                    HorizontalCoordSys horizCoordSys = getHorizontalCoordSys(coordSys);
-                    
-                    boolean zPositive = this.isZPositive(coordSys);
-                    CoordinateAxis1D zAxis = coordSys.getVerticalAxis();
-                    List<Double> zValues = this.getZValues(zAxis, zPositive);
 
-                    // Get the bounding box
-                    GeographicBoundingBox bbox = getBbox(coordSys);
-
-                    // Now add every variable that has this coordinate system
-                    for (GridDatatype grid : newGrids)
-                    {
-                        logger.debug("Creating new Layer object for {}", grid.getName());
-                        LayerImpl layer = new LayerImpl(grid.getName());
-                        layer.setTitle(getLayerTitle(grid.getVariable()));
-                        layer.setAbstract(grid.getDescription());
-                        layer.setUnits(grid.getUnitsString());
-                        layer.setHorizontalCoordSys(horizCoordSys);
-                        layer.setGeographicBoundingBox(bbox);
-
-                        if (zAxis != null)
-                        {
-                            layer.setElevationUnits(zAxis.getUnitsString());
-                            layer.setElevationPositive(zPositive);
-                            layer.setElevationValues(zValues);
-                        }
-
-                        // Add this layer to the Map
-                        layers.put(layer.getId(), layer);
-                    }
-                }
-                // Now we add the new timestep information for all grids
-                // in this Gridset
-                logger.debug("Computing TimestepInfo objects");
-                List<DateTime> timesteps = getTimesteps(location, coordSys);
-                for (GridDatatype grid : grids)
-                {
-                    if (this.includeGrid(grid))
-                    {
-                        logger.debug("Adding timestep info to {}", grid.getName());
-                        LayerImpl layer = layers.get(grid.getName());
-                        for (int i = 0; i < timesteps.size(); i++)
-                        {
-                            layer.addTimestepInfo(timesteps.get(i), location, i);
-                        }
-                    }
-                }
-            }
+            LayerImplBuilder layerBuilder = new LayerImplBuilder(location);
+            CdmUtils.findAndUpdateLayers(gd, layerBuilder, layers);
         }
         finally
         {
@@ -471,132 +385,25 @@ public class DefaultDataReader extends DataReader
             }
         }
     }
-    
-    /**
-     * @return true if the given variable is to be exposed through the WMS.
-     * This default implementation always returns true, but allows subclasses
-     * to filter out variables if required.
-     */
-    protected boolean includeGrid(GridDatatype grid)
-    {
-        return true;
-    }
-    
-    /**
-     * @return the values on the z axis, with sign reversed if zPositive == false.
-     * Returns an empty list if zAxis is null.
-     */
-    protected List<Double> getZValues(CoordinateAxis1D zAxis, boolean zPositive)
-    {
-        List<Double> zValues = new ArrayList<Double>();
-        if (zAxis != null)
-        {
-            for (double zVal : zAxis.getCoordValues())
-            {
-                zValues.add(zPositive ? zVal : 0.0 - zVal);
-            }
-        }
-        return zValues;
-    }
-    
-    /**
-     * @return true if the zAxis is positive
-     */
-    protected boolean isZPositive(GridCoordSystem coordSys)
-    {
-        return coordSys.isZPositive();
-    }
 
-    /**
-     * Gets a {@link HorizontalCoordSys} object from the given grid coordinate
-     * system.  The {@link HorizontalCoordSys} provides translations between
-     * latitude-longitude coordinates and grid indices.  Subclasses can override
-     * this to provide their own translations, e.g. for custom projections.
-     */
-    protected HorizontalCoordSys getHorizontalCoordSys(GridCoordSystem coordSys)
+    private static final class LayerImplBuilder extends AbstractScalarLayerBuilder<LayerImpl>
     {
-        return HorizontalCoordSys.fromCoordSys(coordSys);
-    }
+        private final String location;
 
-    /**
-     * Gets the latitude-longitude bounding box of the given coordinate system
-     * in the form [minLon, minLat, maxLon, maxLat]
-     */
-    private static GeographicBoundingBox getBbox(GridCoordSystem coordSys)
-    {
-        // TODO: should take into account the cell bounds
-        LatLonRect latLonRect = coordSys.getLatLonBoundingBox();
-        LatLonPoint lowerLeft = latLonRect.getLowerLeftPoint();
-        LatLonPoint upperRight = latLonRect.getUpperRightPoint();
-        double minLon = lowerLeft.getLongitude();
-        double maxLon = upperRight.getLongitude();
-        double minLat = lowerLeft.getLatitude();
-        double maxLat = upperRight.getLatitude();
-        // Correct the bounding box in case of mistakes or in case it
-        // crosses the date line
-        if (latLonRect.crossDateline() || minLon >= maxLon)
-        {
-            minLon = -180.0;
-            maxLon = 180.0;
+        public LayerImplBuilder(String location) {
+            this.location = location;
         }
-        if (minLat >= maxLat)
-        {
-            minLat = -90.0;
-            maxLat = 90.0;
+
+        @Override
+        public LayerImpl newLayer(String id) {
+            return new LayerImpl(id);
         }
-        // Sometimes the bounding boxes can be NaN, e.g. for a VerticalPerspectiveView
-        // that encompasses more than the Earth's disc
-        minLon = Double.isNaN(minLon) ? -180.0 : minLon;
-        minLat = Double.isNaN(minLat) ? -90.0  : minLat;
-        maxLon = Double.isNaN(maxLon) ?  180.0 : maxLon;
-        maxLat = Double.isNaN(maxLat) ?   90.0 : maxLat;
-        return new DefaultGeographicBoundingBox(minLon, maxLon, minLat, maxLat);
-    }
-    
-    /**
-     * Gets List of DateTimes representing the timesteps of the given coordinate system.
-     * @param coordSys The coordinate system containing the time information
-     * @return List of TimestepInfo objects, or an empty list if the coordinate
-     * system has no time axis
-     * @throws IOException if there was an error reading the timesteps data
-     */
-    protected static List<DateTime> getTimesteps(String filename, GridCoordSystem coordSys)
-        throws IOException
-    {
-        List<DateTime> timesteps = new ArrayList<DateTime>();
-        if (coordSys.hasTimeAxis1D())
-        {
-            for (Date date : coordSys.getTimeAxis1D().getTimeDates())
-            {
-                timesteps.add(new DateTime(date));
+
+        @Override
+        public void setTimeValues(LayerImpl layer, List<DateTime> times) {
+            for (int i = 0; i < times.size(); i++) {
+                layer.addTimestepInfo(times.get(i), this.location, i);
             }
-        }
-        return timesteps;
-    }
-    
-    /**
-     * @return the value of the standard_name attribute of the variable,
-     * or the long_name if it does not exist, or the unique id if neither of
-     * these attributes exist.
-     */
-    protected static String getLayerTitle(VariableEnhanced var)
-    {
-        Attribute stdNameAtt = var.findAttributeIgnoreCase("standard_name");
-        if (stdNameAtt == null || stdNameAtt.getStringValue().trim().equals(""))
-        {
-            Attribute longNameAtt = var.findAttributeIgnoreCase("long_name");
-            if (longNameAtt == null || longNameAtt.getStringValue().trim().equals(""))
-            {
-                return var.getName();
-            }
-            else
-            {
-                return longNameAtt.getStringValue();
-            }
-        }
-        else
-        {
-            return stdNameAtt.getStringValue();
         }
     }
 
