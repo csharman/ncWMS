@@ -109,27 +109,10 @@ public class DefaultDataReader extends DataReader
         {
             long start = System.currentTimeMillis();
             
-            logger.debug("filename = {}, tIndex = {}, zIndex = {}",
-                new Object[]{filename, tIndex, zIndex});
-            // Prevent InvalidRangeExceptions for ranges we're not going to use anyway
-            if (tIndex < 0) tIndex = 0;
-            if (zIndex < 0) zIndex = 0;
-            Range tRange = new Range(tIndex, tIndex);
-            Range zRange = new Range(zIndex, zIndex);
-            
-            // Create an list to hold the data, filled with nulls
-            List<Float> picData = nullArrayList(pointList.size());
-            
-            PixelMap pixelMap = new PixelMap(layer.getHorizontalCoordSys(), pointList);
-            if (pixelMap.isEmpty()) return picData;
-            
-            long readMetadata = System.currentTimeMillis();
-            logger.debug("Read metadata in {} milliseconds", (readMetadata - start));
-            
             // Open the dataset, using the cache for NcML aggregations
             nc = openDataset(filename);
             long openedDS = System.currentTimeMillis();
-            logger.debug("Opened NetcdfDataset in {} milliseconds", (openedDS - readMetadata));
+            logger.debug("Opened NetcdfDataset in {} milliseconds", (openedDS - start));
 
             // Get a GridDataset object, since we know this is a grid
             GridDataset gd = (GridDataset)TypedDatasetFactory.open(FeatureType.GRID, nc, null, null);
@@ -137,6 +120,25 @@ public class DefaultDataReader extends DataReader
             logger.debug("Getting GridDatatype with id {}", layer.getId());
             GridDatatype gridData = gd.findGridDatatype(layer.getId());
             logger.debug("filename = {}, gg = {}", filename, gridData.toString());
+
+            // Decide on which strategy to use for reading data from the source
+            // If data are local and uncompressed then it's relatively cheap to
+            // make many small reads of data to save memory.  If data are remote
+            // or compressed, it's generally more efficient to read data in a
+            // single operation, even if the memory footprint is larger.
+            String fileType = nc.getFileTypeId();
+            DataReadingStrategy drStrategy = fileType.equals("netCDF") || fileType.equals("HDF4")
+                ? DataReadingStrategy.SCANLINE
+                : DataReadingStrategy.BOUNDING_BOX;
+
+            return CdmUtils.readPointList(
+                gridData,           // The grid of data to read from
+                layer.getHorizontalCoordSys(),
+                tIndex,
+                zIndex,
+                pointList,
+                drStrategy
+            );
             
             // Read the data from the dataset
             long before = System.currentTimeMillis();
@@ -175,20 +177,6 @@ public class DefaultDataReader extends DataReader
             logger.debug("Whole read() operation took {} milliseconds", (builtPic - start));
             
             return picData;
-        }
-        catch(InvalidRangeException ire)
-        {
-            // This is a programming error, and one from which we can't recover
-            throw new IllegalStateException(ire);
-        }
-        catch(TransformException te)
-        {
-            // This would only happen if there were an internal error transforming
-            // between coordinate systems in making the PixelMap.  There is
-            // nothing a client could do to recover from this so we turn it into
-            // a runtime exception
-            // TODO: think of a better exception type
-            throw new RuntimeException(te);
         }
         finally
         {

@@ -37,8 +37,11 @@ import java.util.Map;
 import org.geotoolkit.metadata.iso.extent.DefaultGeographicBoundingBox;
 import org.joda.time.DateTime;
 import org.opengis.metadata.extent.GeographicBoundingBox;
+import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ucar.ma2.InvalidRangeException;
+import ucar.ma2.Range;
 import ucar.nc2.Attribute;
 import ucar.nc2.dataset.CoordinateAxis1D;
 import ucar.nc2.dataset.VariableEnhanced;
@@ -50,6 +53,7 @@ import ucar.unidata.geoloc.LatLonPoint;
 import ucar.unidata.geoloc.LatLonRect;
 import uk.ac.rdg.resc.ncwms.coords.HorizontalCoordSys;
 import uk.ac.rdg.resc.ncwms.coords.HorizontalPosition;
+import uk.ac.rdg.resc.ncwms.coords.PixelMap;
 import uk.ac.rdg.resc.ncwms.coords.PointList;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
@@ -259,10 +263,54 @@ public final class CdmUtils
         return timesteps;
     }
 
-    public static List<Float> readPointList(GridDatatype grid, int tIndex, int zIndex,
-            PointList pointList) throws IOException
+    public static List<Float> readPointList(GridDatatype gridData,
+            HorizontalCoordSys horizCoordSys, int tIndex, int zIndex,
+            PointList pointList, DataReadingStrategy drStrategy)
+            throws IOException
     {
-        return null;
+        try
+        {
+            long start = System.currentTimeMillis();
+            // Prevent InvalidRangeExceptions for ranges we're not going to use anyway
+            if (tIndex < 0) tIndex = 0;
+            if (zIndex < 0) zIndex = 0;
+            Range tRange = new Range(tIndex, tIndex);
+            Range zRange = new Range(zIndex, zIndex);
+
+            // Create an list to hold the data, filled with nulls
+            List<Float> picData = nullArrayList(pointList.size());
+
+            PixelMap pixelMap = new PixelMap(horizCoordSys, pointList);
+            if (pixelMap.isEmpty()) return picData;
+
+            long readMetadata = System.currentTimeMillis();
+            logger.debug("Read metadata in {} milliseconds", (readMetadata - start));
+
+            // Read the data from the dataset
+            long before = System.currentTimeMillis();
+            drStrategy.populatePixelArray(picData, tRange, zRange, pixelMap, gridData);
+            long after = System.currentTimeMillis();
+
+            long builtPic = System.currentTimeMillis();
+            logger.debug("Built picture array in {} milliseconds", (builtPic - readMetadata));
+            logger.debug("Whole read() operation took {} milliseconds", (builtPic - start));
+
+            return picData;
+        }
+        catch(InvalidRangeException ire)
+        {
+            // This is a programming error, and one from which we can't recover
+            throw new IllegalStateException(ire);
+        }
+        catch(TransformException te)
+        {
+            // This would only happen if there were an internal error transforming
+            // between coordinate systems in making the PixelMap.  There is
+            // nothing a client could do to recover from this so we turn it into
+            // a runtime exception
+            // TODO: think of a better exception type
+            throw new RuntimeException(te);
+        }
     }
 
     public static List<Float> readTimeseries(GridDatatype grid,
@@ -270,6 +318,19 @@ public final class CdmUtils
             throws IOException
     {
         return null;
+    }
+
+    /**
+     * Returns an ArrayList of null values of the given length
+     */
+    private static ArrayList<Float> nullArrayList(int n)
+    {
+        ArrayList<Float> list = new ArrayList<Float>(n);
+        for (int i = 0; i < n; i++)
+        {
+            list.add((Float)null);
+        }
+        return list;
     }
 
 }
