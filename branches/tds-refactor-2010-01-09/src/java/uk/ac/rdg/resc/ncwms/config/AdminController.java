@@ -37,7 +37,6 @@ import javax.servlet.http.HttpServletResponse;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.multiaction.MultiActionController;
 import uk.ac.rdg.resc.ncwms.graphics.ColorPalette;
-import uk.ac.rdg.resc.ncwms.usagelog.UsageLogger;
 import uk.ac.rdg.resc.ncwms.usagelog.h2.H2UsageLogger;
 import uk.ac.rdg.resc.ncwms.util.Ranges;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
@@ -51,7 +50,7 @@ public class AdminController extends MultiActionController
 {
     // These will be injected by Spring
     private Config config;
-    private UsageLogger usageLogger;
+    private H2UsageLogger usageLogger;
     
     /**
      * Displays the administrative web page
@@ -119,14 +118,9 @@ public class AdminController extends MultiActionController
     public void downloadUsageLog(HttpServletRequest request,
         HttpServletResponse response) throws Exception
     {
-        if (!(this.usageLogger instanceof H2UsageLogger))
-        {
-            throw new Exception("Cannot download usage log: operation is not supported by the usage logger");
-        }
-        H2UsageLogger h2logger = (H2UsageLogger)this.usageLogger;
         response.setContentType("application/excel");
         response.setHeader("Content-Disposition", "inline; filename=usageLog.csv");
-        h2logger.writeCsv(response.getOutputStream());
+        this.usageLogger.writeCsv(response.getOutputStream());
     }
     
     /**
@@ -353,7 +347,7 @@ public class AdminController extends MultiActionController
     /**
      * Called by Spring to inject the usage logger
      */
-    public void setUsageLogger(UsageLogger usageLogger)
+    public void setUsageLogger(H2UsageLogger usageLogger)
     {
         this.usageLogger = usageLogger;
     }

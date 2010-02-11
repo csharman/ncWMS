@@ -259,7 +259,7 @@ public class WmsController extends AbstractController {
             usageLogEntry.setException(e);
             throw e;
         } finally {
-            if (logUsage) {
+            if (logUsage && this.usageLogger != null) {
                 // Log this request to the usage log
                 this.usageLogger.logUsage(usageLogEntry);
             }

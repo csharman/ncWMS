@@ -213,7 +213,6 @@ public class H2UsageLogger implements UsageLogger
      * returns the same object with each invocation.
      * @return the DataSource object
      */
-    @Override
     public DataSource getDataSource()
     {
         return this.dataSource;

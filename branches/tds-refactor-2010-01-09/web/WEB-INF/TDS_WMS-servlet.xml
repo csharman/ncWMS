@@ -12,20 +12,14 @@
        xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance'
        xsi:schemaLocation='http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd'>
     
-    <!-- Configuration of this ncWMS server.  This gets the location of the 
-         config file from the ncwmsContext. -->
+    <!-- Configuration of this ncWMS server. -->
     <bean id="config" class="uk.ac.rdg.resc.ncwms.thredds.ThreddsServerConfig"/>
-    
-    <!-- Object that handles logging of the usage of the ncWMS.
-         To switch off usage logging, use the DoNothingUsageLogger -->
-    <bean id="usageLogger" class="uk.ac.rdg.resc.ncwms.log.DoNothingUsageLogger"/>
     
     <!-- This Controller will handle all the requests to the WMS -->
     <bean id="wmsController" class="uk.ac.rdg.resc.ncwms.controller.WmsController"
             init-method="init">
         <property name="supportedMethods" value="GET"/>
         <property name="serverConfig"><ref local="config"/></property>
-        <property name="usageLogger"><ref local="usageLogger"/></property>
     </bean>
     
     <!-- This mapping ensures that all requests to "/wms" are mapped to the WmsController
