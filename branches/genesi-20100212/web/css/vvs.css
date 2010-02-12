@@ -1,0 +1,135 @@
+/* Style for all fonts */
+div {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 100%; /* renders 13pt */
+    text-align: left;
+}
+
+h1 {
+    font-size: 138.5%; /* renders 18pt */
+    font-weight: bold;
+    padding-bottom: 10px;
+}
+
+h2 {
+    font-size: 85%;
+    font-weight: bold;
+    padding-bottom: 10px;
+    text-align: center;
+}
+
+td, th {
+    padding: 3px;
+}
+
+th {
+    font-weight: bold;
+}
+
+#mainPanel {
+    position: absolute;
+    margin: 8px;
+    padding: 0px;
+    left: 0px;
+    width: 600px;
+}
+
+#panelHeader {
+    position: absolute;
+    top: 0px;
+    height: 150px;
+}
+
+#right {
+    position: absolute;
+    left: 500px;
+    top: 5px;
+}
+
+#mapPanel {
+    position: absolute;
+    top: 150px;
+}
+
+#map {
+    position: absolute;
+    left: 0px;
+    top: 25px;
+    width: 512px;
+    height: 400px;
+    z-index: 0; /* Ensure pop-ups appear above the map! */
+}
+
+#opacityControl {
+    position: absolute;
+    top: 450px;
+    left: 350px;
+    visibility: hidden; /* Will make visible when we load the page if we need this control */
+}
+
+#poweredBy {
+    position: absolute;
+    top: 480px;
+    left: 0px;
+    font-size: 10px;
+}
+
+#permalink {
+    position: absolute;
+    top: 480px;
+    right: 50px;
+    font-size: 10px;
+    visibility: hidden;
+}
+
+img.scaleBar {
+    position: absolute;
+    left: 510px;
+    top: 25px;
+    border-style: solid;
+    border-width: 1px;
+}
+
+div.scaleMarkers {
+    position: absolute;
+    left: 555px;
+    top: 25px;
+    height: 400px;
+    font-size: 12px;
+}
+
+#scaleControls {
+    position: absolute;
+    top: 175px;
+}
+
+input.scaleMax {
+    position: absolute;
+    top: -10px;
+}
+
+input.scaleMin {
+    position: absolute;
+    top: 388px;
+}
+
+#scaleOneThird {
+    position: absolute;
+    top: 255px;
+}
+
+#units {
+    position: absolute;
+    top: 188px;
+}
+
+#scaleTwoThirds {
+    position: absolute;
+    top: 121px;
+}
+
+.olControlLoadingPanel {
+    background-image:url(../theme/default/img/loading.gif);
+    background-position:center;
+    background-repeat:no-repeat;
+}

@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+    Document   : WMS-servlet.xml
+    Created on : 06 June 2007, 17:59
+    Author     : Jon
+    Description:
+        Configures the properties of the WMS servlet (see web.xml)
+-->
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.0.xsd">
+
+    <!-- An object that stores the context of the ncWMS application.  This contains
+         the location of the application's working directory, which defaults to
+         $HOME/.ncWMS/, but can be overridden by uncommenting and setting the
+         workingDirectory property, which can either be an absolute (full) path
+         or a path relative to $HOME. -->
+    <bean id="ncwmsContext" class="uk.ac.rdg.resc.ncwms.config.NcwmsContext" init-method="init">
+        <property name="workingDirectory" value=".ncWMS-genesi"/>
+    </bean>
+          
+    <!-- An object that is used to store and read metadata about the variables
+         that are being exposed through this server. Currently the
+         InMemoryMetadataStore is the only one that works properly. -->
+    <bean id="metadataStore" class="uk.ac.rdg.resc.ncwms.metadata.InMemoryMetadataStore"
+            init-method="init" destroy-method="close">
+        <property name="ncwmsContext">
+            <ref local="ncwmsContext"/>
+        </property>
+    </bean>
+    
+    <!-- Configuration of this ncWMS server.  This gets the location of the 
+         config file from the ncwmsContext. -->
+    <bean id="config" class="uk.ac.rdg.resc.ncwms.config.Config"
+           factory-method="readConfig">
+        <constructor-arg ref="ncwmsContext"/>
+        <constructor-arg ref="metadataStore"/>
+    </bean>
+    
+    <!-- A cache for image data arrays -->
+    <bean id="tileCache" class="uk.ac.rdg.resc.ncwms.cache.TileCache"
+            init-method="init" destroy-method="close">
+        <property name="ncwmsContext">
+            <ref local="ncwmsContext"/>
+        </property>
+        <property name="config">
+            <ref local="config"/>
+        </property>
+    </bean>
+    
+    <!-- Object that handles the provision of authentication credentials
+         for OPeNDAP servers -->
+    <bean id="credentialsProvider"
+          class="uk.ac.rdg.resc.ncwms.datareader.NcwmsCredentialsProvider"
+          init-method="init"/>
+    
+    <!-- Object that handles the periodic refreshing of metadata. -->
+    <bean id="metadataLoader" class="uk.ac.rdg.resc.ncwms.metadata.MetadataLoader"
+            init-method="init" destroy-method="close">
+        <property name="config">
+            <ref local="config"/>
+        </property>
+        <property name="metadataStore">
+            <ref local="metadataStore"/>
+        </property>
+        <property name="credentialsProvider">
+            <ref local="credentialsProvider"/>
+        </property>
+    </bean>
+    
+    <!-- Object that handles logging of the usage of the ncWMS.
+         To switch off usage logging, use the DoNothingUsageLogger -->
+    <!--<bean id="usageLogger" class="uk.ac.rdg.resc.ncwms.log.DoNothingUsageLogger"/>-->
+    <bean id="usageLogger" class="uk.ac.rdg.resc.ncwms.usagelog.h2.H2UsageLogger"
+            init-method="init" destroy-method="close">
+        <property name="ncwmsContext">
+            <ref local="ncwmsContext"/>
+        </property>
+    </bean>
+
+    <!-- This bean will handle GetMap requests for SCIAMACHY data -->
+    <bean id="sciamachyGetMap" class="uk.ac.rdg.resc.ncwms.controller.SciamachyGetMap">
+        <!-- Catalogue of Sciamachy data files -->
+        <property name="sciamachyCatalogue">
+            <ref local="sciamachyCatalogue"/>
+        </property>
+    </bean>
+
+    <!-- This bean acts as a discovery interface to Sciamachy data -->
+    <bean id="sciamachyCatalogue" class="uk.ac.rdg.resc.ncwms.datareader.sciamachy.LocalSciamachyCatalogue" init-method="init">
+        <property name="dataLocation" value="C:\GENESI\data_list"/>
+        <property name="fileExtension" value="txt"/>
+    </bean>
+    
+    <!-- This Controller will handle all the requests to the WMS -->
+    <bean id="wmsController" class="uk.ac.rdg.resc.ncwms.controller.WmsController"
+            init-method="init">
+        <property name="supportedMethods" value="GET"/>
+        <property name="config">
+            <ref local="config"/>
+        </property>
+        <property name="metadataStore">
+            <ref local="metadataStore"/>
+        </property>
+        <property name="metadataController">
+            <ref local="metadataController"/>
+        </property>
+        <property name="usageLogger">
+            <ref local="usageLogger"/>
+        </property>
+        <property name="tileCache">
+            <ref local="tileCache"/>
+        </property>
+        <property name="sciamachyGetMap">
+            <ref local="sciamachyGetMap"/>
+        </property>
+    </bean>
+    
+    <!-- This Controller will handle all requests for the non-standard
+         metadata that are required by the Godiva2 site.  It is called from the
+         WmsController and therefore does not need a mapping to be set up here. -->
+    <bean id="metadataController" class="uk.ac.rdg.resc.ncwms.controller.MetadataController">
+        <property name="config">
+            <ref local="config"/>
+        </property>
+        <property name="metadataStore">
+            <ref local="metadataStore"/>
+        </property>
+        <property name="usageLogger">
+            <ref local="usageLogger"/>
+        </property>
+    </bean>
+    
+    <!-- This Controller is used to display the front page of the server, which
+         contains links to the Capabilities documents and sample images for each
+         layer.  Mapped to index.jsp. -->
+    <bean id="frontPageController" class="uk.ac.rdg.resc.ncwms.controller.FrontPageController">
+        <property name="supportedMethods" value="GET"/>
+        <property name="config">
+            <ref local="config"/>
+        </property>
+    </bean>
+    
+    <!-- This Controller is used to display the administrative pages of the server.
+         The AdminController is a MultiActionController that uses a different method
+         for each page under the /admin/ directory -->
+    <bean id="adminController" class="uk.ac.rdg.resc.ncwms.controller.AdminController">
+        <property name="supportedMethods" value="GET,POST"/>
+        <property name="config">
+            <ref local="config"/>
+        </property>
+        <property name="metadataLoader">
+            <ref local="metadataLoader"/>
+        </property>
+        <property name="usageLogger">
+            <ref local="usageLogger"/>
+        </property>
+        <property name="methodNameResolver">
+            <ref local="adminMethodNameResolver"/>
+        </property>
+    </bean>
+    
+    <!-- This maps URL patterns to the methods of the admin controller -->
+    <bean id="adminMethodNameResolver" class="org.springframework.web.servlet.mvc.multiaction.PropertiesMethodNameResolver">
+        <property name="mappings">
+            <value>
+                / = displayAdminPage
+                /index.jsp = displayAdminPage
+                /error.jsp = displayErrorPage
+                /loading.jsp = displayLoadingPage
+                /usage.jsp = displayUsagePage
+                /updateConfig = updateConfig
+                /downloadUsageLog = downloadUsageLog
+                /editVariables = displayEditVariablesPage
+                /updateVariables = updateVariables
+            </value>
+        </property>
+    </bean>
+    
+    
+        <!-- This Controller is used to generate screenshots -->
+    <bean id="screenshotController" class="uk.ac.rdg.resc.ncwms.controller.ScreenshotController"
+                init-method="init">
+        <property name="supportedMethods" value="GET,POST"/>
+        <property name="ncwmsContext">
+            <ref local="ncwmsContext"/>
+        </property>
+        <property name="methodNameResolver">
+            <ref local="screenshotMethodNameResolver"/>
+        </property>
+    </bean>
+        <!-- This maps URL patterns to the methods of the screenshot controller -->
+    <bean id="screenshotMethodNameResolver" class="org.springframework.web.servlet.mvc.multiaction.PropertiesMethodNameResolver">
+        <property name="mappings">
+            <value>
+                    /createScreenshot = createScreenshot
+                    /getScreenshot = getScreenshot
+            </value>
+        </property>
+    </bean>
+    
+    <!-- This mapping ensures that all requests to "/wms" are mapped to the WmsController
+         and "index.jsp" results in the display of the front page -->
+    <!-- no 'id' required, HandlerMapping beans are automatically detected by the DispatcherServlet -->
+    <bean class="org.springframework.web.servlet.handler.SimpleUrlHandlerMapping">
+        <property name="alwaysUseFullPath" value="true"/>
+        <property name="mappings">
+            <value>
+                /admin/* = adminController
+                /wms = wmsController
+                /screenshots/* = screenshotController
+                /index.jsp = frontPageController
+                / = frontPageController
+            </value>
+        </property>
+    </bean>
+    
+    <!-- Each Controller will return the name of a View that maps to a certain JSP.
+         For example, if a Controller returns a View name "hello_xml", the 
+         ViewResolver will display /WEB-INF/jsp/hello_xml.jsp. -->
+    <bean id="viewResolver" class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+        <!-- We put the JSPs in /WEB-INF so that they are not directly visible 
+             over the network -->
+        <property name="prefix" value="/WEB-INF/jsp/"/>
+        <property name="suffix" value=".jsp"/>
+    </bean>
+    
+    <!-- Exception Handling: this ensures that all WmsExceptions are returned to 
+         the user as an XML document, created by displayWmsException.jsp.
+         Note that we don't have to register this anywhere as an exception handler
+         because Spring automagically detects it. -->
+    <bean id="exceptionResolver" class="org.springframework.web.servlet.handler.SimpleMappingExceptionResolver">
+        <property name="exceptionMappings">
+            <props>
+                <prop key="uk.ac.rdg.resc.ncwms.exceptions.WmsException">displayWmsException</prop>
+                <prop key="uk.ac.rdg.resc.ncwms.exceptions.Wms1_1_1Exception">displayWms1_1_1Exception</prop>
+                <prop key="uk.ac.rdg.resc.ncwms.exceptions.MetadataException">displayMetadataException</prop>
+            </props>
+        </property>
+        <!-- If an unexpected error occurs (i.e. one that doesn't get expressed as
+             a WmsException) we will handle it using displayDefaultException.jsp -->
+        <property name="defaultErrorView" value="displayDefaultException"/>
+    </bean>
+    
+</beans>
