@@ -29,34 +29,24 @@
 package uk.ac.rdg.resc.ncwms.config.datareader;
 
 import uk.ac.rdg.resc.ncwms.coords.PointList;
-import uk.ac.rdg.resc.ncwms.coords.PixelMap;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.joda.time.DateTime;
-import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ucar.ma2.Array;
-import ucar.ma2.InvalidRangeException;
-import ucar.ma2.Range;
 import ucar.nc2.constants.FeatureType;
 import ucar.nc2.dataset.NetcdfDataset;
 import ucar.nc2.dataset.NetcdfDataset.Enhance;
-import ucar.nc2.dataset.VariableDS;
 import ucar.nc2.dt.GridDataset;
 import ucar.nc2.dt.GridDatatype;
 import ucar.nc2.dt.TypedDatasetFactory;
 import uk.ac.rdg.resc.ncwms.cdm.AbstractScalarLayerBuilder;
 import uk.ac.rdg.resc.ncwms.cdm.CdmUtils;
 import uk.ac.rdg.resc.ncwms.config.LayerImpl;
-import uk.ac.rdg.resc.ncwms.coords.CrsHelper;
 import uk.ac.rdg.resc.ncwms.coords.HorizontalPosition;
-import uk.ac.rdg.resc.ncwms.coords.LonLatPosition;
-import uk.ac.rdg.resc.ncwms.cdm.DataReadingStrategy;
 import uk.ac.rdg.resc.ncwms.coords.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
@@ -121,42 +111,19 @@ public class DefaultDataReader extends DataReader
             GridDatatype gridData = gd.findGridDatatype(layer.getId());
             logger.debug("filename = {}, gg = {}", filename, gridData.toString());
 
-            // Decide on which strategy to use for reading data from the source
-            // If data are local and uncompressed then it's relatively cheap to
-            // make many small reads of data to save memory.  If data are remote
-            // or compressed, it's generally more efficient to read data in a
-            // single operation, even if the memory footprint is larger.
-            String fileType = nc.getFileTypeId();
-            DataReadingStrategy drStrategy = fileType.equals("netCDF") || fileType.equals("HDF4")
-                ? DataReadingStrategy.SCANLINE
-                : DataReadingStrategy.BOUNDING_BOX;
-
             return CdmUtils.readPointList(
                 gridData,           // The grid of data to read from
                 layer.getHorizontalCoordSys(),
                 tIndex,
                 zIndex,
                 pointList,
-                drStrategy
+                CdmUtils.getOptimumDataReadingStrategy(nc),
+                CdmUtils.isScaleMissingDeferred(nc)
             );
-            
-            // Read the data from the dataset
-            long before = System.currentTimeMillis();
-            // Decide on which strategy to use for reading data from the source
-            String fileType = nc.getFileTypeId();
-            // If data are local and uncompressed then it's relatively cheap to
-            // make many small reads of data to save memory.  If data are remote
-            // or compressed, it's generally more efficient to read data in a
-            // single operation, even if the memory footprint is larger.
-            DataReadingStrategy drStrategy = fileType.equals("netCDF") || fileType.equals("HDF4")
-                ? DataReadingStrategy.SCANLINE
-                : DataReadingStrategy.BOUNDING_BOX;
-            drStrategy.populatePixelArray(picData, tRange, zRange, pixelMap, gridData);
-            long after = System.currentTimeMillis();
 
             // Write to the benchmark logger (if enabled in log4j.properties)
             // Headings are written in NcwmsContext.init()
-            if (pixelMap.getNumUniqueIJPairs() > 1)
+            /*if (pixelMap.getNumUniqueIJPairs() > 1)
             {
                 // Don't log single-pixel (GetFeatureInfo) requests
                 benchmarkLogger.info
@@ -170,13 +137,7 @@ public class DefaultDataReader extends DataReader
                     pixelMap.getBoundingBoxSize() + "," +
                     (after - before)
                 );
-            }
-            
-            long builtPic = System.currentTimeMillis();
-            logger.debug("Built picture array in {} milliseconds", (builtPic - readMetadata));
-            logger.debug("Whole read() operation took {} milliseconds", (builtPic - start));
-            
-            return picData;
+            }*/
         }
         finally
         {
@@ -225,92 +186,23 @@ public class DefaultDataReader extends DataReader
         List<Integer> tIndices, int zIndex, HorizontalPosition xy)
         throws IOException
     {
-        LonLatPosition lonLat;
-        if (xy instanceof LonLatPosition)
-        {
-            lonLat = (LonLatPosition)xy;
-        }
-        else if (xy.getCoordinateReferenceSystem() == null)
-        {
-            throw new IllegalArgumentException("Horizontal position must have a"
-                + " coordinate reference system");
-        }
-        else
-        {
-            CrsHelper crsHelper = CrsHelper.fromCrs(xy.getCoordinateReferenceSystem());
-            try
-            {
-                lonLat = crsHelper.crsToLonLat(xy);
-            }
-            catch(TransformException te)
-            {
-                // This would only happen if there were an internal error transforming
-                // between coordinate systems in making the PixelMap.  There is
-                // nothing a client could do to recover from this so we turn it into
-                // a runtime exception
-                // TODO: think of a better exception type
-                throw new RuntimeException(te);
-            }
-        }
-        int[] gridCoords = layer.getHorizontalCoordSys().lonLatToGrid(lonLat);
-
-        int firstTIndex = tIndices.get(0);
-        int lastTIndex = tIndices.get(tIndices.size() - 1);
-        // Prevent InvalidRangeExceptions if z or t axes are missing
-        if (firstTIndex < 0 || lastTIndex < 0)
-        {
-            firstTIndex = 0;
-            lastTIndex = 0;
-        }
-        if (zIndex < 0) zIndex = 0;
-
         NetcdfDataset nc = null;
-
         try
         {
-            Range tRange = new Range(firstTIndex, lastTIndex);
-            Range zRange = new Range(zIndex, zIndex);
-            Range yRange = new Range(gridCoords[1], gridCoords[1]);
-            Range xRange = new Range(gridCoords[0], gridCoords[0]);
-
             // Open the dataset, using the cache for NcML aggregations
             nc = openDataset(filename);
-            GridDataset gd = (GridDataset)TypedDatasetFactory.open(FeatureType.GRID,
-                nc, null, null);
+            GridDataset gd = CdmUtils.getGridDataset(nc);
             GridDatatype grid = gd.findGridDatatype(layer.getId());
-
-            // Now read the data
-            GridDatatype subset = grid.makeSubset(null, null, tRange, zRange, yRange, xRange);
-            Array arr = subset.readDataSlice(-1, 0, 0, 0);
-
-            // Check for consistency
-            if (arr.getSize() != lastTIndex - firstTIndex + 1)
-            {
-                // This is an internal error
-                throw new IllegalStateException("Unexpected array size (got " + arr.getSize()
-                    + ", expected " + (lastTIndex - firstTIndex + 1) + ")");
-            }
-
-            // Copy the data (which may include many points we don't need) to
-            // the required array
-            VariableDS var = grid.getVariable();
-            List<Float> tsData = new ArrayList<Float>();
-            for (int tIndex : tIndices)
-            {
-                int tIndexOffset = tIndex - firstTIndex;
-                if (tIndexOffset < 0) tIndexOffset = 0; // This will happen if the layer has no t axis
-                float val = arr.getFloat(tIndexOffset);
-                // Convert scale-offset-missing
-                val = (float)var.convertScaleOffsetMissing(val);
-                // Replace missing values with nulls
-                tsData.add(Float.isNaN(val) ? null : val);
-            }
-            return tsData;
-        }
-        catch(InvalidRangeException ire)
-        {
-            // This is a programming error, and one from which we can't recover
-            throw new IllegalStateException(ire);
+            
+            // Read and return the data
+            return CdmUtils.readTimeseries(
+                grid,
+                layer.getHorizontalCoordSys(),
+                tIndices,
+                zIndex,
+                xy,
+                CdmUtils.isScaleMissingDeferred(nc)
+            );
         }
         finally
         {
@@ -350,11 +242,9 @@ public class DefaultDataReader extends DataReader
         {
             // Open the dataset, using the cache for NcML aggregations
             nc = openDataset(location);
-            GridDataset gd = (GridDataset)TypedDatasetFactory.open(FeatureType.GRID,
-                nc, null, null);
 
             LayerImplBuilder layerBuilder = new LayerImplBuilder(location);
-            CdmUtils.findAndUpdateLayers(gd, layerBuilder, layers);
+            CdmUtils.findAndUpdateLayers(nc, layerBuilder, layers);
         }
         finally
         {
@@ -392,6 +282,11 @@ public class DefaultDataReader extends DataReader
             for (int i = 0; i < times.size(); i++) {
                 layer.addTimestepInfo(times.get(i), this.location, i);
             }
+        }
+
+        @Override
+        public void setGridDatatype(LayerImpl layer, GridDatatype gd) {
+            // Do nothing: we don't hold on to the GridDatatype object
         }
     }
 

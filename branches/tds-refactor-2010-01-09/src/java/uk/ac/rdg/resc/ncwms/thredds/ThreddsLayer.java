@@ -15,14 +15,14 @@ import uk.ac.rdg.resc.ncwms.coords.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.coords.PointList;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.util.Range;
+import uk.ac.rdg.resc.ncwms.util.Ranges;
+import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.AbstractScalarLayer;
 import uk.ac.rdg.resc.ncwms.wms.Dataset;
 
 /**
  * Wraps a GridDatatype as a ScalarLayer object
  * @todo Implement more efficient getTimeseries()
- * @todo Decide upon data reading strategy more intelligently (requires access
- * to the type of the underlying data)
  * @author Jon
  */
 class ThreddsLayer extends AbstractScalarLayer
@@ -30,9 +30,10 @@ class ThreddsLayer extends AbstractScalarLayer
     private GridDatatype grid;
     private ThreddsDataset dataset;
     private List<DateTime> times;
+    private DataReadingStrategy dataReadingStrategy;
+    private boolean scaleMissingDeferred;
 
-    public ThreddsLayer(String id)
-    {
+    public ThreddsLayer(String id) {
         super(id);
     }
 
@@ -55,6 +56,14 @@ class ThreddsLayer extends AbstractScalarLayer
         this.times = timeValues;
     }
 
+    public void setDataReadingStrategy(DataReadingStrategy dataReadingStrategy) {
+        this.dataReadingStrategy = dataReadingStrategy;
+    }
+
+    public void setScaleMissingDeferred(boolean scaleMissingDeferred) {
+        this.scaleMissingDeferred = scaleMissingDeferred;
+    }
+
     @Override
     public Float readSinglePoint(DateTime time, double elevation, HorizontalPosition xy)
             throws InvalidDimensionValueException, IOException
@@ -69,20 +78,28 @@ class ThreddsLayer extends AbstractScalarLayer
     {
         int tIndex = this.findAndCheckTimeIndex(time);
         int zIndex = this.findAndCheckElevationIndex(elevation);
-        // TODO: take into account case in which data are/are not enhanced!
         return CdmUtils.readPointList(
             this.grid,
             this.getHorizontalCoordSys(),
             tIndex,
             zIndex,
             pointList,
-            DataReadingStrategy.BOUNDING_BOX  // TODO: decide more intelligently
+            this.dataReadingStrategy,
+            this.scaleMissingDeferred
         );
     }
 
     @Override
     public Range<Float> getApproxValueRange() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        try {
+            // Extract a sample of data from this layer and find the min-max
+            // of the sample
+            return WmsUtils.estimateValueRange(this);
+        } catch (IOException ioe) {
+            // Something's gone wrong, so return a sample range
+            // TODO: log the error
+            return Ranges.newRange(-50.0f, 50.0f);
+        }
     }
 
 }

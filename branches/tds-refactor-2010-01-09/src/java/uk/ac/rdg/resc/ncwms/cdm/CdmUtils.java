@@ -40,19 +40,27 @@ import org.opengis.metadata.extent.GeographicBoundingBox;
 import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ucar.ma2.Array;
 import ucar.ma2.InvalidRangeException;
 import ucar.ma2.Range;
 import ucar.nc2.Attribute;
+import ucar.nc2.constants.FeatureType;
 import ucar.nc2.dataset.CoordinateAxis1D;
+import ucar.nc2.dataset.NetcdfDataset;
+import ucar.nc2.dataset.NetcdfDataset.Enhance;
+import ucar.nc2.dataset.VariableDS;
 import ucar.nc2.dataset.VariableEnhanced;
 import ucar.nc2.dt.GridCoordSystem;
 import ucar.nc2.dt.GridDataset;
 import ucar.nc2.dt.GridDataset.Gridset;
 import ucar.nc2.dt.GridDatatype;
+import ucar.nc2.dt.TypedDatasetFactory;
 import ucar.unidata.geoloc.LatLonPoint;
 import ucar.unidata.geoloc.LatLonRect;
+import uk.ac.rdg.resc.ncwms.coords.CrsHelper;
 import uk.ac.rdg.resc.ncwms.coords.HorizontalCoordSys;
 import uk.ac.rdg.resc.ncwms.coords.HorizontalPosition;
+import uk.ac.rdg.resc.ncwms.coords.LonLatPosition;
 import uk.ac.rdg.resc.ncwms.coords.PixelMap;
 import uk.ac.rdg.resc.ncwms.coords.PointList;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
@@ -71,7 +79,7 @@ public final class CdmUtils
     private CdmUtils() { throw new AssertionError(); }
 
     /**
-     * Searches through the given GridDatasets for GridDatatypes, which are
+     * Searches through the given NetcdfDataset for GridDatatypes, which are
      * returned as {@link ScalarLayer}s in the passed-in Map.  If this method
      * encounters a GridDatatype that is already represented in the Map of layers,
      * this method only updates the list of the layer's timesteps (through
@@ -83,17 +91,23 @@ public final class CdmUtils
      * and populates all its fields using LayerBuilder's various setter methods.
      * @param <L> The type of {@link ScalarLayer} that can be handled by the
      * {@code layerBuilder}, and that will be returned in the Map.
-     * @param gd The GridDataset to search
+     * @param nc the NetcdfDataset to search
      * @param layerBuilder The {@link LayerBuilder} that creates ScalarLayers
      * of the given type and updates their properties.
      * @param layers Map of {@link Layer#getId() layer id}s to ScalarLayer objects,
      * which may be empty but cannot be null.
-     * @throws NullPointerException if {@code layers == null}
+     * @throws NullPointerException if any of the parameters is null
      */
-    public static <L extends ScalarLayer> void findAndUpdateLayers(GridDataset gd,
+    public static <L extends ScalarLayer> void findAndUpdateLayers(NetcdfDataset nc,
             LayerBuilder<L> layerBuilder, Map<String, L> layers)
     {
-        if (layers == null) throw new NullPointerException();
+        if (nc == null)           throw new NullPointerException("NetcdfDataset can't be null");
+        if (layerBuilder == null) throw new NullPointerException("LayerBuilder can't be null");
+        if (layers == null)       throw new NullPointerException("layers can't be null");
+
+        // Get a GridDataset object from the given NetcdfDataset
+        GridDataset gd = getGridDataset(nc);
+
         // Search through all coordinate systems, creating appropriate metadata
         // for each.  This allows metadata objects to be shared among Layer objects,
         // saving memory.
@@ -144,6 +158,7 @@ public final class CdmUtils
                     layerBuilder.setUnits(layer, grid.getUnitsString());
                     layerBuilder.setHorizontalCoordSys(layer, horizCoordSys);
                     layerBuilder.setGeographicBoundingBox(layer, bbox);
+                    layerBuilder.setGridDatatype(layer, grid);
 
                     if (zAxis != null)
                     {
@@ -164,6 +179,40 @@ public final class CdmUtils
                 layerBuilder.setTimeValues(layer, timesteps);
             }
         }
+    }
+
+    /** Gets a GridDataset from the given NetcdfDataset */
+    public static GridDataset getGridDataset(NetcdfDataset nc)
+    {
+        try
+        {
+            return (GridDataset)TypedDatasetFactory.open(FeatureType.GRID,
+                nc, null, null);
+        }
+        catch(IOException ioe)
+        {
+            // I don't think this can happen - TODO check!
+            throw new RuntimeException(ioe);
+        }
+    }
+
+    /**
+     * Estimates the optimum {@link DataReadingStrategy} from the given
+     * NetcdfDataset.  Essentially, if the data are remote (e.g. OPeNDAP) or
+     * compressed, this will return {@link DataReadingStrategy#BOUNDING_BOX},
+     * which makes a single i/o call, minimizing the overhead.  If the data
+     * are local and uncompressed this will return {@link DataReadingStrategy#SCANLINE},
+     * which makes a tradeoff between the number of individual i/o calls and the
+     * memory footprint.
+     * @param nc The NetcdfDataset from which data will be read.
+     * @return an optimum DataReadingStrategy for reading from the dataset
+     */
+    public static DataReadingStrategy getOptimumDataReadingStrategy(NetcdfDataset nc)
+    {
+        String fileType = nc.getFileTypeId();
+        return fileType.equals("netCDF") || fileType.equals("HDF4")
+            ? DataReadingStrategy.SCANLINE
+            : DataReadingStrategy.BOUNDING_BOX;
     }
 
     /**
@@ -263,14 +312,30 @@ public final class CdmUtils
         return timesteps;
     }
 
-    public static List<Float> readPointList(GridDatatype gridData,
+    /**
+     * Reads a set of points at a given time and elevation from the given
+     * GridDatatype.
+     * @param grid The GridDatatype from which we will read datac
+     * @param tIndex The time index, or -1 if the grid has no time axis
+     * @param zIndex The elevation index, or -1 if the grid has no elevation axis
+     * @param pointList The list of points for which we need data
+     * @param drStrategy The strategy to use for reading data
+     * @param scaleMissingDeferred True if the {@link NetcdfDataset} that
+     * contained the GridDatatype was opened with the enhancement mode
+     * {@link Enhance#ScaleMissingDefer}.
+     * @return a List of floating point numbers, one for each point in the
+     * {@code pointList}, in the same order.  Missing values (e.g. land pixels
+     * in oceanography data} are represented as nulls.
+     * @throws IOException if there was an error reading data from the data source
+     */
+    public static List<Float> readPointList(GridDatatype grid,
             HorizontalCoordSys horizCoordSys, int tIndex, int zIndex,
-            PointList pointList, DataReadingStrategy drStrategy)
+            PointList pointList, DataReadingStrategy drStrategy,
+            boolean scaleMissingDeferred)
             throws IOException
     {
         try
         {
-            long start = System.currentTimeMillis();
             // Prevent InvalidRangeExceptions for ranges we're not going to use anyway
             if (tIndex < 0) tIndex = 0;
             if (zIndex < 0) zIndex = 0;
@@ -280,15 +345,16 @@ public final class CdmUtils
             // Create an list to hold the data, filled with nulls
             List<Float> picData = nullArrayList(pointList.size());
 
+            long start = System.currentTimeMillis();
             PixelMap pixelMap = new PixelMap(horizCoordSys, pointList);
             if (pixelMap.isEmpty()) return picData;
 
             long readMetadata = System.currentTimeMillis();
-            logger.debug("Read metadata in {} milliseconds", (readMetadata - start));
+            logger.debug("Created PixelMap in {} milliseconds", (readMetadata - start));
 
             // Read the data from the dataset
             long before = System.currentTimeMillis();
-            drStrategy.populatePixelArray(picData, tRange, zRange, pixelMap, gridData);
+            drStrategy.populatePixelArray(picData, tRange, zRange, pixelMap, grid, scaleMissingDeferred);
             long after = System.currentTimeMillis();
 
             long builtPic = System.currentTimeMillis();
@@ -313,11 +379,117 @@ public final class CdmUtils
         }
     }
 
+    /**
+     * Reads a timeseries of points from the given GridDatatype at a given
+     * elevation and xy location
+     * @param grid The GridDatatype from which we will read data
+     * @throws IOException if there was an error reading data from the data source
+     * @param tIndices The list of indices along the time axis
+     * @param zIndex The elevation index, or -1 if the grid has no elevation axis
+     * @param xy The horizontal location of the required timeseries
+     * @param scaleMissingDeferred True if the {@link NetcdfDataset} that
+     * contained the GridDatatype was opened with the enhancement mode
+     * {@link Enhance#ScaleMissingDefer}.
+     * @return a list of floating-point numbers, one for each of the time indices.
+     * Missing values (e.g. land pixels in oceanography data} are represented as nulls.
+     * @throws IOException if there was an error reading data from the data source
+     */
     public static List<Float> readTimeseries(GridDatatype grid,
-            List<Integer> tIndices, int zIndex, HorizontalPosition xy)
+            HorizontalCoordSys horizCoordSys, List<Integer> tIndices,
+            int zIndex, HorizontalPosition xy, boolean scaleMissingDeferred)
             throws IOException
     {
-        return null;
+        LonLatPosition lonLat;
+        if (xy instanceof LonLatPosition)
+        {
+            lonLat = (LonLatPosition)xy;
+        }
+        else if (xy.getCoordinateReferenceSystem() == null)
+        {
+            throw new IllegalArgumentException("Horizontal position must have a"
+                + " coordinate reference system");
+        }
+        else
+        {
+            CrsHelper crsHelper = CrsHelper.fromCrs(xy.getCoordinateReferenceSystem());
+            try
+            {
+                lonLat = crsHelper.crsToLonLat(xy);
+            }
+            catch(TransformException te)
+            {
+                // This would only happen if there were an internal error transforming
+                // between coordinate systems in making the PixelMap.  There is
+                // nothing a client could do to recover from this so we turn it into
+                // a runtime exception
+                // TODO: think of a better exception type
+                throw new RuntimeException(te);
+            }
+        }
+        int[] gridCoords = horizCoordSys.lonLatToGrid(lonLat);
+
+        int firstTIndex = tIndices.get(0);
+        int lastTIndex = tIndices.get(tIndices.size() - 1);
+        // Prevent InvalidRangeExceptions if z or t axes are missing
+        if (firstTIndex < 0 || lastTIndex < 0)
+        {
+            firstTIndex = 0;
+            lastTIndex = 0;
+        }
+        if (zIndex < 0) zIndex = 0;
+
+        try
+        {
+            Range tRange = new Range(firstTIndex, lastTIndex);
+            Range zRange = new Range(zIndex, zIndex);
+            Range yRange = new Range(gridCoords[1], gridCoords[1]);
+            Range xRange = new Range(gridCoords[0], gridCoords[0]);
+
+            // Now read the data
+            GridDatatype subset = grid.makeSubset(null, null, tRange, zRange, yRange, xRange);
+            Array arr = subset.readDataSlice(-1, 0, 0, 0);
+
+            // Check for consistency
+            if (arr.getSize() != lastTIndex - firstTIndex + 1)
+            {
+                // This is an internal error
+                throw new IllegalStateException("Unexpected array size (got " + arr.getSize()
+                    + ", expected " + (lastTIndex - firstTIndex + 1) + ")");
+            }
+
+            // Copy the data (which may include many points we don't need) to
+            // the required array
+            VariableDS var = grid.getVariable();
+            List<Float> tsData = new ArrayList<Float>();
+            for (int tIndex : tIndices)
+            {
+                int tIndexOffset = tIndex - firstTIndex;
+                if (tIndexOffset < 0) tIndexOffset = 0; // This will happen if the layer has no t axis
+                float val = arr.getFloat(tIndexOffset);
+                if (scaleMissingDeferred)
+                {
+                    // Convert scale-offset-missing
+                    val = (float)var.convertScaleOffsetMissing(val);
+                }
+                // Replace missing values with nulls
+                tsData.add(Float.isNaN(val) ? null : val);
+            }
+            return tsData;
+        }
+        catch(InvalidRangeException ire)
+        {
+            // This is a programming error, and one from which we can't recover
+            throw new IllegalStateException(ire);
+        }
+    }
+
+    /**
+     * Returns true if the given NetcdfDataset uses the {@link Enhance#ScaleMissingDefer}
+     * mode.
+     */
+    public static boolean isScaleMissingDeferred(NetcdfDataset nc)
+    {
+        return nc.getEnhanceMode().contains(Enhance.ScaleMissingDefer);
     }
 
     /**

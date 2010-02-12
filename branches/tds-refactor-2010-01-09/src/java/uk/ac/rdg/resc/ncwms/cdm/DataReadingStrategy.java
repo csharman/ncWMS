@@ -104,7 +104,8 @@ public enum DataReadingStrategy {
     SCANLINE {
         @Override
         protected void doPopulatePixelArray(List<Float> picData, Range tRange, Range zRange,
-            PixelMap pixelMap, GridDatatype grid) throws IOException, InvalidRangeException
+            PixelMap pixelMap, GridDatatype grid, boolean scaleMissingDeferred)
+            throws IOException, InvalidRangeException
         {
             logger.debug("Reading data using a scanline algorithm");
             // Cycle through the y indices, extracting a scanline of
@@ -134,9 +135,10 @@ public enum DataReadingStrategy {
                 // Now copy the scanline's data to the picture array
                 for (int i : pixelMap.getIIndices(j)) {
                     float val = xySlice.getFloat(index.set(0, i - imin));
-                    // We unpack and check for missing values just for
-                    // the points we need to display.
-                    val = (float) var.convertScaleOffsetMissing(val);
+                    if (scaleMissingDeferred) {
+                        // The value we've read won't have had scale-offset-missing applied
+                        val = (float) var.convertScaleOffsetMissing(val);
+                    }
                     // Now we set the value of all the image pixels associated with
                     // this data point.
                     if (!Float.isNaN(val)) {
@@ -157,7 +159,8 @@ public enum DataReadingStrategy {
     BOUNDING_BOX {
         @Override
         protected void doPopulatePixelArray(List<Float> picData, Range tRange, Range zRange,
-            PixelMap pixelMap, GridDatatype grid) throws IOException, InvalidRangeException
+            PixelMap pixelMap, GridDatatype grid, boolean scaleMissingDeferred)
+            throws IOException, InvalidRangeException
         {
             logger.debug("Reading data using a bounding-box algorithm");
             // Read the whole chunk of x-y data
@@ -186,9 +189,10 @@ public enum DataReadingStrategy {
                     {
                         float val = xySlice.getFloat(index.set(j - pixelMap.getMinJIndex(),
                             i - pixelMap.getMinIIndex()));
-                        // We unpack and check for missing values just for
-                        // the points we need to display.
-                        val = (float)var.convertScaleOffsetMissing(val);
+                        if (scaleMissingDeferred) {
+                            // The value we've read won't have had scale-offset-missing applied
+                            val = (float)var.convertScaleOffsetMissing(val);
+                        }
                         if (!Float.isNaN(val))
                         {
                             for (int pixelIndex : pixelMap.getPixelIndices(i, j))
@@ -215,7 +219,8 @@ public enum DataReadingStrategy {
     PIXEL_BY_PIXEL {
         @Override
         protected void doPopulatePixelArray(List<Float> picData, Range tRange, Range zRange,
-            PixelMap pixelMap, GridDatatype grid) throws IOException, InvalidRangeException
+            PixelMap pixelMap, GridDatatype grid, boolean scaleMissingDeferred)
+            throws IOException, InvalidRangeException
         {
             logger.debug("Reading data using a pixel-by-pixel algorithm");
             long start = System.currentTimeMillis();
@@ -234,7 +239,10 @@ public enum DataReadingStrategy {
                     Array xySlice = subset.readDataSlice(0, 0, -1, -1);
                     Index index = xySlice.getIndex();
                     float val = xySlice.getFloat(index.set(0, 0));
-                    val = (float)var.convertScaleOffsetMissing(val);
+                    if (scaleMissingDeferred) {
+                        // The value we've read won't have had scale-offset-missing applied
+                        val = (float)var.convertScaleOffsetMissing(val);
+                    }
                     if (!Float.isNaN(val))
                     {
                         for (int pixelIndex : pixelMap.getPixelIndices(i, j))
@@ -255,10 +263,10 @@ public enum DataReadingStrategy {
      * @see PixelMap
      */
     public final void populatePixelArray(List<Float> picData, Range tRange, Range zRange,
-        PixelMap pixelMap, GridDatatype grid) throws IOException
+        PixelMap pixelMap, GridDatatype grid, boolean scaleMissingDeferred) throws IOException
     {
         try {
-            this.doPopulatePixelArray(picData, tRange, zRange, pixelMap, grid);
+            this.doPopulatePixelArray(picData, tRange, zRange, pixelMap, grid, scaleMissingDeferred);
         } catch (InvalidRangeException ire) {
             // This is a programming error from which we can't recover
             throw new IllegalStateException(ire);
@@ -266,7 +274,8 @@ public enum DataReadingStrategy {
     }
 
     protected abstract void doPopulatePixelArray(List<Float> picData, Range tRange, Range zRange,
-        PixelMap pixelMap, GridDatatype grid) throws IOException, InvalidRangeException;
+        PixelMap pixelMap, GridDatatype grid, boolean scaleMissingDeferred)
+        throws IOException, InvalidRangeException;
 
     private static final Logger logger = LoggerFactory.getLogger(DataReadingStrategy.class);
 }
