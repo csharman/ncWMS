@@ -56,7 +56,6 @@ import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Dataset;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
-import uk.ac.rdg.resc.ncwms.wms.ServerConfig;
 import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
 
 /**
@@ -358,20 +357,21 @@ class MetadataController
         // We only need the bit of the GetMap request that pertains to data extraction
         // TODO: the hard-coded "1.3.0" is ugly: it basically means that the
         // GetMapDataRequest object will look for "CRS" instead of "SRS"
-        GetMapDataRequest dataRequest = new GetMapDataRequest(params, "1.3.0");
+        GetMapDataRequest dr = new GetMapDataRequest(params, "1.3.0");
         
         // Get the variable we're interested in
-        Layer layer = this.serverConfig.getLayerByUniqueName(dataRequest.getLayers()[0]);
+        Layer layer = this.serverConfig.getLayerByUniqueName(dr.getLayers()[0]);
         usageLogEntry.setLayer(layer);
         
         // Get the grid onto which the data is being projected
-        HorizontalGrid grid = new HorizontalGrid(dataRequest);
+        HorizontalGrid grid = new HorizontalGrid(dr.getCrsCode(), dr.getWidth(),
+                dr.getHeight(), dr.getBbox());
         
         // Get the value on the z axis
-        double zValue = WmsController.getElevationValue(dataRequest.getElevationString());
+        double zValue = WmsController.getElevationValue(dr.getElevationString());
         
         // Get the requested timestep (taking the first only if an animation is requested)
-        DateTime tValue = WmsController.getTimeValues(dataRequest.getTimeString(), layer).get(0);
+        DateTime tValue = WmsController.getTimeValues(dr.getTimeString(), layer).get(0);
         
         // Now read the data and calculate the minimum and maximum values
         List<Float> magnitudes;

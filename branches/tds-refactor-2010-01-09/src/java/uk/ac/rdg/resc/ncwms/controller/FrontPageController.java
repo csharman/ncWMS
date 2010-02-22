@@ -35,7 +35,6 @@ import javax.servlet.http.HttpServletResponse;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.AbstractController;
 import uk.ac.rdg.resc.ncwms.graphics.ImageFormat;
-import uk.ac.rdg.resc.ncwms.wms.ServerConfig;
 
 /**
  * Displays the front page of the ncWMS application (i.e. jsp/index.jsp)

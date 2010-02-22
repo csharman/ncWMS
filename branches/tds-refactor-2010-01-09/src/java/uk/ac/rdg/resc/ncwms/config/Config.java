@@ -66,9 +66,9 @@ import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.security.Users;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
-import uk.ac.rdg.resc.ncwms.wms.AbstractServerConfig;
+import uk.ac.rdg.resc.ncwms.controller.AbstractServerConfig;
 import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
-import uk.ac.rdg.resc.ncwms.wms.ServerConfig;
+import uk.ac.rdg.resc.ncwms.controller.ServerConfig;
 
 /**
  * <p>Configuration of the ncWMS server.  We use Simple XML Serialization

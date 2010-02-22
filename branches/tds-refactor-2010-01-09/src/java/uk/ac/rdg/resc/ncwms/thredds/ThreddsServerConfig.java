@@ -33,9 +33,9 @@ import java.util.Set;
 import org.joda.time.DateTime;
 import ucar.nc2.dataset.NetcdfDataset;
 import uk.ac.rdg.resc.ncwms.controller.WmsController;
-import uk.ac.rdg.resc.ncwms.wms.AbstractServerConfig;
+import uk.ac.rdg.resc.ncwms.controller.AbstractServerConfig;
 import uk.ac.rdg.resc.ncwms.wms.Dataset;
-import uk.ac.rdg.resc.ncwms.wms.ServerConfig;
+import uk.ac.rdg.resc.ncwms.controller.ServerConfig;
 
 /**
  * {@link ServerConfig} for a THREDDS Data Server.  This is injected by Spring

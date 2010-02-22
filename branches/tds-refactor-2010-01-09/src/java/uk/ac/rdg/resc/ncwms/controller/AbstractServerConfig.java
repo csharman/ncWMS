@@ -26,7 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.wms;
+package uk.ac.rdg.resc.ncwms.controller;
 
 import java.io.IOException;
 import java.util.List;
@@ -36,6 +36,9 @@ import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.exceptions.LayerNotDefinedException;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
+import uk.ac.rdg.resc.ncwms.wms.Dataset;
+import uk.ac.rdg.resc.ncwms.wms.Layer;
+import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
 
 /**
  * Partial implementation of the {@link ServerConfig} interface, providing

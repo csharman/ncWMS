@@ -97,7 +97,6 @@ import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Dataset;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
-import uk.ac.rdg.resc.ncwms.wms.ServerConfig;
 
 /**
  * <p>This Controller is the entry point for all standard WMS operations
@@ -433,6 +432,7 @@ public class WmsController extends AbstractController {
             throws WmsException, Exception {
         // Parse the URL parameters
         GetMapRequest getMapRequest = new GetMapRequest(params);
+        GetMapStyleRequest styleRequest = getMapRequest.getStyleRequest();
         usageLogEntry.setGetMapRequest(getMapRequest);
 
         // Get the ImageFormat object corresponding with the requested MIME type
@@ -459,10 +459,23 @@ public class WmsController extends AbstractController {
         }
 
         // Get the grid onto which the data will be projected
-        HorizontalGrid grid = new HorizontalGrid(dr);
+        HorizontalGrid grid = new HorizontalGrid(dr.getCrsCode(), dr.getWidth(),
+                dr.getHeight(), dr.getBbox());
 
         // Create an object that will turn data into BufferedImages
-        ImageProducer imageProducer = new ImageProducer(getMapRequest, layer);
+        String[] styles = styleRequest.getStyles();
+        ImageProducer imageProducer = new ImageProducer.Builder()
+            .layer(layer)
+            .width(dr.getWidth())
+            .height(dr.getHeight())
+            .style(styles.length == 0 ? null : styles[0]) // Use null to trigger default style
+            .colourScaleRange(styleRequest.getColorScaleRange())
+            .backgroundColour(styleRequest.getBackgroundColour())
+            .transparent(styleRequest.isTransparent())
+            .logarithmic(styleRequest.isScaleLogarithmic())
+            .opacity(styleRequest.getOpacity())
+            .numColourBands(styleRequest.getNumColourBands())
+            .build();
         // Need to make sure that the images will be compatible with the
         // requested image format
         if (imageProducer.isTransparent() && !imageFormat.supportsFullyTransparentPixels()) {
@@ -553,10 +566,10 @@ public class WmsController extends AbstractController {
 
         GetFeatureInfoRequest request = new GetFeatureInfoRequest(params);
         usageLogEntry.setGetFeatureInfoRequest(request);
-        GetFeatureInfoDataRequest dataRequest = request.getDataRequest();
+        GetFeatureInfoDataRequest dr = request.getDataRequest();
 
         // Check the feature count
-        if (dataRequest.getFeatureCount() != 1) {
+        if (dr.getFeatureCount() != 1) {
             throw new WmsException("Can only provide feature info for one layer at a time");
         }
 
@@ -568,7 +581,7 @@ public class WmsController extends AbstractController {
         }
 
         // Get the layer we're interested in
-        String layerName = dataRequest.getLayers()[0];
+        String layerName = dr.getLayers()[0];
         Layer layer = this.serverConfig.getLayerByUniqueName(layerName);
         usageLogEntry.setLayer(layer);
         if (!layer.isQueryable()) {
@@ -576,10 +589,11 @@ public class WmsController extends AbstractController {
         }
 
         // Get the grid onto which the data is being projected
-        HorizontalGrid grid = new HorizontalGrid(dataRequest);
+        HorizontalGrid grid = new HorizontalGrid(dr.getCrsCode(), dr.getWidth(),
+                dr.getHeight(), dr.getBbox());
         // Get the x and y values of the point of interest
-        double x = grid.getXAxisValues()[dataRequest.getPixelColumn()];
-        double y = grid.getYAxisValues()[dataRequest.getPixelRow()];
+        double x = grid.getXAxisValues()[dr.getPixelColumn()];
+        double y = grid.getYAxisValues()[dr.getPixelRow()];
         LonLatPosition lonLat = grid.getCrsHelper().crsToLonLat(x, y);
         usageLogEntry.setFeatureInfoLocation(lonLat.getLongitude(), lonLat.getLatitude());
 
@@ -590,11 +604,11 @@ public class WmsController extends AbstractController {
         LonLatPosition gridCellCentre = layer.getHorizontalCoordSys().gridToLonLat(gridCoords);
 
         // Get the elevation value requested
-        double zValue = getElevationValue(dataRequest.getElevationString());
+        double zValue = getElevationValue(dr.getElevationString());
 
         // Get the requested timesteps.  If the layer doesn't have
         // a time axis then this will return a single-element List with value null.
-        List<DateTime> tValues = getTimeValues(dataRequest.getTimeString(), layer);
+        List<DateTime> tValues = getTimeValues(dr.getTimeString(), layer);
         usageLogEntry.setNumTimeSteps(tValues.size());
 
         // First we read the timeseries data.  If the layer doesn't have a time

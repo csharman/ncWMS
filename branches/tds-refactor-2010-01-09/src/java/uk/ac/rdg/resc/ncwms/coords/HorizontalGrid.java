@@ -31,7 +31,6 @@ package uk.ac.rdg.resc.ncwms.coords;
 import org.opengis.metadata.extent.GeographicBoundingBox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import uk.ac.rdg.resc.ncwms.controller.GetMapDataRequest;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidCrsException;
 
 /**
@@ -52,17 +51,6 @@ public class HorizontalGrid extends PointList
 
     private double[] xAxisValues;
     private double[] yAxisValues;
-
-    /**
-     * Creates a HorizontalGrid from the parameters in the given GetMapDataRequest
-     *
-     * @throws InvalidCrsException if the given CRS code is not recognizeda
-     * @todo check validity of the bounding box?
-     */
-    public HorizontalGrid(GetMapDataRequest dr) throws InvalidCrsException
-    {
-        this(dr.getCrsCode(), dr.getWidth(), dr.getHeight(), dr.getBbox());
-    }
 
     /**
      * Creates a HorizontalGrid.

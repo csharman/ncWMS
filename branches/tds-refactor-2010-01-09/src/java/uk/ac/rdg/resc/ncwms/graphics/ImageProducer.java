@@ -42,9 +42,6 @@ import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import uk.ac.rdg.resc.ncwms.controller.GetMapDataRequest;
-import uk.ac.rdg.resc.ncwms.controller.GetMapRequest;
-import uk.ac.rdg.resc.ncwms.controller.GetMapStyleRequest;
 import uk.ac.rdg.resc.ncwms.exceptions.StyleNotDefinedException;
 import uk.ac.rdg.resc.ncwms.util.Range;
 import uk.ac.rdg.resc.ncwms.util.Ranges;
@@ -53,7 +50,8 @@ import uk.ac.rdg.resc.ncwms.wms.Layer;
 import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
 
 /**
- * An object that is used to render data into images.
+ * An object that is used to render data into images.  Instances of this class
+ * must be created through the {@link Builder}.
  *
  * @author Jon Blower
  */
@@ -96,73 +94,9 @@ public final class ImageProducer
     // The outer List contains data for each animation frame
     private List<List<List<Float>>> frameData; // YUCK!!!
     private List<String> labels;
-    
-    /**
-     * Creates a new ImageProducer object from the given request parameters
-     * @param getMapRequest Object containing the request parameters
-     * @param layer The Layer object which is to be rendered as an image
-     * @throws uk.ac.rdg.resc.ncwms.exceptions.StyleNotDefinedException if
-     * the requested Style is not supported by the given layer
-     */
-    public ImageProducer(GetMapRequest getMapRequest, Layer layer)
-        throws StyleNotDefinedException
-    {
-        GetMapStyleRequest styleRequest = getMapRequest.getStyleRequest();
-        GetMapDataRequest dataRequest = getMapRequest.getDataRequest();
-        this.layer = layer;
-        if (styleRequest.getStyles().length == 0)
-        {
-            // Use the default style and colour palette for this layer
-            this.style = layer instanceof VectorLayer ? Style.VECTOR : Style.BOXFILL;
-            this.colorPalette = layer.getDefaultColorPalette();
-        }
-        else
-        {
-            // The style specification consists of a style type and a colour palette,
-            // separated by a forward slash
-            String styleSpec = styleRequest.getStyles()[0].trim();
-            String[] styleStrEls = styleSpec.split("/");
-            String styleType = styleStrEls[0];
-            String paletteName = null;
-            if (styleStrEls.length > 1)
-            {
-                paletteName = styleStrEls[1];
-            }
-            if (styleType.equalsIgnoreCase("boxfill")) this.style = Style.BOXFILL;
-            else if (styleType.equalsIgnoreCase("vector")) this.style = Style.VECTOR;
-            else throw new StyleNotDefinedException("The style " + styleSpec +
-                " is not supported by this server");
-            if (this.style == Style.VECTOR && !(layer instanceof VectorLayer))
-            {
-                throw new StyleNotDefinedException("The style " + styleSpec +
-                    " is not supported by this layer");
-            }
-            // Now get the colour palette
-            this.colorPalette = ColorPalette.get(paletteName);
-            if (this.colorPalette == null)
-            {
-                throw new StyleNotDefinedException("There is no palette with the name "
-                    + paletteName);
-            }
-        }
-        this.transparent = styleRequest.isTransparent();
-        this.bgColor = styleRequest.getBackgroundColour();
-        this.opacity = styleRequest.getOpacity();
-        this.scaleRange = styleRequest.getColorScaleRange();
-        if (this.scaleRange == null)
-        {
-            // Use the layer's default range
-            this.scaleRange = layer.getApproxValueRange();
-        }
 
-        // If the client does not specify a scaling, we use the layer's default
-        Boolean logRequest = styleRequest.isScaleLogarithmic();
-        this.logarithmic = logRequest == null ? layer.isLogScaling() : logRequest.booleanValue();
-
-        this.picWidth = dataRequest.getWidth();
-        this.picHeight = dataRequest.getHeight();
-        this.numColourBands = styleRequest.getNumColourBands();
-    }
+    /** Prevents direct instantiation */
+    private ImageProducer() {}
 
     public BufferedImage getLegend()
     {
@@ -381,5 +315,169 @@ public final class ImageProducer
     public int getOpacity()
     {
         return opacity;
+    }
+
+    /**
+     * Builds an ImageProducer
+     */
+    public static final class Builder
+    {
+        private Layer layer = null;
+        private int picWidth = -1;
+        private int picHeight = -1;
+        private boolean transparent = false;
+        private int opacity = 100;
+        private int numColourBands = 254;
+        private Boolean logarithmic = null;
+        private Color bgColor = Color.WHITE;
+        private Range<Float> scaleRange = null;
+        private Style style = null;
+        private ColorPalette colorPalette = null;
+
+        /** Sets the layer object (must be set: there is no default) */
+        public Builder layer(Layer layer) {
+            if (layer == null) throw new NullPointerException();
+            this.layer = layer;
+            return this;
+        }
+
+        /**
+         * Sets the style to be used.  If not set or if the parameter is null,
+         * the layer's default style and colour palette will be used.
+         * @param styleSpec String in the form "&lt;styletype&gt;/&lt;paletteName&gt;
+         * @throws StyleNotDefinedException if the string is not valid, or if
+         * the style type or palette name are not supported by this server
+         */
+        public Builder style(String styleSpec) throws StyleNotDefinedException {
+            if (styleSpec == null) return this;
+            String[] styleStrEls = styleSpec.split("/");
+
+            // Get the style type
+            String styleType = styleStrEls[0];
+            if (styleType.equalsIgnoreCase("boxfill")) this.style = Style.BOXFILL;
+            else if (styleType.equalsIgnoreCase("vector")) this.style = Style.VECTOR;
+            else throw new StyleNotDefinedException("The style " + styleSpec +
+                " is not supported by this server");
+
+            // Now get the colour palette
+            String paletteName = null;
+            if (styleStrEls.length > 1) paletteName = styleStrEls[1];
+            this.colorPalette = ColorPalette.get(paletteName);
+            if (this.colorPalette == null) {
+                throw new StyleNotDefinedException("There is no palette with the name "
+                    + paletteName);
+            }
+            return this;
+        }
+
+        /** Sets the width of the picture (must be set: there is no default) */
+        public Builder width(int width) {
+            if (width < 0) throw new IllegalArgumentException();
+            this.picWidth = width;
+            return this;
+        }
+
+        /** Sets the height of the picture (must be set: there is no default) */
+        public Builder height(int height) {
+            if (height < 0) throw new IllegalArgumentException();
+            this.picHeight = height;
+            return this;
+        }
+
+        /** Sets whether or not background pixels should be transparent
+         * (defaults to false) */
+        public Builder transparent(boolean transparent) {
+            this.transparent = transparent;
+            return this;
+        }
+
+        /** Sets the opacity of the picture, from 0 to 100 (default 100) */
+        public Builder opacity(int opacity) {
+            if (opacity < 0 || opacity > 100) throw new IllegalArgumentException();
+            this.opacity = opacity;
+            return this;
+        }
+
+        /** Sets the colour scale range.  If not set (or if set to null), the
+         * layer's approx value range will be used. */
+        public Builder colourScaleRange(Range<Float> scaleRange) {
+            this.scaleRange = scaleRange;
+            return this;
+        }
+
+        /** Sets the number of colour bands to use in the image, from 0 to 254
+         * (default 254) */
+        public Builder numColourBands(int numColourBands) {
+            if (numColourBands < 0 || numColourBands > 254) {
+                throw new IllegalArgumentException();
+            }
+            this.numColourBands = numColourBands;
+            return this;
+        }
+
+        /**
+         * Sets whether or not the colour scale is to be spaced logarithmically
+         * (null is the default and means "use the Layer's default).
+         */
+        public Builder logarithmic(Boolean logarithmic) {
+            this.logarithmic = logarithmic;
+            return this;
+        }
+
+        /**
+         * Sets the background colour, which is used only if transparent==false,
+         * for background pixels.  Defaults to white.  If the passed-in color
+         * is null, it is ignored.
+         */
+        public Builder backgroundColour(Color bgColor) {
+            if (bgColor != null) this.bgColor = bgColor;
+            return this;
+        }
+
+        /**
+         * Checks the fields for internal consistency, then creates and returns
+         * a new ImageProducer object.
+         * @throws IllegalStateException if the builder cannot create a vali
+         * ImageProducer object
+         * @throws StyleNotDefinedException if the set style is not supported
+         * by the set layer
+         */
+        public ImageProducer build() throws StyleNotDefinedException
+        {
+            // Perform consistency checks
+            if (layer == null) {
+                throw new IllegalStateException("Must set the Layer object");
+            }
+            if (this.picWidth < 0 || this.picHeight < 0) {
+                throw new IllegalStateException("picture width and height must be >= 0");
+            }
+            if (this.style == Style.VECTOR && !(this.layer instanceof VectorLayer)) {
+                throw new StyleNotDefinedException("The style " + this.style +
+                    " is not supported by this layer");
+            }
+
+            ImageProducer ip = new ImageProducer();
+            ip.layer = this.layer;
+            ip.picWidth = this.picWidth;
+            ip.picHeight = this.picHeight;
+            ip.opacity = this.opacity;
+            ip.transparent = this.transparent;
+            ip.bgColor = this.bgColor;
+            ip.numColourBands = this.numColourBands;
+            ip.style = this.style == null
+                ? (layer instanceof VectorLayer ? Style.VECTOR : Style.BOXFILL)
+                : this.style;
+            ip.colorPalette = this.colorPalette == null
+                ? layer.getDefaultColorPalette()
+                : this.colorPalette;
+            ip.logarithmic = this.logarithmic == null
+                ? layer.isLogScaling()
+                : this.logarithmic.booleanValue();
+            ip.scaleRange = this.scaleRange == null
+                ? layer.getApproxValueRange()
+                : this.scaleRange;
+
+            return ip;
+        }
     }
 }

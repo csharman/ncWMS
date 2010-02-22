@@ -35,9 +35,7 @@ import java.util.Set;
 import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import uk.ac.rdg.resc.ncwms.config.datareader.DataReader;
 import uk.ac.rdg.resc.ncwms.cdm.DataReadingStrategy;
-import uk.ac.rdg.resc.ncwms.config.datareader.DefaultDataReader;
 
 /**
  *<p>Maps real-world points to i and j indices of corresponding
@@ -56,15 +54,16 @@ import uk.ac.rdg.resc.ncwms.config.datareader.DefaultDataReader;
  * <p>(A more efficient algorithm is used for the special case in which both the
  * requested CRS and the CRS of the data are lat-lon.)</p>
  *
- * <p>The resulting PixelMap is then used by {@link DataReader}s to work out what
+ * <p>The resulting PixelMap is then used by {@link DataReadingStrategy}s to work out what
  * data to read from the source data files.  A variety of strategies are possible
  * for reading these data points, each of which may be optimal in a certain
- * situation.  See {@link DataReadingStrategy} for further information.</p>
+ * situation.</p>
  *
  * @author Jon Blower
  * @todo Perhaps we can think of a more appropriate name for this class?
  * @todo equals() and hashCode(), particularly if we're going to cache instances
  * of this class
+ * @see DataReadingStrategy
  */
 public final class PixelMap
 {
@@ -388,7 +387,7 @@ public final class PixelMap
     /**
      * Gets the sum of the lengths of each row of data points,
      * {@literal i.e.} sum(imax - imin + 1).  This is the number of data points that will
-     * be extracted by the {@link DefaultDataReader}.
+     * be extracted by the data reader.
      * @return the sum of the lengths of each row of data points
      */
     public int getSumRowLengths()
