@@ -30,6 +30,7 @@ package uk.ac.rdg.resc.ncwms.config.datareader;
 
 import uk.ac.rdg.resc.ncwms.coords.PointList;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -156,10 +157,12 @@ public abstract class DataReader
      * @param location Location of the dataset's files, as set in the admin
      * application.  This can be a glob expression.
      * @return Map of layer IDs mapped to {@link LayerImpl} objects
-     * @throws Exception if there was an error reading from the data source
+     * @throws FileNotFoundException if the dataset's location does not match
+     * any existing files on the server
+     * @throws IOException if there was an error reading from the data source
      */
     public Map<String, LayerImpl> getAllLayers(final Dataset dataset)
-        throws Exception
+        throws FileNotFoundException, IOException
     {
         Map<String, LayerImpl> layers = new LinkedHashMap<String, LayerImpl>();
         if (WmsUtils.isOpendapLocation(dataset.getLocation()))
@@ -173,7 +176,7 @@ public abstract class DataReader
             List<File> files = expandGlobExpression(dataset.getLocation());
             if (files.size() == 0)
             {
-                throw new Exception(dataset.getLocation() + " does not match any files");
+                throw new FileNotFoundException(dataset.getLocation() + " does not match any files");
             }
             for (File file : files)
             {
@@ -196,9 +199,9 @@ public abstract class DataReader
      * @throws Exception if there was an error reading from the data source
      */
     protected abstract void findAndUpdateLayers(String location,
-        Map<String, LayerImpl> layers) throws Exception;
+        Map<String, LayerImpl> layers) throws IOException;
 
-        /**
+    /**
      * Expands a glob expression to give a List of absolute paths to files.  This
      * method recursively searches directories, allowing for glob expressions like
      * {@code "c:\\data\\200[6-7]\\*\\1*\\A*.nc"}.

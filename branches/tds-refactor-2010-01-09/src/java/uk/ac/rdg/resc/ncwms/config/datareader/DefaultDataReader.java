@@ -37,12 +37,10 @@ import java.util.Set;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ucar.nc2.constants.FeatureType;
 import ucar.nc2.dataset.NetcdfDataset;
 import ucar.nc2.dataset.NetcdfDataset.Enhance;
 import ucar.nc2.dt.GridDataset;
 import ucar.nc2.dt.GridDatatype;
-import ucar.nc2.dt.TypedDatasetFactory;
 import uk.ac.rdg.resc.ncwms.cdm.AbstractScalarLayerBuilder;
 import uk.ac.rdg.resc.ncwms.cdm.CdmUtils;
 import uk.ac.rdg.resc.ncwms.config.LayerImpl;
@@ -105,7 +103,7 @@ public class DefaultDataReader extends DataReader
             logger.debug("Opened NetcdfDataset in {} milliseconds", (openedDS - start));
 
             // Get a GridDataset object, since we know this is a grid
-            GridDataset gd = (GridDataset)TypedDatasetFactory.open(FeatureType.GRID, nc, null, null);
+            GridDataset gd = CdmUtils.getGridDataset(nc);
             
             logger.debug("Getting GridDatatype with id {}", layer.getId());
             GridDatatype gridData = gd.findGridDatatype(layer.getId());
@@ -229,11 +227,11 @@ public class DefaultDataReader extends DataReader
      * @param location Full path to the dataset. This will be passed to 
      * {@link NetcdfDataset#openDataset}.
      * @param layers Map of Layer Ids to LayerImpl objects to populate or update
-     * @throws Exception if there was an error reading from the data source
+     * @throws IOException if there was an error reading from the data source
      */
     @Override
     protected void findAndUpdateLayers(String location,
-        Map<String, LayerImpl> layers) throws Exception
+        Map<String, LayerImpl> layers) throws IOException
     {
         logger.debug("Finding layers in {}", location);
         
@@ -242,9 +240,10 @@ public class DefaultDataReader extends DataReader
         {
             // Open the dataset, using the cache for NcML aggregations
             nc = openDataset(location);
+            GridDataset gd = CdmUtils.getGridDataset(nc);
 
             LayerImplBuilder layerBuilder = new LayerImplBuilder(location);
-            CdmUtils.findAndUpdateLayers(nc, layerBuilder, layers);
+            CdmUtils.findAndUpdateLayers(gd, layerBuilder, layers);
         }
         finally
         {

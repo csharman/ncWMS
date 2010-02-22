@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Set;
 import org.joda.time.DateTime;
 import ucar.nc2.dataset.NetcdfDataset;
+import ucar.nc2.dt.GridDataset;
 import ucar.nc2.dt.GridDatatype;
 import uk.ac.rdg.resc.ncwms.cdm.AbstractScalarLayerBuilder;
 import uk.ac.rdg.resc.ncwms.cdm.CdmUtils;
@@ -87,7 +88,8 @@ class ThreddsDataset implements Dataset
         boolean scaleMissingDeferred = CdmUtils.isScaleMissingDeferred(nc);
 
         // Now load the scalar layers
-        CdmUtils.findAndUpdateLayers(nc, THREDDS_LAYER_BUILDER, this.scalarLayers);
+        GridDataset gd = CdmUtils.getGridDataset(nc);
+        CdmUtils.findAndUpdateLayers(gd, THREDDS_LAYER_BUILDER, this.scalarLayers);
         // Set the dataset property of each layer
         for (ThreddsLayer layer : this.scalarLayers.values())
         {

@@ -79,7 +79,7 @@ public final class CdmUtils
     private CdmUtils() { throw new AssertionError(); }
 
     /**
-     * Searches through the given NetcdfDataset for GridDatatypes, which are
+     * Searches through the given GridDataset for GridDatatypes, which are
      * returned as {@link ScalarLayer}s in the passed-in Map.  If this method
      * encounters a GridDatatype that is already represented in the Map of layers,
      * this method only updates the list of the layer's timesteps (through
@@ -91,22 +91,19 @@ public final class CdmUtils
      * and populates all its fields using LayerBuilder's various setter methods.
      * @param <L> The type of {@link ScalarLayer} that can be handled by the
      * {@code layerBuilder}, and that will be returned in the Map.
-     * @param nc the NetcdfDataset to search
+     * @param gd the GridDataset to search
      * @param layerBuilder The {@link LayerBuilder} that creates ScalarLayers
      * of the given type and updates their properties.
      * @param layers Map of {@link Layer#getId() layer id}s to ScalarLayer objects,
      * which may be empty but cannot be null.
      * @throws NullPointerException if any of the parameters is null
      */
-    public static <L extends ScalarLayer> void findAndUpdateLayers(NetcdfDataset nc,
+    public static <L extends ScalarLayer> void findAndUpdateLayers(GridDataset gd,
             LayerBuilder<L> layerBuilder, Map<String, L> layers)
     {
-        if (nc == null)           throw new NullPointerException("NetcdfDataset can't be null");
+        if (gd == null)           throw new NullPointerException("GridDataset can't be null");
         if (layerBuilder == null) throw new NullPointerException("LayerBuilder can't be null");
         if (layers == null)       throw new NullPointerException("layers can't be null");
-
-        // Get a GridDataset object from the given NetcdfDataset
-        GridDataset gd = getGridDataset(nc);
 
         // Search through all coordinate systems, creating appropriate metadata
         // for each.  This allows metadata objects to be shared among Layer objects,
@@ -182,18 +179,10 @@ public final class CdmUtils
     }
 
     /** Gets a GridDataset from the given NetcdfDataset */
-    public static GridDataset getGridDataset(NetcdfDataset nc)
+    public static GridDataset getGridDataset(NetcdfDataset nc) throws IOException
     {
-        try
-        {
-            return (GridDataset)TypedDatasetFactory.open(FeatureType.GRID,
-                nc, null, null);
-        }
-        catch(IOException ioe)
-        {
-            // I don't think this can happen - TODO check!
-            throw new RuntimeException(ioe);
-        }
+        return (GridDataset)TypedDatasetFactory.open(FeatureType.GRID,
+            nc, null, null);
     }
 
     /**
