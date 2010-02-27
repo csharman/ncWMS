@@ -31,6 +31,7 @@ package uk.ac.rdg.resc.ncwms.cdm;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -416,9 +417,16 @@ public final class CdmUtils
             }
         }
         int[] gridCoords = horizCoordSys.lonLatToGrid(lonLat);
+        if (gridCoords == null)
+        {
+            // The lon-lat point is outside the domain of the coord sys, so return
+            // a list of nulls
+            return Collections.nCopies(tIndices.size(), null);
+        }
 
         int firstTIndex = tIndices.get(0);
         int lastTIndex = tIndices.get(tIndices.size() - 1);
+        
         // Prevent InvalidRangeExceptions if z or t axes are missing
         if (firstTIndex < 0 || lastTIndex < 0)
         {
