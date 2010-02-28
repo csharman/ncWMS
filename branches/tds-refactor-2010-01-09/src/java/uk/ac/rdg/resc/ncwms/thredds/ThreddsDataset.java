@@ -28,6 +28,7 @@
 
 package uk.ac.rdg.resc.ncwms.thredds;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -69,12 +70,17 @@ class ThreddsDataset implements Dataset
         @Override public void setTimeValues(ThreddsLayer layer, List<DateTime> times) {
             layer.setTimeValues(times);
         }
-        @Override  public void setGridDatatype(ThreddsLayer layer, GridDatatype grid) {
+        @Override public void setGridDatatype(ThreddsLayer layer, GridDatatype grid) {
             layer.setGridDatatype(grid);
         }
     };
 
-    public ThreddsDataset(String id, NetcdfDataset nc)
+    /**
+     * Creates a new ThreddsDataset with the given id from the given NetcdfDataset
+     * @throws IOException if there was an i/o error extracting a GridDataset
+     * from the given NetcdfDataset
+     */
+    public ThreddsDataset(String id, NetcdfDataset nc) throws IOException
     {
         this.id = id;
         this.title = nc.getTitle();

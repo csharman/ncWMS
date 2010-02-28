@@ -28,6 +28,7 @@
 
 package uk.ac.rdg.resc.ncwms.thredds;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
 import org.joda.time.DateTime;
@@ -83,7 +84,7 @@ public class ThreddsServerConfig extends AbstractServerConfig {
     }
 
     @Override
-    public Dataset getDatasetById(String datasetId) {
+    public Dataset getDatasetById(String datasetId) throws IOException {
        NetcdfDataset nc = this.getNetcdfDataset(datasetId);
        return new ThreddsDataset(datasetId, nc);
     }

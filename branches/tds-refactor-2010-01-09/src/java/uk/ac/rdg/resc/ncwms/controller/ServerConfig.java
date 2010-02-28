@@ -111,8 +111,10 @@ public interface ServerConfig
      * @param datasetId the dataset's identifier
      * @return the {@link Dataset} with the given unique id, or null if the given
      * id doesn't match a dataset.
+     * @throws IOException if there was an i/o error reading from the underlying
+     * data
      */
-    public Dataset getDatasetById(String datasetId);
+    public Dataset getDatasetById(String datasetId) throws IOException;
 
     /**
      * <p>Returns true if this server is allowed to produce a Capabilities document
@@ -125,11 +127,11 @@ public interface ServerConfig
 
     /**
      * Gets an unmodifiable Map of dataset IDs to Dataset objects for all datasets
-     * on this server, or null if this is not possible on this server.  (For
-     * example, datasets in THREDDS servers come and go dynamically, so it's not
-     * possibe to find all the datasets at any given time.)
+     * on this server, or null if this is not possible on this server.
+     * @throws IOException if an i/o error occurs reading from the underlying
+     * data store
      */
-    public Map<String, ? extends Dataset> getAllDatasets();
+    public Map<String, ? extends Dataset> getAllDatasets() throws IOException;
 
     /**
      * <p>Returns the date/time at which the data on this server were last updated.

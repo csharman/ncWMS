@@ -32,6 +32,7 @@ import java.awt.Font;
 import java.awt.geom.Ellipse2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
@@ -272,10 +273,12 @@ public class WmsController extends AbstractController {
      * <tt>web/WEB-INF/jsp/capabilities_xml_1_1_1.jsp</tt>.  If the user
      * specifies VERSION=1.3.0 (or does not specify a version) the information
      * will be rendered using <tt>web/WEB-INF/jsp/capabilities_xml.jsp</tt>.
+     * @throws IOException if there was an i/o error getting the dataset(s) from
+     * the underlying data store
      */
     protected ModelAndView getCapabilities(RequestParams params,
             HttpServletRequest httpServletRequest, UsageLogEntry usageLogEntry)
-            throws WmsException {
+            throws WmsException, IOException {
         // Check the SERVICE parameter
         String service = params.getMandatoryString("service");
         if (!service.equals("WMS")) {

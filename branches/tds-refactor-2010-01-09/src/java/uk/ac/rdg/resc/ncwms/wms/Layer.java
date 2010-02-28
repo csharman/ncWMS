@@ -88,7 +88,7 @@ public interface Layer
 
     /**
      * Returns the horizontal coordinate system of this layer, which is an object
-     * that translates from lat-lon coordinates to the neareast grid coordinates.
+     * that translates from lat-lon coordinates to the nearest grid coordinates.
      * @return the horizontal coordinate system of this layer.
      */
     public HorizontalCoordSys getHorizontalCoordSys();
