@@ -259,7 +259,8 @@ public class WmsController extends AbstractController {
             if (ioe.getClass().getName().equals("org.apache.catalina.connector.ClientAbortException")) {
                 return null;
             }
-            // Other types of IOException might be valuable to catch (maybe they
+            // Other types of IOException are potentially interesting and
+            // must be rethrown to avoid hiding errors (maybe they
             // represent internal errors when reading data for instance).
             throw ioe;
         } catch (Exception e) {
