@@ -33,6 +33,7 @@ import java.awt.geom.Ellipse2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.net.SocketException;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
@@ -150,7 +151,8 @@ public class WmsController extends AbstractController {
         // directory containing the palettes.  Therefore we need a way of 
         // getting at the ServletContext object, which isn't available from
         // the ColorPalette class.
-        String paletteLocation = this.getWebApplicationContext().getServletContext().getRealPath("/WEB-INF/conf/palettes");
+        String paletteLocation = this.getWebApplicationContext()
+            .getServletContext().getRealPath("/WEB-INF/conf/palettes");
         File paletteLocationDir = new File(paletteLocation);
         if (paletteLocationDir.exists() && paletteLocationDir.isDirectory()) {
             ColorPalette.loadPalettes(paletteLocationDir);
@@ -245,15 +247,21 @@ public class WmsController extends AbstractController {
                 throw new Wms1_1_1Exception(wmse);
             }
             throw wmse;
-        /*} catch (IOException ioe) {
-            // Filter out IOExceptions, otherwise the log gets full of
-            // them.  These most commonly occur when the client disconnects
-            // part-way through an image download, very common when the user is
-            // panning and zooming in a tile-based visualization client).
-            // TODO: we could detect a Tomcat ClientAbortException without a
-            // compile-time dependency on the class by doing a string comparison
-            // on the class name.
-            return null;*/
+        } catch (SocketException se) {
+            // SocketExceptions usually happen when the client has aborted the
+            // connection, so there's nothing we can do here
+            return null;
+        } catch (IOException ioe) {
+            // Filter out Tomcat ClientAbortExceptions, which for some reason
+            // don't inherit from SocketException.
+            // We check the class name to avoid a compile-time dependency on the
+            // Tomcat libraries
+            if (ioe.getClass().getName().equals("org.apache.catalina.connector.ClientAbortException")) {
+                return null;
+            }
+            // Other types of IOException might be valuable to catch (maybe they
+            // represent internal errors when reading data for instance).
+            throw ioe;
         } catch (Exception e) {
             // An unexpected (internal) error has occurred
             usageLogEntry.setException(e);
