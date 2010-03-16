@@ -250,7 +250,13 @@ public final class ImageProducer
             double val = this.logarithmic ? Math.log(value) : value;
             double frac = (val - min) / (max - min);
             // Compute and return the index of the corresponding colour
-            return (int)(frac * this.numColourBands);
+            int index = (int)(frac * this.numColourBands);
+            // For values very close to the maximum value in the range, this
+            // index might turn out to be equal to this.numColourBands due to
+            // rounding error.  In this case we subtract one from the index to
+            // ensure that such pixels are not displayed as background pixels.
+            if (index == this.numColourBands) index--;
+            return index;
         }
     }
     
