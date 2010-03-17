@@ -14,7 +14,7 @@ response.setDateHeader ("Expires", 0); //prevents caching at the proxy server
 <html>
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <title>Error with dataset ${dataset.id}</title>
+        <title>Status of dataset ${dataset.id}</title>
     </head>
     <body>
         
