@@ -26,7 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.coords;
+package uk.ac.rdg.resc.edal.position.impl;
 
 import java.util.Arrays;
 import org.opengis.geometry.DirectPosition;

@@ -62,8 +62,8 @@ import ucar.unidata.geoloc.LatLonPoint;
 import ucar.unidata.geoloc.LatLonRect;
 import uk.ac.rdg.resc.ncwms.coords.CrsHelper;
 import uk.ac.rdg.resc.ncwms.coords.HorizontalCoordSys;
-import uk.ac.rdg.resc.ncwms.coords.HorizontalPosition;
-import uk.ac.rdg.resc.ncwms.coords.LonLatPosition;
+import uk.ac.rdg.resc.edal.position.HorizontalPosition;
+import uk.ac.rdg.resc.edal.position.LonLatPosition;
 import uk.ac.rdg.resc.ncwms.coords.PixelMap;
 import uk.ac.rdg.resc.ncwms.coords.PointList;
 import uk.ac.rdg.resc.ncwms.coords.chrono.ThreeSixtyDayChronology;
@@ -388,7 +388,7 @@ public final class CdmUtils
             Range zRange = new Range(zIndex, zIndex);
 
             // Create an list to hold the data, filled with nulls
-            List<Float> picData = nullArrayList(pointList.size());
+            List<Float> picData = nullArrayList(pointList.getDomainObjects().size());
 
             long start = System.currentTimeMillis();
             PixelMap pixelMap = new PixelMap(horizCoordSys, pointList);

@@ -28,9 +28,12 @@
 
 package uk.ac.rdg.resc.ncwms.coords;
 
+import uk.ac.rdg.resc.edal.position.impl.HorizontalPositionImpl;
+import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 /**
  * Represents a path through a coordinate system.  The path consists of a set
@@ -46,27 +49,27 @@ public final class LineString {
     private final List<HorizontalPosition> controlPoints;
     private final transient double[] controlPointDistances;
     private double pathLength;
-    private CrsHelper crsHelper;
+    private CoordinateReferenceSystem crs;
 
     /**
      * Constructs a {@link LineString} from a line string in the form.
      * @param lineStringSpec the line string as specified in the form
      * "x1 y1, x2 y2, x3 y3".
-     * @param crsHelper The coordinate reference system for the line string's
-     * coordinates (wrapped in a helper object)
+     * @param crs The coordinate reference system for the line string's
+     * coordinates
      * @throws InvalidLineStringException if the line string is not correctly
      * specified.
      * @throws NullPointerException if crsHelper == null
      */
-    public LineString(String lineStringSpec, CrsHelper crsHelper) throws InvalidLineStringException {
+    public LineString(String lineStringSpec, CoordinateReferenceSystem crs) throws InvalidLineStringException {
         String[] pointsStr = lineStringSpec.split(",");
         if (pointsStr.length < 2) {
             throw new InvalidLineStringException("At least two points are required to generate a transect");
         }
-        if (crsHelper == null) {
+        if (crs == null) {
             throw new NullPointerException("CrsHelper cannot be null");
         }
-        this.crsHelper = crsHelper;
+        this.crs = crs;
 
         // The control points along the transect as specified by the line string
         final List<HorizontalPosition> ctlPoints = new ArrayList<HorizontalPosition>();
@@ -203,9 +206,9 @@ public final class LineString {
         throw new AssertionError(); // Shouldn't get here.
     }
 
-    public CrsHelper getCrsHelper()
+    public CoordinateReferenceSystem getCoordinateReferenceSystem()
     {
-        return this.crsHelper;
+        return this.crs;
     }
 
 }

@@ -28,6 +28,10 @@
 
 package uk.ac.rdg.resc.ncwms.coords;
 
+import uk.ac.rdg.resc.edal.position.impl.HorizontalPositionImpl;
+import uk.ac.rdg.resc.edal.position.impl.LonLatPositionImpl;
+import uk.ac.rdg.resc.edal.position.HorizontalPosition;
+import uk.ac.rdg.resc.edal.position.LonLatPosition;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;

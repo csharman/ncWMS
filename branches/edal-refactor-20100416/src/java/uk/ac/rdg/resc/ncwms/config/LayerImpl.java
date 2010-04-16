@@ -34,7 +34,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.joda.time.DateTime;
-import uk.ac.rdg.resc.ncwms.coords.HorizontalPosition;
+import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.config.datareader.DataReader;
 import uk.ac.rdg.resc.ncwms.coords.PointList;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
@@ -216,7 +216,7 @@ public final class LayerImpl extends AbstractTimeAggregatedLayer
     public Float readSinglePoint(DateTime time, double elevation, HorizontalPosition xy)
         throws InvalidDimensionValueException, IOException
     {
-        PointList singlePoint = PointList.fromPoint(xy);
+        PointList singlePoint = new PointList(xy);
         return this.readPointList(time, elevation, singlePoint).get(0);
     }
 

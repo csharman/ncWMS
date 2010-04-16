@@ -49,6 +49,7 @@ import java.util.TreeMap;
 import javax.imageio.ImageIO;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import org.geotoolkit.referencing.CRS;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartUtilities;
 import org.jfree.chart.JFreeChart;
@@ -71,11 +72,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.joda.time.DateTime;
 import org.joda.time.chrono.ISOChronology;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.AbstractController;
 import uk.ac.rdg.resc.ncwms.coords.CrsHelper;
-import uk.ac.rdg.resc.ncwms.coords.HorizontalPosition;
-import uk.ac.rdg.resc.ncwms.coords.LonLatPosition;
+import uk.ac.rdg.resc.edal.position.HorizontalPosition;
+import uk.ac.rdg.resc.edal.position.LonLatPosition;
 import uk.ac.rdg.resc.ncwms.coords.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.coords.LineString;
 import uk.ac.rdg.resc.ncwms.coords.PixelMap;
@@ -607,7 +609,8 @@ public class WmsController extends AbstractController {
         // Get the x and y values of the point of interest
         double x = grid.getXAxisValues()[dr.getPixelColumn()];
         double y = grid.getYAxisValues()[dr.getPixelRow()];
-        LonLatPosition lonLat = grid.getCrsHelper().crsToLonLat(x, y);
+        CrsHelper crsHelper = CrsHelper.fromCrs(grid.getCoordinateReferenceSystem());
+        LonLatPosition lonLat = crsHelper.crsToLonLat(x, y);
         usageLogEntry.setFeatureInfoLocation(lonLat.getLongitude(), lonLat.getLatitude());
 
         // Find out the i,j coordinates of this point in the source grid (could be null)
@@ -972,15 +975,18 @@ public class WmsController extends AbstractController {
         usageLogEntry.setLayer(layer);
         usageLogEntry.setOutputFormat(outputFormat);
 
-        final CrsHelper crsHelper = CrsHelper.fromCrsCode(crsCode);
+        // Get the required coordinate reference system, forcing longitude-first
+        // axis order.  TODO: need to make sure this is consistent with creation
+        // of CRS objects in CrsHelper.
+        final CoordinateReferenceSystem crs = CRS.decode(crsCode, true);
 
         // Parse the line string, which is in the form "x1 y1, x2 y2, x3 y3"
-        final LineString transect = new LineString(lineString, crsHelper);
+        final LineString transect = new LineString(lineString, crs);
         log.debug("Got {} control points", transect.getControlPoints().size());
 
         // Find the optimal number of points to sample the layer's source grid
         PointList pointList = getOptimalTransectPointList(layer, transect);
-        log.debug("Using transect consisting of {} points", pointList.size());
+        log.debug("Using transect consisting of {} points", pointList.getDomainObjects().size());
 
         // Read the data from the data source, without using the tile cache
         List<Float> transectData;
@@ -1068,7 +1074,7 @@ public class WmsController extends AbstractController {
             // Output data as XML using a template
             // First create an ordered map of ProjectionPoints to data values
             Map<HorizontalPosition, Float> dataPoints = new LinkedHashMap<HorizontalPosition, Float>();
-            List<HorizontalPosition> points = pointList.asList();
+            List<HorizontalPosition> points = pointList.getDomainObjects();
             for (int i = 0; i < points.size(); i++) {
                 dataPoints.put(points.get(i), transectData.get(i));
             }
@@ -1125,7 +1131,7 @@ public class WmsController extends AbstractController {
             // between the control points in the line string
             List<HorizontalPosition> points = transect.getPointsOnPath(numTransectPoints);
             // Create a PointList from the interpolated points
-            PointList testPointList = PointList.fromList(points, transect.getCrsHelper());
+            PointList testPointList = new PointList(points, transect.getCoordinateReferenceSystem());
             // Work out how many grid points will be sampled by this transect
             int numGridPointsSampled =
                 new PixelMap(layer.getHorizontalCoordSys(), testPointList).getNumUniqueIJPairs();

@@ -28,6 +28,8 @@
 
 package uk.ac.rdg.resc.ncwms.coords;
 
+import uk.ac.rdg.resc.edal.position.impl.LonLatPositionImpl;
+import uk.ac.rdg.resc.edal.position.LonLatPosition;
 import ucar.unidata.geoloc.LatLonPoint;
 import ucar.unidata.geoloc.ProjectionImpl;
 import ucar.unidata.geoloc.ProjectionPoint;

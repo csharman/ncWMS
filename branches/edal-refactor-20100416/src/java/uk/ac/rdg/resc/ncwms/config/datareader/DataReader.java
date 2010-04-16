@@ -39,9 +39,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.oro.io.GlobFilenameFilter;
-import uk.ac.rdg.resc.ncwms.config.Dataset;
 import uk.ac.rdg.resc.ncwms.config.LayerImpl;
-import uk.ac.rdg.resc.ncwms.coords.HorizontalPosition;
+import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 
@@ -142,7 +141,7 @@ public abstract class DataReader
         List<Integer> tIndices, int zIndex, HorizontalPosition xy)
         throws IOException {
 
-        PointList pointList = PointList.fromPoint(xy);
+        PointList pointList = new PointList(xy);
         List<Float> tsData = new ArrayList<Float>();
         for (int tIndex : tIndices) {
             tsData.add(this.read(filename, layer, tIndex, zIndex, pointList).get(0));

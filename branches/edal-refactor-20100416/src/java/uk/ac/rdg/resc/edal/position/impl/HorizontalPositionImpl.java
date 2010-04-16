@@ -26,8 +26,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.coords;
+package uk.ac.rdg.resc.edal.position.impl;
 
+import uk.ac.rdg.resc.edal.position.impl.DirectPositionImpl;
+import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 /**

@@ -28,6 +28,7 @@
 
 package uk.ac.rdg.resc.ncwms.coords;
 
+import uk.ac.rdg.resc.edal.position.LonLatPosition;
 import java.util.HashMap;
 import java.util.Map;
 import org.slf4j.Logger;

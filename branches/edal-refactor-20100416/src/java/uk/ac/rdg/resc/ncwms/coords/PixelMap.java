@@ -28,6 +28,8 @@
 
 package uk.ac.rdg.resc.ncwms.coords;
 
+import uk.ac.rdg.resc.edal.position.HorizontalPosition;
+import uk.ac.rdg.resc.edal.position.LonLatPosition;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -99,9 +101,9 @@ public final class PixelMap
     private void initFromPointList(HorizontalCoordSys horizCoordSys, PointList pointList) throws TransformException
     {
         logger.debug("Using generic method based on iterating over the PointList");
-        CrsHelper crsHelper = pointList.getCrsHelper();
+        CrsHelper crsHelper = CrsHelper.fromCrs(pointList.getCoordinateReferenceSystem());
         int pixelIndex = 0;
-        for (HorizontalPosition point : pointList.asList())
+        for (HorizontalPosition point : pointList.getDomainObjects())
         {
             // Check that this point is valid in the target CRS
             if (crsHelper.isPointValidForCrs(point))

@@ -44,8 +44,9 @@ import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.ac.rdg.resc.ncwms.config.LayerImpl;
-import uk.ac.rdg.resc.ncwms.coords.HorizontalPosition;
-import uk.ac.rdg.resc.ncwms.coords.LonLatPosition;
+import uk.ac.rdg.resc.edal.position.HorizontalPosition;
+import uk.ac.rdg.resc.edal.position.LonLatPosition;
+import uk.ac.rdg.resc.ncwms.coords.CrsHelper;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 
 /**
@@ -143,7 +144,7 @@ public class NSIDCSnowWaterDataReader extends DataReader
         logger.debug("Reading data from " + filename);
 
         // Create an array to hold the data
-        List<Float> picData = nullArrayList(pointList.size());
+        List<Float> picData = nullArrayList(pointList.getDomainObjects().size());
         
         FileInputStream fin = null;
         ByteBuffer data = null;
@@ -162,12 +163,13 @@ public class NSIDCSnowWaterDataReader extends DataReader
         }
         
         int picIndex = 0;
-        for (HorizontalPosition point : pointList.asList())
+        CrsHelper crsHelper = CrsHelper.fromCrs(pointList.getCoordinateReferenceSystem());
+        for (HorizontalPosition point : pointList.getDomainObjects())
         {
             LonLatPosition lonLat;
             try
             {
-                lonLat = pointList.getCrsHelper().crsToLonLat(point);
+                lonLat = crsHelper.crsToLonLat(point);
             }
             catch (TransformException te)
             {

@@ -28,7 +28,10 @@
 
 package uk.ac.rdg.resc.ncwms.coords;
 
+import uk.ac.rdg.resc.edal.position.impl.HorizontalPositionImpl;
+import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import org.opengis.metadata.extent.GeographicBoundingBox;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidCrsException;
@@ -167,9 +170,9 @@ public class HorizontalGrid extends PointList
     }
 
     @Override
-    public CrsHelper getCrsHelper()
+    public CoordinateReferenceSystem getCoordinateReferenceSystem()
     {
-        return this.crsHelper;
+        return this.crsHelper.getCoordinateReferenceSystem();
     }
 
     public String getCrsCode()

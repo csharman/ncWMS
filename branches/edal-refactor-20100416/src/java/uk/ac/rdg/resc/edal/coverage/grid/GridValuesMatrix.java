@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 The University of Reading
+ * Copyright (c) 2010 The University of Reading
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,46 +26,40 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.coords;
+package uk.ac.rdg.resc.edal.coverage.grid;
 
-import org.opengis.geometry.DirectPosition;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import java.util.List;
+import uk.ac.rdg.resc.edal.coverage.Record;
+import uk.ac.rdg.resc.edal.coverage.RecordType;
 
 /**
- * Defines the position of a point in the horizontal plane.
+ * A {@link Grid} that contains values.
  * @author Jon
  */
-public interface HorizontalPosition extends DirectPosition {
-
-    /** Returns the x coordinate of this position, equivalent to getOrdinate(0) */
-    public double getX();
-
-    /** Returns the y coordinate of this position, equivalent to getOrdinate(1) */
-    public double getY();
+public interface GridValuesMatrix extends Grid {
 
     /**
-     * Returns a two-dimensional coordinate reference system.
-     * The first coordinate in the CRS is the {@link #getX() x coordinate};
-     * the second is the {@link #getY() y coordinate}.
-     * @return a two-dimensional coordinate reference system
+     * <p>Returns a sequence of N feature attribute value records where N is the
+     * number of grid points within the section of the grid specified by the
+     * {@link #getExtent() extent}.</p>
+     * <p>Note that this List does not have to exist as a purely in-memory
+     * object.  For large grids it may be more efficient to implement a List
+     * that wraps other storage.</p>
+     * @return a sequence of N feature attribute values.
+     * @see GridValuesMatrix#getValues()
      */
-    @Override public CoordinateReferenceSystem getCoordinateReferenceSystem();
+    public List<Record> getValues();
 
-    /** Returns 2 */
-    @Override public int getDimension();
+    public List<Record> getValues(List<GridCoordinates> coords);
+
+    /** @todo Do we need this?  */
+    public RecordType getRangeType();
 
     /**
-     * Returns an array of two coordinates [x,y]
+     * @todo Does this belong in the Grid class, or in the relevant Coverage class?
+     * We need to retrieve the list of valid member names from the Coverage so
+     * it would be handy to have a link somewhere.
      */
-    @Override public double[] getCoordinate();
-
-    /**
-     * Returns the ordinate at the specified dimension.
-     * @param dimension - The dimension in the range 0 to 1 (inclusive)
-     * @return The coordinate at the specified dimension (index = 0 gives the
-     * x coordinate; index = 1 gives the y coordinate)
-     * @throws IndexOutOfBoundsException if {@code index < 0 || index > 1}
-     */
-    @Override public double getOrdinate(int index);
+    public List<?> getValues(String memberName);
 
 }

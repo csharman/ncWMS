@@ -31,7 +31,7 @@ package uk.ac.rdg.resc.ncwms.wms;
 import java.io.IOException;
 import java.util.List;
 import org.joda.time.DateTime;
-import uk.ac.rdg.resc.ncwms.coords.HorizontalPosition;
+import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.coords.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.coords.PointList;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
