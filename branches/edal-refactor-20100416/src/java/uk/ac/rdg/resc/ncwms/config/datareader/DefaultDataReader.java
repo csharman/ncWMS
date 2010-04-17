@@ -28,7 +28,6 @@
 
 package uk.ac.rdg.resc.ncwms.config.datareader;
 
-import uk.ac.rdg.resc.ncwms.coords.PointList;
 import java.io.IOException;
 import java.util.EnumSet;
 import java.util.List;
@@ -41,10 +40,12 @@ import ucar.nc2.dataset.NetcdfDataset;
 import ucar.nc2.dataset.NetcdfDataset.Enhance;
 import ucar.nc2.dt.GridDataset;
 import ucar.nc2.dt.GridDatatype;
+import uk.ac.rdg.resc.edal.coverage.domain.Domain;
 import uk.ac.rdg.resc.ncwms.cdm.AbstractScalarLayerBuilder;
 import uk.ac.rdg.resc.ncwms.cdm.CdmUtils;
 import uk.ac.rdg.resc.ncwms.config.LayerImpl;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
+import uk.ac.rdg.resc.edal.position.LonLatPosition;
 import uk.ac.rdg.resc.ncwms.coords.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
@@ -82,7 +83,7 @@ public class DefaultDataReader extends DataReader
      * @param layer {@link Layer} object representing the variable
      * @param tIndex The index along the time axis (or -1 if there is no time axis)
      * @param zIndex The index along the vertical axis (or -1 if there is no vertical axis)
-     * @param pointList The list of real-world x-y points for which we need data.
+     * @param domain The list of real-world x-y points for which we need data.
      * In the case of a GetMap operation this will usually be a {@link HorizontalGrid}.
      * @return an array of floating-point data values, one for each point in
      * the {@code pointList}, in the same order.
@@ -90,7 +91,7 @@ public class DefaultDataReader extends DataReader
      */
     @Override
     public List<Float> read(String filename, Layer layer, int tIndex, int zIndex,
-        PointList pointList) throws IOException
+        Domain<? extends HorizontalPosition> domain) throws IOException
     {
         NetcdfDataset nc = null;
         try
@@ -109,12 +110,12 @@ public class DefaultDataReader extends DataReader
             GridDatatype gridData = gd.findGridDatatype(layer.getId());
             logger.debug("filename = {}, gg = {}", filename, gridData.toString());
 
-            return CdmUtils.readPointList(
+            return CdmUtils.readHorizontalPoints(
                 gridData,           // The grid of data to read from
                 layer.getHorizontalCoordSys(),
                 tIndex,
                 zIndex,
-                pointList,
+                domain,
                 CdmUtils.getOptimumDataReadingStrategy(nc),
                 CdmUtils.isScaleMissingDeferred(nc)
             );

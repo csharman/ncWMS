@@ -27,9 +27,9 @@
  */
 package uk.ac.rdg.resc.edal.coverage;
 
+import org.opengis.geometry.DirectPosition;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import uk.ac.rdg.resc.edal.coverage.grid.Grid;
-import uk.ac.rdg.resc.edal.coverage.grid.GridCoordinates;
 import uk.ac.rdg.resc.edal.coverage.grid.GridValuesMatrix;
 import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableGrid;
 
@@ -37,7 +37,7 @@ import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableGrid;
  *
  * @author Jon
  */
-public interface DiscreteGridPointCoverage extends DiscreteCoverage<GridCoordinates> {
+public interface DiscreteGridPointCoverage<DP extends DirectPosition> extends DiscreteCoverage<DP> {
 
     /**
      * Returns the {@link Grid} object that forms the domain of this coverage.
@@ -45,7 +45,7 @@ public interface DiscreteGridPointCoverage extends DiscreteCoverage<GridCoordina
      * @return the {@link Grid} object that forms the domain of this coverage.
      */
     @Override
-    public ReferenceableGrid getDomain();
+    public ReferenceableGrid<DP> getDomain();
 
     /** getValues() will re-use the GridValueMatrix's getValues() method */
 

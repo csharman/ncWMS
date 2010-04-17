@@ -34,6 +34,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.joda.time.DateTime;
+import uk.ac.rdg.resc.edal.coverage.domain.Domain;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.config.datareader.DataReader;
 import uk.ac.rdg.resc.ncwms.coords.PointList;
@@ -147,19 +148,20 @@ public final class LayerImpl extends AbstractTimeAggregatedLayer
      * and is thus more efficient than making multiple calls to readSinglePoint().</p>
      */
     @Override
-    public List<Float> readPointList(DateTime time, double elevation, PointList pointList)
+    public List<Float> readHorizontalPoints(DateTime time, double elevation,
+            Domain<? extends HorizontalPosition> domain)
         throws InvalidDimensionValueException, IOException
     {
         int zIndex = this.findAndCheckElevationIndex(elevation);
         FilenameAndTimeIndex fti = this.findAndCheckFilenameAndTimeIndex(time);
-        return this.readPointList(fti, zIndex, pointList);
+        return this.readPointList(fti, zIndex, domain);
     }
     
     /** Reads a PointList based upon t and z indices rather than natural values */
-    List<Float> readPointList(FilenameAndTimeIndex fti, int zIndex, PointList pointList)
+    List<Float> readPointList(FilenameAndTimeIndex fti, int zIndex, Domain<? extends HorizontalPosition> domain)
         throws IOException
     {
-        return this.dataReader.read(fti.filename, this, fti.tIndexInFile, zIndex, pointList);
+        return this.dataReader.read(fti.filename, this, fti.tIndexInFile, zIndex, domain);
     }
 
     /**
@@ -217,7 +219,7 @@ public final class LayerImpl extends AbstractTimeAggregatedLayer
         throws InvalidDimensionValueException, IOException
     {
         PointList singlePoint = new PointList(xy);
-        return this.readPointList(time, elevation, singlePoint).get(0);
+        return this.readHorizontalPoints(time, elevation, singlePoint).get(0);
     }
 
     @Override

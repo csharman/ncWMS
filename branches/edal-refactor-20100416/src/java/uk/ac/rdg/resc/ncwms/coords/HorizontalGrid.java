@@ -28,12 +28,15 @@
 
 package uk.ac.rdg.resc.ncwms.coords;
 
+import java.util.AbstractList;
+import java.util.List;
 import uk.ac.rdg.resc.edal.position.impl.HorizontalPositionImpl;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import org.opengis.metadata.extent.GeographicBoundingBox;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import uk.ac.rdg.resc.edal.coverage.domain.Domain;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidCrsException;
 
 /**
@@ -42,18 +45,31 @@ import uk.ac.rdg.resc.ncwms.exceptions.InvalidCrsException;
  *
  * @author Jon Blower
  */
-public class HorizontalGrid extends PointList
+public final class HorizontalGrid implements Domain<HorizontalPosition>
 {
     private static final Logger logger = LoggerFactory.getLogger(HorizontalGrid.class);
 
-    private int width;      // Width of the grid in pixels
-    private int height;     // Height of the grid in pixels
-    private double[] bbox;  // Array of four doubles representing the bounding box
-    private String crsCode; // String representing the CRS
-    private CrsHelper crsHelper;
+    private final int width;      // Width of the grid in pixels
+    private final int height;     // Height of the grid in pixels
+    private final double[] bbox;  // Array of four doubles representing the bounding box
+    private final String crsCode; // String representing the CRS
+    private final CrsHelper crsHelper;
 
-    private double[] xAxisValues;
-    private double[] yAxisValues;
+    private final double[] xAxisValues;
+    private final double[] yAxisValues;
+
+    private final List<HorizontalPosition> domainObjects = new AbstractList<HorizontalPosition>()
+    {
+        @Override
+        public HorizontalPosition get(int index) {
+            return HorizontalGrid.this.getPoint(index);
+        }
+
+        @Override
+        public int size() {
+            return HorizontalGrid.this.size();
+        }
+    };
 
     /**
      * Creates a HorizontalGrid.
@@ -68,15 +84,7 @@ public class HorizontalGrid extends PointList
     public HorizontalGrid(String crsCode, int width, int height, double[] bbox)
         throws InvalidCrsException
     {
-        this.crsHelper = CrsHelper.fromCrsCode(crsCode);
-        this.crsCode = crsCode;
-        this.width = width;
-        this.height = height;
-        this.bbox = bbox;
-
-        // Now calculate the values along the x and y axes of this grid
-        this.initAxisValues();
-        logger.debug("Created HorizontalGrid object for CRS {}", crsCode);
+        this(crsCode, CrsHelper.fromCrsCode(crsCode), width, height, bbox);
     }
 
     /**
@@ -88,23 +96,25 @@ public class HorizontalGrid extends PointList
      */
     public HorizontalGrid(int width, int height, GeographicBoundingBox bbox)
     {
-        this.crsHelper = CrsHelper.CRS_84;
-        this.crsCode = CrsHelper.PLATE_CARREE_CRS_CODE;
-        this.width = width;
-        this.height = height;
-        this.bbox = new double[] {
-            bbox.getWestBoundLongitude(),
-            bbox.getSouthBoundLatitude(),
-            bbox.getEastBoundLongitude(),
-            bbox.getNorthBoundLatitude()
-        };
-
-        // Now calculate the values along the x and y axes of this grid
-        this.initAxisValues();
+        this(CrsHelper.PLATE_CARREE_CRS_CODE, CrsHelper.CRS_84, width, height,
+                new double[] {
+                    bbox.getWestBoundLongitude(),
+                    bbox.getSouthBoundLatitude(),
+                    bbox.getEastBoundLongitude(),
+                    bbox.getNorthBoundLatitude()
+        });
     }
 
-    private void initAxisValues()
+    private HorizontalGrid(String crsCode, CrsHelper crsHelper, int width,
+            int height, double[] bbox)
     {
+        this.crsHelper = crsHelper;
+        this.crsCode = crsCode;
+        this.width = width;
+        this.height = height;
+        this.bbox = bbox;
+
+        // Now calculate the values along the x and y axes of this grid
         double dx = (this.bbox[2] - this.bbox[0]) / this.width;
         this.xAxisValues = new double[this.width];
         for (int i = 0; i < this.xAxisValues.length; i++)
@@ -119,6 +129,8 @@ public class HorizontalGrid extends PointList
             // The y axis is flipped
             this.yAxisValues[i] = this.bbox[1] + (this.height - i - 0.5) * dy;
         }
+
+        logger.debug("Created HorizontalGrid object for CRS {}", crsCode);
     }
 
     public int getWidth()
@@ -154,7 +166,6 @@ public class HorizontalGrid extends PointList
         return this.yAxisValues;
     }
 
-    @Override
     public int size()
     {
         return this.width * this.height;
@@ -185,10 +196,14 @@ public class HorizontalGrid extends PointList
      * index is such that the x axis in this grid varies fastest, i.e. index=0
      * corresponds with x=0,y=0, and index=1 corresponds with x=1,y=0.
      */
-    @Override
     public HorizontalPosition getPoint(int index) {
         int yi = index / this.xAxisValues.length;
         int xi = index % this.xAxisValues.length;
         return new HorizontalPositionImpl(this.xAxisValues[xi], this.yAxisValues[yi]);
+    }
+
+    @Override
+    public List<HorizontalPosition> getDomainObjects() {
+        return this.domainObjects;
     }
 }

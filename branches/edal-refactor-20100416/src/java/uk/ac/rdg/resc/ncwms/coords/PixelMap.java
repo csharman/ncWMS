@@ -37,6 +37,7 @@ import java.util.Set;
 import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import uk.ac.rdg.resc.edal.coverage.domain.Domain;
 import uk.ac.rdg.resc.ncwms.cdm.DataReadingStrategy;
 
 /**
@@ -84,21 +85,24 @@ public final class PixelMap
     // Number of unique i-j pairs
     private int numUniqueIJPairs = 0;
 
-    public PixelMap(HorizontalCoordSys horizCoordSys, PointList pointList) throws TransformException
+    public PixelMap(HorizontalCoordSys horizCoordSys, Domain<? extends HorizontalPosition> domain)
+            throws TransformException
     {
         long start = System.currentTimeMillis();
-        if (pointList instanceof HorizontalGrid)
+        if (domain instanceof HorizontalGrid)
         {
-            this.initFromGrid(horizCoordSys, (HorizontalGrid)pointList);
+            this.initFromGrid(horizCoordSys, (HorizontalGrid)domain);
         }
         else
         {
-            this.initFromPointList(horizCoordSys, pointList);
+            this.initFromPointList(horizCoordSys, domain);
         }
         logger.debug("Built pixel map in {} ms", System.currentTimeMillis() - start);
     }
 
-    private void initFromPointList(HorizontalCoordSys horizCoordSys, PointList pointList) throws TransformException
+    private void initFromPointList(HorizontalCoordSys horizCoordSys,
+            Domain<? extends HorizontalPosition> pointList)
+            throws TransformException
     {
         logger.debug("Using generic method based on iterating over the PointList");
         CrsHelper crsHelper = CrsHelper.fromCrs(pointList.getCoordinateReferenceSystem());
@@ -169,7 +173,7 @@ public final class PixelMap
         {
             // We can't do better than the generic initialization method
             // based upon iterating through each point in the grid.
-            this.initFromPointList(horizCoordSys, (PointList)grid);
+            this.initFromPointList(horizCoordSys, grid);
         }
     }
 

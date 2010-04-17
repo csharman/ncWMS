@@ -346,7 +346,7 @@ public class WmsUtils
     {
         try {
             // Read a low-resolution grid of data covering the entire spatial extent
-            return layer.readPointList(
+            return layer.readHorizontalPoints(
                 layer.getDefaultTimeValue(),
                 layer.getDefaultElevationValue(),
                 new HorizontalGrid(100, 100, layer.getGeographicBoundingBox())

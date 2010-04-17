@@ -28,7 +28,6 @@
 
 package uk.ac.rdg.resc.ncwms.config.datareader;
 
-import uk.ac.rdg.resc.ncwms.coords.PointList;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -43,6 +42,7 @@ import org.joda.time.DateTime;
 import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import uk.ac.rdg.resc.edal.coverage.domain.Domain;
 import uk.ac.rdg.resc.ncwms.config.LayerImpl;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.edal.position.LonLatPosition;
@@ -131,20 +131,21 @@ public class NSIDCSnowWaterDataReader extends DataReader
      * @param layer {@link Layer} object representing the variable
      * @param tIndex The index along the time axis (or -1 if there is no time axis)
      * @param zIndex The index along the vertical axis (or -1 if there is no vertical axis)
-     * @param pointList The list of real-world x-y points for which we need data
+     * @param domain The list of real-world x-y points for which we need data
      * @return an array of floating-point data values, one for each point in
      * the {@code pointList}, in the same order.
      * @throws IOException if there is an error reading from the source data
      */
     @Override
-    public List<Float> read(String filename, Layer layer, int tIndex, int zIndex, PointList pointList)
+    public List<Float> read(String filename, Layer layer, int tIndex, int zIndex,
+            Domain<? extends HorizontalPosition> domain)
         throws IOException
     {
         // Find the file containing the data
         logger.debug("Reading data from " + filename);
 
         // Create an array to hold the data
-        List<Float> picData = nullArrayList(pointList.getDomainObjects().size());
+        List<Float> picData = nullArrayList(domain.getDomainObjects().size());
         
         FileInputStream fin = null;
         ByteBuffer data = null;
@@ -163,8 +164,8 @@ public class NSIDCSnowWaterDataReader extends DataReader
         }
         
         int picIndex = 0;
-        CrsHelper crsHelper = CrsHelper.fromCrs(pointList.getCoordinateReferenceSystem());
-        for (HorizontalPosition point : pointList.getDomainObjects())
+        CrsHelper crsHelper = CrsHelper.fromCrs(domain.getCoordinateReferenceSystem());
+        for (HorizontalPosition point : domain.getDomainObjects())
         {
             LonLatPosition lonLat;
             try

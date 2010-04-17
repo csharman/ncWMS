@@ -60,12 +60,12 @@ import ucar.nc2.dt.GridDatatype;
 import ucar.nc2.dt.TypedDatasetFactory;
 import ucar.unidata.geoloc.LatLonPoint;
 import ucar.unidata.geoloc.LatLonRect;
+import uk.ac.rdg.resc.edal.coverage.domain.Domain;
 import uk.ac.rdg.resc.ncwms.coords.CrsHelper;
 import uk.ac.rdg.resc.ncwms.coords.HorizontalCoordSys;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.edal.position.LonLatPosition;
 import uk.ac.rdg.resc.ncwms.coords.PixelMap;
-import uk.ac.rdg.resc.ncwms.coords.PointList;
 import uk.ac.rdg.resc.ncwms.coords.chrono.ThreeSixtyDayChronology;
 import uk.ac.rdg.resc.ncwms.util.TimeUtils;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
@@ -363,7 +363,7 @@ public final class CdmUtils
      * @param grid The GridDatatype from which we will read data
      * @param tIndex The time index, or -1 if the grid has no time axis
      * @param zIndex The elevation index, or -1 if the grid has no elevation axis
-     * @param pointList The list of points for which we need data
+     * @param domain The list of horizontal points for which we need data
      * @param drStrategy The strategy to use for reading data
      * @param scaleMissingDeferred True if the {@link NetcdfDataset} that
      * contained the GridDatatype was opened with the enhancement mode
@@ -373,9 +373,9 @@ public final class CdmUtils
      * in oceanography data} are represented as nulls.
      * @throws IOException if there was an error reading data from the data source
      */
-    public static List<Float> readPointList(GridDatatype grid,
+    public static List<Float> readHorizontalPoints(GridDatatype grid,
             HorizontalCoordSys horizCoordSys, int tIndex, int zIndex,
-            PointList pointList, DataReadingStrategy drStrategy,
+            Domain<? extends HorizontalPosition> domain, DataReadingStrategy drStrategy,
             boolean scaleMissingDeferred)
             throws IOException
     {
@@ -388,10 +388,10 @@ public final class CdmUtils
             Range zRange = new Range(zIndex, zIndex);
 
             // Create an list to hold the data, filled with nulls
-            List<Float> picData = nullArrayList(pointList.getDomainObjects().size());
+            List<Float> picData = nullArrayList(domain.getDomainObjects().size());
 
             long start = System.currentTimeMillis();
-            PixelMap pixelMap = new PixelMap(horizCoordSys, pointList);
+            PixelMap pixelMap = new PixelMap(horizCoordSys, domain);
             if (pixelMap.isEmpty()) return picData;
 
             long readMetadata = System.currentTimeMillis();

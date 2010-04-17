@@ -75,6 +75,7 @@ import org.joda.time.chrono.ISOChronology;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.AbstractController;
+import uk.ac.rdg.resc.edal.coverage.domain.Domain;
 import uk.ac.rdg.resc.ncwms.coords.CrsHelper;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.edal.position.LonLatPosition;
@@ -519,7 +520,7 @@ public class WmsController extends AbstractController {
             List<List<Float>> picData = new ArrayList<List<Float>>(2);
             if (layer instanceof ScalarLayer) {
                 // Note that if the layer doesn't have a time axis, timeValue==null but this
-                // will be ignored by readPointList()
+                // will be ignored by readHorizontalPoints()
                 picData.add(this.serverConfig.readDataGrid((ScalarLayer)layer, timeValue, zValue, grid, usageLogEntry));
             } else if (layer instanceof VectorLayer) {
                 VectorLayer vecLayer = (VectorLayer)layer;
@@ -985,17 +986,17 @@ public class WmsController extends AbstractController {
         log.debug("Got {} control points", transect.getControlPoints().size());
 
         // Find the optimal number of points to sample the layer's source grid
-        PointList pointList = getOptimalTransectPointList(layer, transect);
-        log.debug("Using transect consisting of {} points", pointList.getDomainObjects().size());
+        Domain<? extends HorizontalPosition> transectDomain = getOptimalTransectDomain(layer, transect);
+        log.debug("Using transect consisting of {} points", transectDomain.getDomainObjects().size());
 
         // Read the data from the data source, without using the tile cache
         List<Float> transectData;
         if (layer instanceof ScalarLayer) {
-            transectData = ((ScalarLayer)layer).readPointList(tValue, zValue, pointList);
+            transectData = ((ScalarLayer)layer).readHorizontalPoints(tValue, zValue, transectDomain);
         } else if (layer instanceof VectorLayer) {
             VectorLayer vecLayer = (VectorLayer)layer;
-            List<Float> tsDataEast  = vecLayer.getEastwardComponent() .readPointList(tValue, zValue, pointList);
-            List<Float> tsDataNorth = vecLayer.getNorthwardComponent().readPointList(tValue, zValue, pointList);
+            List<Float> tsDataEast  = vecLayer.getEastwardComponent() .readHorizontalPoints(tValue, zValue, transectDomain);
+            List<Float> tsDataNorth = vecLayer.getNorthwardComponent().readHorizontalPoints(tValue, zValue, transectDomain);
             transectData = WmsUtils.getMagnitudes(tsDataEast, tsDataNorth);
         } else {
             throw new IllegalStateException("Unrecognized layer type");
@@ -1074,7 +1075,7 @@ public class WmsController extends AbstractController {
             // Output data as XML using a template
             // First create an ordered map of ProjectionPoints to data values
             Map<HorizontalPosition, Float> dataPoints = new LinkedHashMap<HorizontalPosition, Float>();
-            List<HorizontalPosition> points = pointList.getDomainObjects();
+            List<? extends HorizontalPosition> points = transectDomain.getDomainObjects();
             for (int i = 0; i < points.size(); i++) {
                 dataPoints.put(points.get(i), transectData.get(i));
             }
@@ -1115,7 +1116,7 @@ public class WmsController extends AbstractController {
      * @return a PointList that contains (near) the minimum necessary number of
      * points to sample a layer's source grid of data.
      */
-    private static PointList getOptimalTransectPointList(Layer layer,
+    private static Domain<? extends HorizontalPosition> getOptimalTransectDomain(Layer layer,
             LineString transect) throws Exception {
         // We need to work out how many points we need to include in order to
         // completely sample the data grid (i.e. we need the resolution of the

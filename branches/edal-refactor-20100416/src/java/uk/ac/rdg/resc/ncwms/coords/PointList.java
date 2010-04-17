@@ -30,7 +30,6 @@ package uk.ac.rdg.resc.ncwms.coords;
 
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.edal.position.LonLatPosition;
-import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.List;
 import org.geotoolkit.referencing.crs.DefaultGeographicCRS;
@@ -39,8 +38,8 @@ import uk.ac.rdg.resc.edal.coverage.domain.Domain;
 
 /**
  * <p>A list of {@link HorizontalPosition}s in a certain coordinate reference system.
- * Instances of this class usually represent requests for data from an operation
- * such as GetMap or GetTransect: the points in this list are the coordinates
+ * Instances of this class usually represent requests for data from the
+ * GetTransect operation: the points in this list are the coordinates
  * of real-world points for which we need data.</p>
  * <p>The order of points in this list is important, hence this class supports
  * index-based to the data.  A typical use of this class would be as follows:</p>
@@ -52,9 +51,6 @@ import uk.ac.rdg.resc.edal.coverage.domain.Domain;
  *    // data.length equals pointList.size()
  *    // Furthermore data[i] corresponds to pointList.get(i)
  * </pre>
- * @todo The CRS information might be stored in the passed-in HorizontalPositions,
- * so there may be no need to create more CrsHelper objects.  The API could also
- * be simplified.
  * @author Jon
  */
 public final class PointList implements Domain<HorizontalPosition>

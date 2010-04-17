@@ -377,13 +377,13 @@ class MetadataController
         List<Float> magnitudes;
         if (layer instanceof ScalarLayer)
         {
-            magnitudes = ((ScalarLayer)layer).readPointList(tValue, zValue, grid);
+            magnitudes = ((ScalarLayer)layer).readHorizontalPoints(tValue, zValue, grid);
         }
         else if (layer instanceof VectorLayer)
         {
             VectorLayer vecLayer = (VectorLayer)layer;
-            List<Float> east = vecLayer.getEastwardComponent().readPointList(tValue, zValue, grid);
-            List<Float> north = vecLayer.getNorthwardComponent().readPointList(tValue, zValue, grid);
+            List<Float> east = vecLayer.getEastwardComponent().readHorizontalPoints(tValue, zValue, grid);
+            List<Float> north = vecLayer.getNorthwardComponent().readHorizontalPoints(tValue, zValue, grid);
             magnitudes = WmsUtils.getMagnitudes(east, north);
         }
         else

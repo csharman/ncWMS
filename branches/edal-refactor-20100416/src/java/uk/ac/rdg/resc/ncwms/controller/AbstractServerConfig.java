@@ -87,7 +87,7 @@ public abstract class AbstractServerConfig implements ServerConfig
         double elevation, HorizontalGrid grid, UsageLogEntry usageLogEntry)
         throws InvalidDimensionValueException, IOException
     {
-        return layer.readPointList(dateTime, elevation, grid);
+        return layer.readHorizontalPoints(dateTime, elevation, grid);
     }
 
 }
