@@ -26,24 +26,44 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.edal.coverage.grid;
+package uk.ac.rdg.resc.edal.coverage.grid.impl;
 
-import org.opengis.referencing.crs.VerticalCRS;
+import java.util.Arrays;
+import java.util.List;
+import org.junit.Test;
+import uk.ac.rdg.resc.edal.coverage.grid.RegularAxis;
+import static org.junit.Assert.*;
 
 /**
- * <p>A vertical grid axis, which uses double-precision numbers to record
- * coordinate values.</p>
+ * Test of the {@link RegularAxisImpl} class.
  * @author Jon
  */
-public interface VerticalAxis extends ReferenceableAxis<Double> {
+public class RegularAxisImplTest {
 
-    /**
-     * Returns the {@link VerticalCRS} to which the points on the
-     * axis are referenced.
-     * @return the {@link VerticalCRS} to which the points on the
-     * axis are referenced.
-     */
-    @Override
-    public VerticalCRS getCoordinateReferenceSystem();
+    /** Tests the creation of the List of coordinate values */
+    @Test
+    public void testListGeneration() {
+        RegularAxis regAxis = new RegularAxisImpl(0.0, 1.0, 10);
+        List<Double> testList = Arrays.asList(0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0);
+        assertEquals(testList, regAxis.getCoordinateValues());
+    }
+
+    /** Tests the reverse lookup of all values in the list of coordinate values */
+    @Test
+    public void testReverseLookup() {
+        RegularAxis regAxis = new RegularAxisImpl(-25.4, 0.851, 100);
+        //List<Double> coordValues = regAxis.getCoordinateValues();
+        for (int i = 0; i < regAxis.getSize(); i++) {
+            double value = regAxis.getCoordinateValue(i);
+            int index = regAxis.getCoordinateIndex(value);
+            //index = coordValues.indexOf(value);
+            assertEquals(i, index);
+        }
+
+        // Test values outside the range of the axis
+        assertEquals(regAxis.getCoordinateIndex(-25.5), -1);
+        assertEquals(regAxis.getCoordinateIndex(58.85), -1);
+    }
+
 
 }

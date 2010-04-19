@@ -33,9 +33,10 @@ import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 
 /**
  * A two-dimensional {@link ReferenceableGrid} in the horizontal plane.
+ * @param <HP> The type of HorizontalPosition that comprises this grid.
  * @author Jon
  */
-public interface HorizontalGrid extends ReferenceableGrid<HorizontalPosition>
+public interface HorizontalGrid<HP extends HorizontalPosition> extends ReferenceableGrid<HP>
 {
 
     /**

@@ -191,7 +191,7 @@ public final class CrsHelper {
 
     /**
      * Transforms the given x-y point in this {@link #getCoordinateReferenceSystem() CRS}
-     * to a LatLonPoint.
+     * to a LatLonPosition.
      * @throws TransformException if the required transformation could not be performed
      */
     public LonLatPosition crsToLonLat(HorizontalPosition point) throws TransformException

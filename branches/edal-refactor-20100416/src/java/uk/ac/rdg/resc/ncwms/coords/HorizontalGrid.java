@@ -30,10 +30,13 @@ package uk.ac.rdg.resc.ncwms.coords;
 
 import java.util.AbstractList;
 import java.util.List;
+import org.geotoolkit.referencing.CRS;
 import uk.ac.rdg.resc.edal.position.impl.HorizontalPositionImpl;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import org.opengis.metadata.extent.GeographicBoundingBox;
+import org.opengis.referencing.ReferenceIdentifier;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.opengis.referencing.cs.CoordinateSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.ac.rdg.resc.edal.coverage.domain.Domain;
@@ -205,5 +208,21 @@ public final class HorizontalGrid implements Domain<HorizontalPosition>
     @Override
     public List<HorizontalPosition> getDomainObjects() {
         return this.domainObjects;
+    }
+
+    public static void main(String[] args) throws Exception
+    {
+        CoordinateReferenceSystem crs = CRS.decode("CRS:84");
+        CoordinateSystem cs = crs.getCoordinateSystem();
+        for (int i = 0; i < cs.getDimension(); i++)
+        {
+            System.out.println(cs.getAxis(i));
+            System.out.println(cs.getAxis(i).getUnit());
+        }
+        System.out.println(CRS.lookupIdentifier(crs, false));
+        for (ReferenceIdentifier ri : crs.getIdentifiers())
+        {
+            System.out.println(ri);
+        }
     }
 }

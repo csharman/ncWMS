@@ -29,16 +29,27 @@
 package uk.ac.rdg.resc.edal.coverage.grid;
 
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.opengis.referencing.cs.CoordinateSystemAxis;
+import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 
 /**
  * A {@link HorizontalGrid} whose axes in real space are aligned with the axes
  * in grid space.  Therefore the axes of the grid are separable.
- * @todo Do the axes in the grid and the CRS have to be in the same order?
+ * @param <HP> The type of HorizontalPosition that comprises this grid.
  * @author Jon
  */
-public interface RectilinearGrid extends HorizontalGrid {
+public interface RectilinearGrid<HP extends HorizontalPosition> extends HorizontalGrid<HP> {
 
-    /** {@code index} must be 0 or 1. */
+    /**
+     * Returns the {@link ReferenceableAxis} for the given axis index. This object
+     * maps from integer indices along the axis to real-world coordinates.
+     * The index matches the index of the corresponding {@link CoordinateSystemAxis}
+     * within the {@link #getCoordinateReferenceSystem() coordinate reference system}.
+     * @param index The index of the required axis with the grid's
+     * {@link #getCoordinateReferenceSystem() coordinate reference system}.
+     * @return The ReferenceableAxis at the required index
+     * @throws IndexOutOfBoundsException if {@code index} is neither 0 nor 1.
+     */
     public ReferenceableAxis getAxis(int index);
 
     /**

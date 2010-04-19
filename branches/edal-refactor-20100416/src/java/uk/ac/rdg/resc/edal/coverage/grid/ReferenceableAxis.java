@@ -30,33 +30,31 @@ package uk.ac.rdg.resc.edal.coverage.grid;
 
 import java.util.Collections;
 import java.util.List;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.opengis.referencing.cs.CoordinateSystemAxis;
 
 /**
  * <p>A one-dimensional axis of a Grid, which maps between integer indices along
- * the axis and real-world coordinates.  It is essentially a one-dimensional
- * special case of a {@link ReferenceableGrid}, although this interface cannot
- * inherit from ReferenceableGrid because ReferenceableGrids by definition have
- * two dimensions or more.</p>
+ * the axis and real-world coordinates.  It is in spirit a one-dimensional
+ * special case of a {@link ReferenceableGrid}.</p>
  * @param <T> the type of the coordinate values
  * @author Jon
  */
-public interface ReferenceableAxis<T> {
+public interface ReferenceableAxis {
 
     /**
-     * The coordinate values along the axis, in a defined order.  Maps from
-     * integer indices to coordinate axes.  Note that the inverse mapping can be
+     * The coordinate values along the axis, in ascending order.  Maps from
+     * integer indices to coordinate values.  Note that the inverse mapping can be
      * found using the {@code indexOf()} method or by
      * {@link Collections#binarySearch(java.util.List, java.lang.Object)}, but
      * convenience methods are provided in this interface, which might be more
      * efficient in some cases.
      * @return the coordinate values along the axis.
      */
-    public List<T> getCoordinateValues();
+    public List<Double> getCoordinateValues();
 
-    public T getCoordinateValue(int index);
+    public double getCoordinateValue(int index);
 
-    public int getCoordinateIndex(T value);
+    public int getCoordinateIndex(double value);
 
     // public int getNearestCoordinateIndex(int value);
 
@@ -64,11 +62,11 @@ public interface ReferenceableAxis<T> {
     public int getSize();
 
     /**
-     * Returns the {@link CoordinateReferenceSystem} to which the points on the
+     * Returns the {@link CoordinateSystemAxis} to which the points on the
      * axis are referenced.
-     * @return the {@link CoordinateReferenceSystem} to which the points on the
+     * @return the {@link CoordinateSystemAxis} to which the points on the
      * axis are referenced.
      */
-    public CoordinateReferenceSystem getCoordinateReferenceSystem();
+    public CoordinateSystemAxis getCoordinateSystemAxis();
 
 }

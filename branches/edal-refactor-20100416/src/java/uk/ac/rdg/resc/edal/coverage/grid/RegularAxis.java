@@ -34,7 +34,7 @@ package uk.ac.rdg.resc.edal.coverage.grid;
  * @param <T> the type of the coordinate values
  * @author Jon
  */
-public interface RegularAxis extends ReferenceableAxis<Double> {
+public interface RegularAxis extends ReferenceableAxis {
 
     /** Gets the spacing between coordinate values */
     public double getCoordinateSpacing();

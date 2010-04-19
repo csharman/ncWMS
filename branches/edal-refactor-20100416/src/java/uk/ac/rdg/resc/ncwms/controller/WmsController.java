@@ -1049,9 +1049,13 @@ public class WmsController extends AbstractController {
                     log.debug("prevCtrlPointDistance " + prevCtrlPointDistance);
                     log.debug("ctrlPointDistance " + ctrlPointDistance);
                     //determine start end end value for marker based on index of ctrl point
-                    IntervalMarker target = new IntervalMarker(transectData.size() * prevCtrlPointDistance, transectData.size() * ctrlPointDistance);
+                    IntervalMarker target = new IntervalMarker(
+                            transectData.size() * prevCtrlPointDistance,
+                            transectData.size() * ctrlPointDistance
+                    );
                     // TODO: printing to two d.p. not always appropriate
-                    target.setLabel("[" + printTwoDecimals(transect.getControlPoints().get(i - 1).getY()) + "," + printTwoDecimals(transect.getControlPoints().get(i - 1).getX()) + "]");
+                    target.setLabel("[" + printTwoDecimals(transect.getControlPoints().get(i - 1).getY())
+                            + "," + printTwoDecimals(transect.getControlPoints().get(i - 1).getX()) + "]");
                     target.setLabelFont(new Font("SansSerif", Font.ITALIC, 11));
                     //alter color of segment and position of label based on odd/even index
                     if (i % 2 == 0) {

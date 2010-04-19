@@ -29,9 +29,8 @@
 package uk.ac.rdg.resc.edal.coverage.domain;
 
 import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
+import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableAxis;
 import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableGrid;
-import uk.ac.rdg.resc.edal.coverage.grid.TemporalAxis;
-import uk.ac.rdg.resc.edal.coverage.grid.VerticalAxis;
 
 /**
  * <p>The domain of a {@link GridSeriesCoverage}.  It is modelled as a composition
@@ -50,9 +49,9 @@ public interface GridSeriesDomain
 
     public HorizontalGrid getHorizontalGrid();
 
-    public VerticalAxis getVerticalAxis();
+    public ReferenceableAxis getVerticalAxis();
 
-    public TemporalAxis getTemporalAxis();
+    public ReferenceableAxis getTemporalAxis();
 
     /**
      * Returns the total number of points in the domain, i.e. the product of
