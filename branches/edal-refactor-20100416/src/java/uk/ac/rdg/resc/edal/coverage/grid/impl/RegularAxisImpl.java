@@ -29,7 +29,6 @@
 package uk.ac.rdg.resc.edal.coverage.grid.impl;
 
 import java.util.AbstractList;
-import java.util.Collections;
 import java.util.List;
 import org.opengis.referencing.cs.CoordinateSystemAxis;
 import uk.ac.rdg.resc.edal.coverage.grid.RegularAxis;
@@ -44,6 +43,7 @@ public final class RegularAxisImpl implements RegularAxis
     private final double firstValue; // The first value on the axis
     private final double spacing; // The axis spacing
     private final int size; // The number of points on the axis
+    private final boolean longitude = false; // True if this is a longitude axis in degrees
 
     private final List<Double> coordValues = new AbstractList<Double>() {
         @Override public Double get(int index) {
@@ -54,11 +54,10 @@ public final class RegularAxisImpl implements RegularAxis
             return RegularAxisImpl.this.size;
         }
 
-        /** Uses binary search to find the index of the given object */
         @Override public int indexOf(Object o) {
+            if (o == null) return -1;
             if (!(o instanceof Double)) return -1;
-            int index = Collections.binarySearch(this, (Double)o);
-            return index >= 0 ? index : -1;
+            return RegularAxisImpl.this.getCoordinateIndex((Double)o);
         }
     };
 
@@ -84,8 +83,7 @@ public final class RegularAxisImpl implements RegularAxis
         return this.coordValues;
     }
 
-    @Override
-    public double getCoordinateValue(int index) {
+    private double getCoordinateValue(int index) {
         if (index < 0 || index >= this.size) {
             throw new IndexOutOfBoundsException(index + " must be between 0 and "
                 + (this.size - 1));
@@ -93,11 +91,7 @@ public final class RegularAxisImpl implements RegularAxis
         return this.firstValue + index * this.spacing;
     }
 
-    @Override
-    public int getSize() { return this.size; }
-
-    @Override
-    public int getCoordinateIndex(double value) {
+    private int getCoordinateIndex(double value) {
         // This method will generally be faster than an exhaustive search, or
         // even a binary search
         
@@ -126,6 +120,7 @@ public final class RegularAxisImpl implements RegularAxis
         return Double.compare(value, this.getCoordinateValue(index)) == 0;
     }
 
+    @Override
     public int getNearestCoordinateIndex(double value) {
         return 0;
     }
@@ -133,6 +128,11 @@ public final class RegularAxisImpl implements RegularAxis
     @Override
     public CoordinateSystemAxis getCoordinateSystemAxis() {
         throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    public static void main(String[] args)
+    {
+        System.out.println(-361.0 % 360.0);
     }
 
 }

@@ -26,44 +26,36 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.edal.coverage.grid;
-
-import java.util.Collections;
-import java.util.List;
-import org.opengis.referencing.cs.CoordinateSystemAxis;
+package uk.ac.rdg.resc.edal.util;
 
 /**
- * <p>A one-dimensional axis of a Grid, which maps between integer indices along
- * the axis and real-world coordinates.  It is in spirit a one-dimensional
- * special case of a {@link ReferenceableGrid}.</p>
- * @param <T> the type of the coordinate values
+ * Contains some useful utility methods.
  * @author Jon
  */
-public interface ReferenceableAxis {
+public final class Utils {
+
+    /** Prevents direct instantiation */
+    private Utils() { throw new AssertionError(); }
 
     /**
-     * The coordinate values along the axis, in ascending order.  Maps from
-     * integer indices to coordinate values.  Note that the inverse mapping can be
-     * found using the {@code indexOf()} method, which implementations or by
-     * {@link Collections#binarySearch(java.util.List, java.lang.Object)}.
-     * @return the coordinate values along the axis.
+     * Returns a longitude value in degrees that is equal to the given value
+     * but in the range (-180:180].  In this scheme the anti-meridian is
+     * represented as +180, not -180.
      */
-    public List<Double> getCoordinateValues();
+    public static double constrainLongitude180(double value)
+    {
+        double val = constrainLongitude360(value);
+        return val > 180.0 ? val - 360.0 : val;
+    }
 
     /**
-     * Finds the nearest coordinate index to the given value
-     * @todo specify the bounds of the axis: do we extrapolate a little by half
-     * of a grid spacing, or use the strict bounds?  Perhaps this could be a
-     * parameter?
+     * Returns a longitude value in degrees that is equal to the given value
+     * but in the range [0:360]
      */
-    public int getNearestCoordinateIndex(double value);
-
-    /**
-     * Returns the {@link CoordinateSystemAxis} to which the points on the
-     * axis are referenced.
-     * @return the {@link CoordinateSystemAxis} to which the points on the
-     * axis are referenced.
-     */
-    public CoordinateSystemAxis getCoordinateSystemAxis();
+    public static double constrainLongitude360(double value)
+    {
+        double val = value % 360.0;
+        return val < 0.0 ? val + 360.0 : val;
+    }
 
 }

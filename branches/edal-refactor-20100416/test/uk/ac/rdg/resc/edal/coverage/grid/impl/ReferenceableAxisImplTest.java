@@ -28,35 +28,50 @@
 
 package uk.ac.rdg.resc.edal.coverage.grid.impl;
 
-import java.util.Arrays;
 import java.util.List;
 import org.junit.Test;
-import uk.ac.rdg.resc.edal.coverage.grid.RegularAxis;
+import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableAxis;
+import uk.ac.rdg.resc.edal.util.CollectionUtils;
 import static org.junit.Assert.*;
 
 /**
- * Test of the {@link RegularAxisImpl} class.
+ * Test of the {@link ReferenceableAxisImpl} class.
  * @author Jon
  */
-public class RegularAxisImplTest {
+public class ReferenceableAxisImplTest {
 
-    /** Tests the creation of the List of coordinate values */
-    @Test
-    public void testListGeneration() {
-        RegularAxis regAxis = new RegularAxisImpl(0.0, 1.0, 10);
-        List<Double> testList = Arrays.asList(0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0);
-        assertEquals(testList, regAxis.getCoordinateValues());
+    private static double[] NON_MONOTONIC_ARRAY = new double[]{
+        1.0, 2.0, 3.0, 2.5, 3.5, 4.5
+    };
+
+    private static List<Double> NON_MONOTONIC_COLLECTION =
+        CollectionUtils.doubleListFromArray(NON_MONOTONIC_ARRAY);
+
+    /** Tests the enforcement of strict monotonicity in axis values */
+    @Test(expected=IllegalArgumentException.class)
+    public void testMonotonicityArray() {
+        new ReferenceableAxisImpl(NON_MONOTONIC_ARRAY);
+    }
+    
+    /** Tests the enforcement of strict monotonicity in axis values */
+    @Test(expected=IllegalArgumentException.class)
+    public void testMonotonicityCollection() {
+        new ReferenceableAxisImpl(NON_MONOTONIC_COLLECTION);
     }
 
     /** Tests the reverse lookup of all values in the list of coordinate values */
     @Test
     public void testReverseLookup() {
-        RegularAxis regAxis = new RegularAxisImpl(-25.4, 0.851, 100);
-        List<Double> coordValues = regAxis.getCoordinateValues();
+        double[] axisVals = new double[100];
+        for (int i = 0; i < axisVals.length; i++) {
+            axisVals[i] = -56.45 + i * 2.65;
+        }
+        ReferenceableAxis axis = new ReferenceableAxisImpl(axisVals);
+        
+        List<Double> coordValues = axis.getCoordinateValues();
         for (int i = 0; i < coordValues.size(); i++) {
             double value = coordValues.get(i);
             int index = coordValues.indexOf(value);
-            //index = coordValues.indexOf(value);
             assertEquals(i, index);
         }
     }
