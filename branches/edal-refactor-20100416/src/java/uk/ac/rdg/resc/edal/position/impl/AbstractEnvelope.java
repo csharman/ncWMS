@@ -26,41 +26,55 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.edal.coverage.grid;
+package uk.ac.rdg.resc.edal.position.impl;
 
+import org.opengis.geometry.DirectPosition;
+import org.opengis.geometry.Envelope;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import uk.ac.rdg.resc.edal.position.BoundingBox;
-import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 
 /**
- * A two-dimensional {@link ReferenceableGrid} in the horizontal plane.
- * @param <HP> The type of HorizontalPosition that comprises this grid.
+ * Partial implementation of the {@link Envelope} interface
  * @author Jon
  */
-public interface HorizontalGrid<HP extends HorizontalPosition> extends ReferenceableGrid<HP>
+public abstract class AbstractEnvelope implements Envelope
 {
-    /**
-     * Returns a two-dimensional horizontal coordinate reference system.
-     * @return a two-dimensional horizontal coordinate reference system.
-     */
-    @Override
-    public CoordinateReferenceSystem getCoordinateReferenceSystem();
-
-    /** Returns 2 */
-    @Override
-    public int getDimension();
+    private final CoordinateReferenceSystem crs;
     
-    /**
-     * Finds the nearest grid point to the given position.
-     * @return the nearest grid point to the given position, or null if the
-     * position is outside the {@link BoundingBox bounding box} of the grid.
-     */
-    public GridCoordinates findNearestGridPoint(HP pos);
+    public AbstractEnvelope(CoordinateReferenceSystem crs) {
+        this.crs = crs;
+    }
 
-    /**
-     * Gets the 2D bounding box of the grid in the grid's
-     * {@link #getCoordinateReferenceSystem() coordinate reference system}.
-     */
     @Override
-    public BoundingBox getExtent();
+    public final double getMinimum(int i) {
+        DirectPosition dp = this.getLowerCorner();
+        if (i >= dp.getDimension()) {
+            throw new IndexOutOfBoundsException();
+        }
+        return dp.getOrdinate(i);
+    }
+
+    @Override
+    public final double getMaximum(int i) {
+        DirectPosition dp = this.getUpperCorner();
+        if (i >= dp.getDimension()) {
+            throw new IndexOutOfBoundsException();
+        }
+        return dp.getOrdinate(i);
+    }
+
+    @Override
+    public final double getMedian(int i) {
+        return (this.getMinimum(i) + this.getMaximum(i)) / 2.0;
+    }
+
+    @Override
+    public final double getSpan(int i) {
+        return this.getMaximum(i) - this.getMinimum(i);
+    }
+
+    @Override
+    public final CoordinateReferenceSystem getCoordinateReferenceSystem() {
+        return this.crs;
+    }
+
 }

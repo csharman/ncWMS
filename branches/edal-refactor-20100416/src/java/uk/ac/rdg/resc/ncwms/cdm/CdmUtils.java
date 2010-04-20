@@ -46,6 +46,7 @@ import ucar.ma2.Array;
 import ucar.ma2.InvalidRangeException;
 import ucar.ma2.Range;
 import ucar.nc2.Attribute;
+import ucar.nc2.constants.AxisType;
 import ucar.nc2.constants.FeatureType;
 import ucar.nc2.dataset.CoordinateAxis1D;
 import ucar.nc2.dataset.CoordinateAxis1DTime;
@@ -61,6 +62,9 @@ import ucar.nc2.dt.TypedDatasetFactory;
 import ucar.unidata.geoloc.LatLonPoint;
 import ucar.unidata.geoloc.LatLonRect;
 import uk.ac.rdg.resc.edal.coverage.domain.Domain;
+import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableAxis;
+import uk.ac.rdg.resc.edal.coverage.grid.impl.ReferenceableAxisImpl;
+import uk.ac.rdg.resc.edal.coverage.grid.impl.RegularAxisImpl;
 import uk.ac.rdg.resc.ncwms.coords.CrsHelper;
 import uk.ac.rdg.resc.ncwms.coords.HorizontalCoordSys;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
@@ -68,7 +72,6 @@ import uk.ac.rdg.resc.edal.position.LonLatPosition;
 import uk.ac.rdg.resc.ncwms.coords.PixelMap;
 import uk.ac.rdg.resc.ncwms.coords.chrono.ThreeSixtyDayChronology;
 import uk.ac.rdg.resc.ncwms.util.TimeUtils;
-import uk.ac.rdg.resc.ncwms.wms.Layer;
 import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
 
 /**
@@ -82,6 +85,25 @@ public final class CdmUtils
 
     /** Enforce non-instantiability */
     private CdmUtils() { throw new AssertionError(); }
+
+    /**
+     * Creates a {@link ReferenceableAxis} from the given {@link CoordinateAxis1D}.
+     */
+    public static ReferenceableAxis createReferenceableAxis(CoordinateAxis1D axis)
+    {
+        if (axis == null) throw new NullPointerException();
+        boolean isLongitude = axis.getAxisType() == AxisType.Lon;
+        // TODO: create the CoordinateSystemAxis objects
+        if (axis.isRegular())
+        {
+            return new RegularAxisImpl(null, axis.getMinValue(),
+                    axis.getIncrement(), (int)axis.getSize(), isLongitude);
+        }
+        else
+        {
+            return new ReferenceableAxisImpl(null, axis.getCoordValues(), isLongitude);
+        }
+    }
 
     /**
      * Searches through the given GridDataset for GridDatatypes, which are

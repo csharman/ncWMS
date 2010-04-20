@@ -29,6 +29,7 @@
 package uk.ac.rdg.resc.edal.coverage.grid;
 
 import java.util.List;
+import org.opengis.geometry.Envelope;
 import org.opengis.referencing.cs.CoordinateSystemAxis;
 
 /**
@@ -56,7 +57,7 @@ public interface ReferenceableAxis {
      * @param index The index of the required coordinate value
      * @return the coordinate value at the given index
      * @throws IndexOutOfBoundsException if {@code index &lt; 0} or
-     * {@code index &gt;= size()}
+     * {@code index &gt;= getSize()}
      */
     public double getCoordinateValue(int index);
 
@@ -64,7 +65,7 @@ public interface ReferenceableAxis {
      * Gets the number of coordinate values on this axis
      * @return the number of coordinate values on this axis
      */
-    public int size();
+    public int getSize();
 
     /**
      * Finds the index of the given coordinate value.  If this is a longitude
@@ -81,20 +82,26 @@ public interface ReferenceableAxis {
      * axis, this method will handle the case of longitude values wrapping.
      * So values of -180 and +180 are treated as equivalent by this method,
      * irrespective of the values in {@link #getCoordinateValues()}.</p>
-     * <p>This method considers the bounds of the axis to be a little wider
+     * @return the nearest coordinate index to the given value, or -1 if the
+     * value is outside the {@link #getExtent() extent} of this axis.
+     */
+    public int getNearestCoordinateIndex(double value);
+
+    /**
+     * <p>Gets the extent of this axis as a one-dimensional {@link Envelope}.</p>
+     *
+     * <p>The envelope is wider
      * than the minimum and maximum coordinate values.  At the lower end of the
      * axis the bounds are extended by half the difference between the first and
      * second coordinate values.  Similarly, at the upper end of the axis the
      * bounds are extended by half the difference between the next-to-last and
      * last coordinate values.</p>
-     * <p>Therefore, for an axis with values [0, 1, 3, ... 45, 50, 60] the bounds
-     * of the axis will be considered to be between -0.5 and 65.  The nearest
-     * coordinate index to a value of -0.3 will therefore be zero, but a value
-     * of -0.6 will cause -1 to be returned (value out of range).</p>
-     * @return the nearest coordinate index to the given value, or -1 if the
-     * value is outside the (extended) bounds of this axis.
+     *
+     * <p>Therefore, for an axis with values [0, 1, 3, ... 45, 50, 60] the envelope
+     * of the axis will be considered to cover the range -0.5 to 65.</p>
+     * @return
      */
-    public int getNearestCoordinateIndex(double value);
+    public Envelope getExtent();
 
     /**
      * Returns the {@link CoordinateSystemAxis} to which the points on the

@@ -29,6 +29,8 @@ package uk.ac.rdg.resc.edal.coverage.grid.impl;
 
 import java.util.AbstractList;
 import java.util.List;
+import org.geotoolkit.geometry.GeneralEnvelope;
+import org.opengis.geometry.Envelope;
 import org.opengis.referencing.cs.CoordinateSystemAxis;
 import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableAxis;
 import uk.ac.rdg.resc.edal.util.Utils;
@@ -53,7 +55,7 @@ public abstract class AbstractReferenceableAxis implements ReferenceableAxis {
 
         @Override
         public int size() {
-            return AbstractReferenceableAxis.this.size();
+            return AbstractReferenceableAxis.this.getSize();
         }
 
         @Override
@@ -103,7 +105,7 @@ public abstract class AbstractReferenceableAxis implements ReferenceableAxis {
 
     /** Returns the first coordinate value in this axis */
     protected final double getLastValue() {
-        return this.getCoordinateValue(this.size() - 1);
+        return this.getCoordinateValue(this.getSize() - 1);
     }
 
     /**
@@ -127,7 +129,7 @@ public abstract class AbstractReferenceableAxis implements ReferenceableAxis {
      */
     protected final double getMaximumValue() {
         return this.getLastValue() +
-                0.5 * (this.getLastValue() - this.getCoordinateValue(this.size() - 2));
+                0.5 * (this.getLastValue() - this.getCoordinateValue(this.getSize() - 2));
     }
 
     /**
@@ -160,6 +162,11 @@ public abstract class AbstractReferenceableAxis implements ReferenceableAxis {
     @Override
     public final CoordinateSystemAxis getCoordinateSystemAxis() {
         return this.coordSysAxis;
+    }
+
+    @Override
+    public final Envelope getExtent() {
+        return new GeneralEnvelope(this.getMinimumValue(), this.getMaximumValue());
     }
 
     /**

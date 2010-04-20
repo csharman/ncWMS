@@ -29,6 +29,7 @@
 package uk.ac.rdg.resc.edal.coverage.grid;
 
 import org.opengis.geometry.DirectPosition;
+import org.opengis.geometry.Envelope;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import uk.ac.rdg.resc.edal.coverage.domain.Domain;
 
@@ -60,7 +61,8 @@ public interface ReferenceableGrid<DP extends DirectPosition> extends Grid, Doma
 
     /**
      * Transforms from a direct position to the grid coordinates of the
-     * corresponding grid point.
+     * corresponding grid point.  No interpolation is performed, i.e. the passed
+     * position must exactly match a grid point.
      * @param pos - The "real world" coordinates to transform.
      * @return The coordinates of the corresponding grid point, or null if there
      * is no grid point that corresponds with the direct position.
@@ -77,5 +79,11 @@ public interface ReferenceableGrid<DP extends DirectPosition> extends Grid, Doma
      */
     @Override
     public CoordinateReferenceSystem getCoordinateReferenceSystem();
+
+    /**
+     * Gets the envelope of the grid in the grid's
+     * {@link #getCoordinateReferenceSystem() coordinate reference system}.
+     */
+    public Envelope getExtent();
 
 }

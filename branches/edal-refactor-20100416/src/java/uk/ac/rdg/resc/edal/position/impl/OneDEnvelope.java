@@ -26,41 +26,39 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.edal.coverage.grid;
+package uk.ac.rdg.resc.edal.position.impl;
 
+import org.opengis.geometry.DirectPosition;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import uk.ac.rdg.resc.edal.position.BoundingBox;
-import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 
 /**
- * A two-dimensional {@link ReferenceableGrid} in the horizontal plane.
- * @param <HP> The type of HorizontalPosition that comprises this grid.
+ * A one-dimensional envelope
  * @author Jon
  */
-public interface HorizontalGrid<HP extends HorizontalPosition> extends ReferenceableGrid<HP>
+public final class OneDEnvelope extends AbstractEnvelope
 {
-    /**
-     * Returns a two-dimensional horizontal coordinate reference system.
-     * @return a two-dimensional horizontal coordinate reference system.
-     */
-    @Override
-    public CoordinateReferenceSystem getCoordinateReferenceSystem();
+    private final double min;
+    private final double max;
 
-    /** Returns 2 */
-    @Override
-    public int getDimension();
-    
-    /**
-     * Finds the nearest grid point to the given position.
-     * @return the nearest grid point to the given position, or null if the
-     * position is outside the {@link BoundingBox bounding box} of the grid.
-     */
-    public GridCoordinates findNearestGridPoint(HP pos);
+    // TODO: check that the CRS is one-dimensional if it exists at all!
+    public OneDEnvelope(CoordinateReferenceSystem crs, double min, double max) {
+        super(crs);
+        this.min = min;
+        this.max = max;
+    }
 
-    /**
-     * Gets the 2D bounding box of the grid in the grid's
-     * {@link #getCoordinateReferenceSystem() coordinate reference system}.
-     */
+    /** returns 1 */
     @Override
-    public BoundingBox getExtent();
+    public int getDimension() { return 1; }
+
+    @Override
+    public DirectPosition getLowerCorner() {
+        return new DirectPositionImpl(this.getCoordinateReferenceSystem(), this.min);
+    }
+
+    @Override
+    public DirectPosition getUpperCorner() {
+        return new DirectPositionImpl(this.getCoordinateReferenceSystem(), this.max);
+    }
+
 }

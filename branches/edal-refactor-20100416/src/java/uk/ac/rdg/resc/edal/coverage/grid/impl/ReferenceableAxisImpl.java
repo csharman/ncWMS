@@ -151,7 +151,7 @@ public final class ReferenceableAxisImpl extends AbstractReferenceableAxis
     }
 
     @Override
-    public int size() {
+    public int getSize() {
         return this.axisValues.length;
     }
 

@@ -30,6 +30,7 @@ package uk.ac.rdg.resc.edal.coverage.grid;
 
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.cs.CoordinateSystemAxis;
+import uk.ac.rdg.resc.edal.position.BoundingBox;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 
 /**
@@ -54,11 +55,20 @@ public interface RectilinearGrid<HP extends HorizontalPosition> extends Horizont
 
     /**
      * {@inheritDoc}
-     *
      * <p>The number of dimensions in this coordinate reference system must
      * match the {@link #getDimension() number of dimensions in the grid}.</p>
      */
     @Override
     public CoordinateReferenceSystem getCoordinateReferenceSystem();
+
+    /**
+     * {@inheritDoc}
+     * <p>Note that the extent may extend a little beyond the minimum and
+     * maximum coordinate values of the axes, because the coordinate values
+     * represent the centre of grid cells, and the grid cells may have a
+     * finite size</p>
+     */
+    @Override
+    public BoundingBox getExtent();
 
 }

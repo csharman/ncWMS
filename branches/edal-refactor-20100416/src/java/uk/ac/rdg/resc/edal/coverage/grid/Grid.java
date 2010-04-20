@@ -30,7 +30,6 @@ package uk.ac.rdg.resc.edal.coverage.grid;
 
 import java.util.List;
 import org.opengis.coverage.grid.GridEnvelope;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 /**
  * A description of a multidimensional grid with integer coordinates.
@@ -47,7 +46,11 @@ public interface Grid
      */
     public List<String> getAxisNames();
 
-    public GridEnvelope getExtent();
+    /**
+     * Returns the extent of the grid in integer coordinates.
+     * @return
+     */
+    public GridEnvelope getGridExtent();
 
     /**
      * Returns the dimensionality of the grid. This will be the same as

@@ -18,7 +18,7 @@
  * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
  * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
  * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR  CONSEQUENTIAL DAMAGES (INCLUDING, BUT
  * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
  * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
@@ -26,41 +26,25 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.edal.coverage.grid;
+package uk.ac.rdg.resc.edal.coverage.grid.impl;
 
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import uk.ac.rdg.resc.edal.coverage.grid.Grid;
+import uk.ac.rdg.resc.edal.coverage.grid.RegularGrid;
 import uk.ac.rdg.resc.edal.position.BoundingBox;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 
 /**
- * A two-dimensional {@link ReferenceableGrid} in the horizontal plane.
- * @param <HP> The type of HorizontalPosition that comprises this grid.
+ * Contains utility methods for creating various types of {@link Grid}.
  * @author Jon
  */
-public interface HorizontalGrid<HP extends HorizontalPosition> extends ReferenceableGrid<HP>
+public final class Grids
 {
-    /**
-     * Returns a two-dimensional horizontal coordinate reference system.
-     * @return a two-dimensional horizontal coordinate reference system.
-     */
-    @Override
-    public CoordinateReferenceSystem getCoordinateReferenceSystem();
+    /** Private constructor to prevent direct instantiation */
+    private Grids() { throw new AssertionError(); }
 
-    /** Returns 2 */
-    @Override
-    public int getDimension();
-    
-    /**
-     * Finds the nearest grid point to the given position.
-     * @return the nearest grid point to the given position, or null if the
-     * position is outside the {@link BoundingBox bounding box} of the grid.
-     */
-    public GridCoordinates findNearestGridPoint(HP pos);
-
-    /**
-     * Gets the 2D bounding box of the grid in the grid's
-     * {@link #getCoordinateReferenceSystem() coordinate reference system}.
-     */
-    @Override
-    public BoundingBox getExtent();
+    public RegularGrid<HorizontalPosition> createRegularGrid(BoundingBox bbox,
+            int width, int height)
+    {
+        return null;
+    }
 }

@@ -209,20 +209,4 @@ public final class HorizontalGrid implements Domain<HorizontalPosition>
     public List<HorizontalPosition> getDomainObjects() {
         return this.domainObjects;
     }
-
-    public static void main(String[] args) throws Exception
-    {
-        CoordinateReferenceSystem crs = CRS.decode("CRS:84");
-        CoordinateSystem cs = crs.getCoordinateSystem();
-        for (int i = 0; i < cs.getDimension(); i++)
-        {
-            System.out.println(cs.getAxis(i));
-            System.out.println(cs.getAxis(i).getUnit());
-        }
-        System.out.println(CRS.lookupIdentifier(crs, false));
-        for (ReferenceIdentifier ri : crs.getIdentifiers())
-        {
-            System.out.println(ri);
-        }
-    }
 }

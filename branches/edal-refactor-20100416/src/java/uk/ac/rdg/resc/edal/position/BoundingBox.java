@@ -26,41 +26,27 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.edal.coverage.grid;
+package uk.ac.rdg.resc.edal.position;
 
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import uk.ac.rdg.resc.edal.position.BoundingBox;
-import uk.ac.rdg.resc.edal.position.HorizontalPosition;
+import org.opengis.geometry.Envelope;
 
 /**
- * A two-dimensional {@link ReferenceableGrid} in the horizontal plane.
- * @param <HP> The type of HorizontalPosition that comprises this grid.
+ * A bounding box in the horizontal plane.  Extends {@link Envelope} by providing
+ * convenience methods for accessing minimum and maximum x and y values
  * @author Jon
  */
-public interface HorizontalGrid<HP extends HorizontalPosition> extends ReferenceableGrid<HP>
-{
-    /**
-     * Returns a two-dimensional horizontal coordinate reference system.
-     * @return a two-dimensional horizontal coordinate reference system.
-     */
-    @Override
-    public CoordinateReferenceSystem getCoordinateReferenceSystem();
+public interface BoundingBox extends Envelope {
 
-    /** Returns 2 */
-    @Override
-    public int getDimension();
-    
-    /**
-     * Finds the nearest grid point to the given position.
-     * @return the nearest grid point to the given position, or null if the
-     * position is outside the {@link BoundingBox bounding box} of the grid.
-     */
-    public GridCoordinates findNearestGridPoint(HP pos);
+    /** Gets the minimum ordinate along the first axis */
+    public double getMinX();
 
-    /**
-     * Gets the 2D bounding box of the grid in the grid's
-     * {@link #getCoordinateReferenceSystem() coordinate reference system}.
-     */
-    @Override
-    public BoundingBox getExtent();
+    /** Gets the maximum ordinate along the first axis */
+    public double getMaxX();
+
+    /** Gets the minimum ordinate along the second axis */
+    public double getMinY();
+
+    /** Gets the maximum ordinate along the second axis */
+    public double getMaxY();
+
 }

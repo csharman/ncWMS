@@ -121,7 +121,7 @@ public final class RegularAxisImpl extends AbstractReferenceableAxis
     }
 
     @Override
-    public int size() {
+    public int getSize() {
         return this.size;
     }
 
