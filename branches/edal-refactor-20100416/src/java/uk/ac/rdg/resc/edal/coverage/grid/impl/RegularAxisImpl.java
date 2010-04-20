@@ -28,8 +28,6 @@
 
 package uk.ac.rdg.resc.edal.coverage.grid.impl;
 
-import java.util.AbstractList;
-import java.util.List;
 import org.opengis.referencing.cs.CoordinateSystemAxis;
 import uk.ac.rdg.resc.edal.coverage.grid.RegularAxis;
 
@@ -37,32 +35,18 @@ import uk.ac.rdg.resc.edal.coverage.grid.RegularAxis;
  * Immutable implementation of a {@link RegularAxis}.
  * @author Jon
  */
-public final class RegularAxisImpl implements RegularAxis
+public final class RegularAxisImpl extends AbstractReferenceableAxis
+        implements RegularAxis
 {
 
     private final double firstValue; // The first value on the axis
     private final double spacing; // The axis spacing
     private final int size; // The number of points on the axis
-    private final boolean longitude = false; // True if this is a longitude axis in degrees
 
-    private final List<Double> coordValues = new AbstractList<Double>() {
-        @Override public Double get(int index) {
-            return RegularAxisImpl.this.getCoordinateValue(index);
-        }
-
-        @Override public int size() {
-            return RegularAxisImpl.this.size;
-        }
-
-        @Override public int indexOf(Object o) {
-            if (o == null) return -1;
-            if (!(o instanceof Double)) return -1;
-            return RegularAxisImpl.this.getCoordinateIndex((Double)o);
-        }
-    };
-
-    public RegularAxisImpl(double firstValue, double spacing, int size)
+    public RegularAxisImpl(CoordinateSystemAxis axis, double firstValue,
+            double spacing, int size, boolean isLongitude)
     {
+        super(axis, isLongitude);
         if (spacing <= 0.0) {
             throw new IllegalArgumentException("Axis spacing must be positive");
         }
@@ -77,13 +61,8 @@ public final class RegularAxisImpl implements RegularAxis
     @Override
     public double getCoordinateSpacing() { return this.spacing; }
 
-    /** Returns an unmodifiable List view of the coordinate values */
     @Override
-    public List<Double> getCoordinateValues() {
-        return this.coordValues;
-    }
-
-    private double getCoordinateValue(int index) {
+    public double getCoordinateValue(int index) {
         if (index < 0 || index >= this.size) {
             throw new IndexOutOfBoundsException(index + " must be between 0 and "
                 + (this.size - 1));
@@ -91,12 +70,13 @@ public final class RegularAxisImpl implements RegularAxis
         return this.firstValue + index * this.spacing;
     }
 
-    private int getCoordinateIndex(double value) {
+    @Override
+    protected int doGetCoordinateIndex(double value) {
         // This method will generally be faster than an exhaustive search, or
         // even a binary search
         
         // We find the (non-integer) index of the given value
-        double indexDbl = (value - this.firstValue) / this.spacing;
+        double indexDbl = getIndex(value);
 
         // We find the nearest integer indices on either side of this and compare
         // the corresponding values with the target value.  We do this so that we
@@ -115,24 +95,34 @@ public final class RegularAxisImpl implements RegularAxis
         return -1;
     }
 
+    /**
+     * Gets the index of the given value as a double-precision number that is
+     * not necessarily an integer.
+     */
+    private double getIndex(double value) {
+        return (value - this.firstValue) / this.spacing;
+    }
+
     private boolean indexMatchesValue(int index, double value) {
         if (index < 0 || index >= this.size) return false;
         return Double.compare(value, this.getCoordinateValue(index)) == 0;
     }
 
     @Override
-    public int getNearestCoordinateIndex(double value) {
-        return 0;
+    public int doGetNearestCoordinateIndex(double value) {
+        // We find the (non-integer) index of the given value
+        double indexDbl = getIndex(value);
+        // We round to the nearest integer
+        int index = (int)Math.round(indexDbl);
+        // Check the extremes (probably not strictly necessary?)
+        if (index < 0) return 0;
+        if (index >= this.size) return this.size - 1;
+        return index;
     }
 
     @Override
-    public CoordinateSystemAxis getCoordinateSystemAxis() {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    public static void main(String[] args)
-    {
-        System.out.println(-361.0 % 360.0);
+    public int size() {
+        return this.size;
     }
 
 }

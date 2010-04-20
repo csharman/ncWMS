@@ -50,13 +50,13 @@ public class ReferenceableAxisImplTest {
     /** Tests the enforcement of strict monotonicity in axis values */
     @Test(expected=IllegalArgumentException.class)
     public void testMonotonicityArray() {
-        new ReferenceableAxisImpl(NON_MONOTONIC_ARRAY);
+        new ReferenceableAxisImpl(null, NON_MONOTONIC_ARRAY, false);
     }
     
     /** Tests the enforcement of strict monotonicity in axis values */
     @Test(expected=IllegalArgumentException.class)
     public void testMonotonicityCollection() {
-        new ReferenceableAxisImpl(NON_MONOTONIC_COLLECTION);
+        new ReferenceableAxisImpl(null, NON_MONOTONIC_COLLECTION, false);
     }
 
     /** Tests the reverse lookup of all values in the list of coordinate values */
@@ -66,7 +66,7 @@ public class ReferenceableAxisImplTest {
         for (int i = 0; i < axisVals.length; i++) {
             axisVals[i] = -56.45 + i * 2.65;
         }
-        ReferenceableAxis axis = new ReferenceableAxisImpl(axisVals);
+        ReferenceableAxis axis = new ReferenceableAxisImpl(null, axisVals, false);
         
         List<Double> coordValues = axis.getCoordinateValues();
         for (int i = 0; i < coordValues.size(); i++) {
@@ -74,6 +74,27 @@ public class ReferenceableAxisImplTest {
             int index = coordValues.indexOf(value);
             assertEquals(i, index);
         }
+    }
+
+    /** Test finding nearest coordinate values */
+    @Test
+    public void testFindNearestCoordValues() {
+        ReferenceableAxis axis = new ReferenceableAxisImpl(null,
+             new double[] {0.0, 1.5, 3.5, 6.0, 10.0, 15.0, 25.0, 50.0, 100.0},
+             false);
+
+        assertEquals(-1, axis.getNearestCoordinateIndex(-0.76));
+        assertEquals(0, axis.getNearestCoordinateIndex(-0.749));
+        assertEquals(0, axis.getNearestCoordinateIndex(-0.001));
+        assertEquals(0, axis.getNearestCoordinateIndex(0.001));
+        assertEquals(0, axis.getNearestCoordinateIndex(0.749));
+        assertEquals(1, axis.getNearestCoordinateIndex(0.751));
+        assertEquals(7, axis.getNearestCoordinateIndex(74.9));
+        assertEquals(8, axis.getNearestCoordinateIndex(75.1));
+        assertEquals(8, axis.getNearestCoordinateIndex(99.99));
+        assertEquals(8, axis.getNearestCoordinateIndex(100.01));
+        assertEquals(8, axis.getNearestCoordinateIndex(124.99));
+        assertEquals(-1, axis.getNearestCoordinateIndex(125.01));
     }
 
 

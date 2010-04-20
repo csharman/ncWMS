@@ -58,4 +58,19 @@ public final class Utils {
         return val < 0.0 ? val + 360.0 : val;
     }
 
+    /**
+     * Returns the smallest longitude value that is equivalent to the target
+     * value and greater than the reference value.  Therefore if
+     * {@code reference == 10.0} and {@code target == 5.0} this method will
+     * return 365.0.
+     */
+    public static double getNextEquivalentLongitude(double reference, double target)
+    {
+        // Find the clockwise distance from the first value on this axis
+        // to the target value.  This will be a positive number from 0 to
+        // 360 degrees
+        double clockDiff = Utils.constrainLongitude360(target - reference);
+        return reference + clockDiff;
+    }
+
 }

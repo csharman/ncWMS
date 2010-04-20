@@ -28,10 +28,8 @@
 
 package uk.ac.rdg.resc.edal.coverage.grid.impl;
 
-import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import org.opengis.referencing.cs.CoordinateSystemAxis;
 import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableAxis;
 
@@ -39,41 +37,28 @@ import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableAxis;
  * Immutable implementation of a {@link ReferenceableAxis}.
  * @author Jon
  */
-public final class ReferenceableAxisImpl implements ReferenceableAxis
+public final class ReferenceableAxisImpl extends AbstractReferenceableAxis
 {
     private final double[] axisValues;
-
-    private final List<Double> coordValues = new AbstractList<Double>() {
-        @Override public Double get(int index) {
-            return ReferenceableAxisImpl.this.axisValues[index];
-        }
-
-        @Override public int size() {
-            return ReferenceableAxisImpl.this.axisValues.length;
-        }
-
-        @Override public int indexOf(Object o) {
-            // Uses binary search to find the index of the target object more efficiently
-            if (o == null) return -1;
-            if (!(o instanceof Double)) return -1;
-            double target = ((Double)o).doubleValue();
-            int index = Arrays.binarySearch(ReferenceableAxisImpl.this.axisValues, target);
-            return index >= 0 ? index  : -1;
-        }
-    };
     
     /**
      * Creates a ReferenceableAxis from the given array of axis values.  The
      * axis values are copied to internal data structures, therefore subsequent
      * modifications to the array of axis values have no effect on this object.
+     * @param axis The coordinate system axis to which values on this axis
+     * are referenceable
      * @param axisValues Array of axis values; must be in strictly ascending
      * numerical order
+     * @param isLongitude True if this is a longitude axis in degrees (hence
+     * values of 0 and 360 are equivalent).
      * @throws NullPointerException if {@code axisValues} is null
      * @throws IllegalArgumentException if the axis values are not in strictly
      * ascending numerical order
      */
-    public ReferenceableAxisImpl(double[] axisValues)
+    public ReferenceableAxisImpl(CoordinateSystemAxis axis, double[] axisValues,
+            boolean isLongitude)
     {
+        super(axis, isLongitude);
         if (axisValues == null) throw new NullPointerException();
         // Defensive copy taken to preserve immutability
         this.axisValues = axisValues.clone();
@@ -84,15 +69,21 @@ public final class ReferenceableAxisImpl implements ReferenceableAxis
      * Creates a ReferenceableAxis from the given collection of axis values.
      * The axis values are copied to internal data structures, therefore subsequent
      * modifications to the collection of axis values have no effect on this object.
+     * @param axis The coordinate system axis to which values on this axis
+     * are referenceable
      * @param axisValues Collection of axis values; must be in strictly ascending
      * numerical order
+     * @param isLongitude True if this is a longitude axis in degrees (hence
+     * values of 0 and 360 are equivalent).
      * @throws NullPointerException if {@code axisValues} is null, or if any
      * of the values in the collection is null.
      * @throws IllegalArgumentException if the axis values are not in strictly
      * ascending numerical order
      */
-    public ReferenceableAxisImpl(Collection<? extends Number> axisValues)
+    public ReferenceableAxisImpl(CoordinateSystemAxis axis,
+            Collection<? extends Number> axisValues, boolean isLongitude)
     {
+        super(axis, isLongitude);
         if (axisValues == null) throw new NullPointerException();
         this.axisValues = new double[axisValues.size()];
         int i = 0;
@@ -123,20 +114,45 @@ public final class ReferenceableAxisImpl implements ReferenceableAxis
         }
     }
 
-    /** Returns an unmodifiable List view of the coordinate values */
     @Override
-    public List<Double> getCoordinateValues() {
-        return this.coordValues;
+    public double getCoordinateValue(int index) {
+        return this.axisValues[index];
     }
 
     @Override
-    public int getNearestCoordinateIndex(double value) {
-        return 0;
+    protected int doGetCoordinateIndex(double value) {
+        // Do a binary search for the coordinate value
+        int index = Arrays.binarySearch(this.axisValues, value);
+        return index >= 0 ? index : -1;
     }
 
     @Override
-    public CoordinateSystemAxis getCoordinateSystemAxis() {
-        throw new UnsupportedOperationException("Not supported yet.");
+    protected int doGetNearestCoordinateIndex(double value) {
+        // The axis values are in ascending order so we can use a binary search
+        int index = Arrays.binarySearch(this.axisValues, value);
+
+        // Check for an exact match
+        if (index >= 0)  return index;
+
+        // No exact match, but we have the insertion point, i.e. the index of
+        // the first element that is greater than the target value
+        int insertionPoint = -(index + 1);
+
+        // Deal with the extremes
+        if (insertionPoint == 0) return insertionPoint;
+        if (insertionPoint == this.axisValues.length) return insertionPoint - 1;
+        
+        // We need to work out which index is closer: insertionPoint or
+        // (insertionPoint - 1)
+        double d1 = Math.abs(value - this.getCoordinateValue(insertionPoint));
+        double d2 = Math.abs(value - this.getCoordinateValue(insertionPoint - 1));
+        if (d1 < d2) return insertionPoint;
+        return insertionPoint - 1;
+    }
+
+    @Override
+    public int size() {
+        return this.axisValues.length;
     }
 
 }

@@ -28,7 +28,6 @@
 
 package uk.ac.rdg.resc.edal.coverage.grid;
 
-import java.util.Collections;
 import java.util.List;
 import org.opengis.referencing.cs.CoordinateSystemAxis;
 
@@ -44,17 +43,56 @@ public interface ReferenceableAxis {
     /**
      * The coordinate values along the axis, in ascending order.  Maps from
      * integer indices to coordinate values.  Note that the inverse mapping can be
-     * found using the {@code indexOf()} method, which implementations or by
-     * {@link Collections#binarySearch(java.util.List, java.lang.Object)}.
+     * found using the {@code indexOf()} method, although this method does not
+     * take into account the wrapping of longitude values in a longitude axis:
+     * use {@link #getCoordinateIndex(double)} or
+     * {@link #getNearestCoordinateIndex(double)} for this.
      * @return the coordinate values along the axis.
      */
     public List<Double> getCoordinateValues();
 
     /**
-     * Finds the nearest coordinate index to the given value
-     * @todo specify the bounds of the axis: do we extrapolate a little by half
-     * of a grid spacing, or use the strict bounds?  Perhaps this could be a
-     * parameter?
+     * Gets the coordinate value at the given index.
+     * @param index The index of the required coordinate value
+     * @return the coordinate value at the given index
+     * @throws IndexOutOfBoundsException if {@code index &lt; 0} or
+     * {@code index &gt;= size()}
+     */
+    public double getCoordinateValue(int index);
+
+    /**
+     * Gets the number of coordinate values on this axis
+     * @return the number of coordinate values on this axis
+     */
+    public int size();
+
+    /**
+     * Finds the index of the given coordinate value.  If this is a longitude
+     * axis, this method will handle the case of longitude values wrapping.
+     * So values of -180 and +180 are treated as equivalent by this method,
+     * irrespective of the values in {@link #getCoordinateValues()}.
+     * @param value
+     * @return the index of the given coordinate value, or -1 if not found.
+     */
+    public int getCoordinateIndex(double value);
+
+    /**
+     * <p>Finds the nearest coordinate index to the given value. If this is a longitude
+     * axis, this method will handle the case of longitude values wrapping.
+     * So values of -180 and +180 are treated as equivalent by this method,
+     * irrespective of the values in {@link #getCoordinateValues()}.</p>
+     * <p>This method considers the bounds of the axis to be a little wider
+     * than the minimum and maximum coordinate values.  At the lower end of the
+     * axis the bounds are extended by half the difference between the first and
+     * second coordinate values.  Similarly, at the upper end of the axis the
+     * bounds are extended by half the difference between the next-to-last and
+     * last coordinate values.</p>
+     * <p>Therefore, for an axis with values [0, 1, 3, ... 45, 50, 60] the bounds
+     * of the axis will be considered to be between -0.5 and 65.  The nearest
+     * coordinate index to a value of -0.3 will therefore be zero, but a value
+     * of -0.6 will cause -1 to be returned (value out of range).</p>
+     * @return the nearest coordinate index to the given value, or -1 if the
+     * value is outside the (extended) bounds of this axis.
      */
     public int getNearestCoordinateIndex(double value);
 

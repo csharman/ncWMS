@@ -100,6 +100,15 @@ public class UtilsTest {
         assertEquals(180.0, Utils.constrainLongitude360(lon), TOL);
     }
 
-
+    /**
+     * Test the getNextEquivalentLongitude() method
+     */
+    @Test
+    public void testGetNextEquivalentLongitude() {
+        assertEquals(365.0, Utils.getNextEquivalentLongitude(10.0, 5.0), TOL);
+        assertEquals(5.0, Utils.getNextEquivalentLongitude(-180.0, 5.0), TOL);
+        assertEquals(5.0, Utils.getNextEquivalentLongitude(-180.0, 365.0), TOL);
+        assertEquals(5.0, Utils.getNextEquivalentLongitude(-180.0, -355.0), TOL);
+    }
 
 }
