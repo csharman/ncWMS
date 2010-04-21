@@ -34,7 +34,7 @@ import org.opengis.coverage.grid.GridCoordinates;
 /**
  * <p>A {@link Comparator} for {@link GridCoordinates} objects that implements
  * the ordering defined in
- * {@link org.jcsml.coverage.grid.GridCoordinates#compareTo(org.jcsml.coverage.grid.GridCoordinates)}.
+ * {@link uk.ac.rdg.resc.edal.coverage.grid.GridCoordinates#compareTo(uk.ac.rdg.resc.edal.coverage.grid.GridCoordinates)}.
  * Collections of {@link GridCoordinates} objects that are sorted using this
  * comparator will end up with coordinates sorted such that the last coordinate
  * varies fastest, which is likely to match the order in which corresponding
@@ -43,13 +43,10 @@ import org.opengis.coverage.grid.GridCoordinates;
  * is created that can be reused freely.</p>
  * @author Jon
  */
-public final class GridCoordinatesComparator implements Comparator<GridCoordinates> {
+public enum GridCoordinatesComparator implements Comparator<GridCoordinates> {
     
     /** Singleton instance */
-    public static final GridCoordinatesComparator INSTANCE = new GridCoordinatesComparator();
-
-    /** Private constructor to prevent direct instantiation */
-    private GridCoordinatesComparator() {}
+    INSTANCE;
 
     /**
      * <p>Compares two {@link GridCoordinates} objects for order. We define

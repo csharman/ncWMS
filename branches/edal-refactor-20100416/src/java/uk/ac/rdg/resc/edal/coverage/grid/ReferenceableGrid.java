@@ -42,6 +42,16 @@ import uk.ac.rdg.resc.edal.coverage.domain.Domain;
  * perfectly possible to have a two-dimensional grid that samples points from a
  * three-dimensional coordinate system (e.g. a 2D vertical grid in a latitude-longitude-depth
  * coordinate system).</p>
+ *
+ * <p>The ordering of grid coordinates with respect to real-world coordinates
+ * is not defined, since in general the axes of the grid will have no
+ * necessary relation to the axes of the real-world coordinate system.
+ * Implementations must ensure that they use consistent ordering, which is also
+ * respected in the methods of {@link GridValuesMatrix} if this is inherited.
+ * (This behaviour is refined in the @link RectilinearGrid} subclass.)</p>
+ *
+ * @param <DP> The type of direct position to which the points in this grid
+ * can be referenced.
  * @author Jon
  */
 public interface ReferenceableGrid<DP extends DirectPosition> extends Grid, Domain<DP> {
@@ -52,10 +62,10 @@ public interface ReferenceableGrid<DP extends DirectPosition> extends Grid, Doma
      * reference system} will match the {@link #getCoordinateReferenceSystem()
      * coordinate reference system associated with this object}.
      * @param coords The grid coordinates to transform.
-     * @return the "real world" coordinates.
-     * @todo What to return if coords is not within the grid?  Null? Or throw a
-     * runtime exception (users could check in advance that the coords are within
-     * the grid using the extent)?
+     * @return the "real world" coordinates, or null if the grid coordinates are
+     * not contained within the {@link #getGridExtent() envelope of the grid}.
+     * @throws IllegalArgumentException if the dimension of the grid coordinates
+     * does not match the {@link #getDimension() dimension of the grid}.
      */
     public DP transformCoordinates(GridCoordinates coords);
 

@@ -28,24 +28,34 @@
 
 package uk.ac.rdg.resc.edal.coverage.grid;
 
+import org.opengis.geometry.Envelope;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.cs.CoordinateSystemAxis;
 import uk.ac.rdg.resc.edal.position.BoundingBox;
-import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 
 /**
- * A {@link HorizontalGrid} whose axes in real space are aligned with the axes
- * in grid space.  Therefore the axes of the grid are separable.
- * @param <HP> The type of HorizontalPosition that comprises this grid.
+ * <p>A {@link HorizontalGrid} whose axes in real space are aligned with the axes
+ * in grid space.  Therefore the axes of the grid are separable.</p>
+ *
+ * <p>The order of grid coordinates must match the order of the coordinate
+ * axes in the external coordinate reference system.  Therefore, for grid coordinates
+ * [i,j], the i coordinate refers to the first (x) axis of the external coordinate
+ * system.</p>
  * @author Jon
  */
-public interface RectilinearGrid<HP extends HorizontalPosition> extends HorizontalGrid<HP> {
+public interface RectilinearGrid extends HorizontalGrid {
 
     /**
-     * Returns the {@link ReferenceableAxis} for the given axis index. This object
+     * <p>Returns the {@link ReferenceableAxis} for the given axis index. This object
      * maps from integer indices along the axis to real-world coordinates.
      * The index matches the index of the corresponding {@link CoordinateSystemAxis}
-     * within the {@link #getCoordinateReferenceSystem() coordinate reference system}.
+     * within the {@link #getCoordinateReferenceSystem() coordinate reference system}.</p>
+     *
+     * <p>The {@link ReferenceableAxis#getExtent() extent} of each axis will
+     * be a one-dimensional {@link Envelope} with a null coordinate reference
+     * system (since the CRS of this grid is generally not decomposable into
+     * two orthogonal CRSs).</p>
+     *
      * @param index The index of the required axis with the grid's
      * {@link #getCoordinateReferenceSystem() coordinate reference system}.
      * @return The ReferenceableAxis at the required index
@@ -63,10 +73,10 @@ public interface RectilinearGrid<HP extends HorizontalPosition> extends Horizont
 
     /**
      * {@inheritDoc}
-     * <p>Note that the extent may extend a little beyond the minimum and
+     * <p>Note that the extent extends beyond the minimum and
      * maximum coordinate values of the axes, because the coordinate values
-     * represent the centre of grid cells, and the grid cells may have a
-     * finite size</p>
+     * represent the centre of grid cells, and the grid cells have a
+     * finite size.</p>
      */
     @Override
     public BoundingBox getExtent();

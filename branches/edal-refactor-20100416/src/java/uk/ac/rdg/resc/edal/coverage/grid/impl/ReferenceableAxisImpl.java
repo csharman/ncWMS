@@ -34,7 +34,8 @@ import org.opengis.referencing.cs.CoordinateSystemAxis;
 import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableAxis;
 
 /**
- * Immutable implementation of a {@link ReferenceableAxis}.
+ * Immutable implementation of a {@link ReferenceableAxis}, whose values are
+ * not necessarily regularly spaced along the axis.
  * @author Jon
  */
 public final class ReferenceableAxisImpl extends AbstractReferenceableAxis

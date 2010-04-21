@@ -28,7 +28,6 @@
 
 package uk.ac.rdg.resc.edal.position.impl;
 
-import uk.ac.rdg.resc.edal.position.impl.DirectPositionImpl;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
@@ -59,7 +58,7 @@ public class HorizontalPositionImpl extends DirectPositionImpl implements Horizo
      * @throws IllegalArgumentException if the CRS is non-null and does not have
      * two dimensions
      */
-    public HorizontalPositionImpl(CoordinateReferenceSystem crs, double x, double y) {
+    public HorizontalPositionImpl(double x, double y, CoordinateReferenceSystem crs) {
         super(crs, x, y);
     }
 
@@ -71,7 +70,7 @@ public class HorizontalPositionImpl extends DirectPositionImpl implements Horizo
      * @param y The y coordinate of this position
      */
     public HorizontalPositionImpl(double x, double y) {
-        super(null, x, y);
+        this(x, y, null);
     }
 
 }

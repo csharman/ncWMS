@@ -34,7 +34,7 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import uk.ac.rdg.resc.edal.position.BoundingBox;
 
 /**
- * <p>Implementation of a {@link BoundingBox}.</p>
+ * <p>Immutable implementation of a {@link BoundingBox}.</p>
  * @author Jon
  */
 public final class BoundingBoxImpl extends AbstractEnvelope implements BoundingBox
@@ -56,27 +56,37 @@ public final class BoundingBoxImpl extends AbstractEnvelope implements BoundingB
         this.maxy = envelope2d.getMaximum(1);
     }
 
-    public BoundingBoxImpl(Envelope xExtent, Envelope yExtent)
+    public BoundingBoxImpl(Envelope xExtent, Envelope yExtent, CoordinateReferenceSystem crs)
     {
-        super(xExtent.getCoordinateReferenceSystem());
-        // Check that CRSs match
-        if (this.getCoordinateReferenceSystem() == null) {
-            if (yExtent.getCoordinateReferenceSystem() != null) {
-                throw new IllegalArgumentException("CRSs of x and y extents must match");
-            }
-        } else {
-            if (!this.getCoordinateReferenceSystem().equals(yExtent.getCoordinateReferenceSystem())) {
-                throw new IllegalArgumentException("CRSs of x and y extents must match");
-            }
-        }
+        super(crs);
 
         if (xExtent.getDimension() != 1 || yExtent.getDimension() != 1) {
             throw new IllegalArgumentException("Envelopes must be one-dimensional");
         }
+
+        // Check that CRSs match
+        if (xExtent.getCoordinateReferenceSystem() != null) {
+            if (!xExtent.getCoordinateReferenceSystem().equals(crs)) {
+                throw new IllegalArgumentException("CRSs do not match");
+            }
+        }
+        if (yExtent.getCoordinateReferenceSystem() != null) {
+            if (!yExtent.getCoordinateReferenceSystem().equals(crs)) {
+                throw new IllegalArgumentException("CRSs do not match");
+            }
+        }
+
+        
         this.minx = xExtent.getMinimum(0);
         this.maxx = xExtent.getMaximum(0);
         this.miny = yExtent.getMinimum(0);
         this.maxy = yExtent.getMaximum(0);
+    }
+
+    /** Constructs a BoundingBox with a null coordinate reference system */
+    public BoundingBoxImpl(Envelope xExtent, Envelope yExtent)
+    {
+        this(xExtent, yExtent, null);
     }
 
     /** Creates a BoundingBox from a four-element array [minx, miny, maxx, maxy] */
@@ -90,11 +100,7 @@ public final class BoundingBoxImpl extends AbstractEnvelope implements BoundingB
         this.maxx = bbox[2];
         this.miny = bbox[1];
         this.maxy = bbox[3];
-        this.checkBounds();
-    }
-
-    private void checkBounds()
-    {
+        // Check the bounds of the bbox
         if (this.minx > this.maxx || this.miny > this.maxy) {
             throw new IllegalArgumentException("Invalid bounding box specification");
         }
@@ -105,6 +111,9 @@ public final class BoundingBoxImpl extends AbstractEnvelope implements BoundingB
     {
         this(bbox, null);
     }
+
+    @Override
+    public int getDimension() { return 2; }
 
     @Override
     public double getMinX() { return this.minx; }
@@ -119,17 +128,26 @@ public final class BoundingBoxImpl extends AbstractEnvelope implements BoundingB
     public double getMaxY() { return this.maxy; }
 
     @Override
-    public int getDimension() { return 2; }
+    public double getMinimum(int i) {
+        if (i == 0) return this.minx;
+        if (i == 1) return this.miny;
+        throw new IndexOutOfBoundsException();
+    }
+
+    @Override
+    public double getMaximum(int i) {
+        if (i == 0) return this.maxx;
+        if (i == 1) return this.maxy;
+        throw new IndexOutOfBoundsException();
+    }
 
     @Override
     public DirectPosition getLowerCorner() {
-        // TODO: pregenerate this, since it will never change
         return new DirectPositionImpl(this.getCoordinateReferenceSystem(), this.minx, this.miny);
     }
 
     @Override
     public DirectPosition getUpperCorner() {
-        // TODO: pregenerate this, since it will never change
         return new DirectPositionImpl(this.getCoordinateReferenceSystem(), this.maxx, this.maxy);
     }
 

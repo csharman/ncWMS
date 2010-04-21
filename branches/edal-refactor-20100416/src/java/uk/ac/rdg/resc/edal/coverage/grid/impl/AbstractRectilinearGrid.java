@@ -30,7 +30,6 @@ package uk.ac.rdg.resc.edal.coverage.grid.impl;
 
 import java.util.List;
 import org.opengis.coverage.grid.GridEnvelope;
-import org.opengis.geometry.Envelope;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import uk.ac.rdg.resc.edal.coverage.grid.GridCoordinates;
 import uk.ac.rdg.resc.edal.coverage.grid.RectilinearGrid;
@@ -38,18 +37,20 @@ import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableAxis;
 import uk.ac.rdg.resc.edal.position.BoundingBox;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.edal.position.impl.BoundingBoxImpl;
+import uk.ac.rdg.resc.edal.position.impl.HorizontalPositionImpl;
 
 /**
  * Abstract superclass that partially implements a two-dimensional
  * {@link RectilinearGrid}.
  * @author Jon
  */
-public class AbstractRectilinearGrid<HP extends HorizontalPosition>
-        implements RectilinearGrid<HP>
+public abstract class AbstractRectilinearGrid implements RectilinearGrid
 {
     private final ReferenceableAxis xAxis;
     private final ReferenceableAxis yAxis;
     private final CoordinateReferenceSystem crs;
+    private final BoundingBox extent;
+    private final GridEnvelopeImpl gridExtent;
 
     public AbstractRectilinearGrid(ReferenceableAxis xAxis, ReferenceableAxis yAxis,
             CoordinateReferenceSystem crs)
@@ -60,10 +61,18 @@ public class AbstractRectilinearGrid<HP extends HorizontalPosition>
         this.xAxis = xAxis;
         this.yAxis = yAxis;
         this.crs = crs;
+
+        this.extent = new BoundingBoxImpl(
+            this.xAxis.getExtent(),
+            this.yAxis.getExtent(),
+            this.getCoordinateReferenceSystem()
+        );
+
+        this.gridExtent = new GridEnvelopeImpl(xAxis.getSize() - 1, yAxis.getSize() - 1);
     }
 
     @Override
-    public final ReferenceableAxis getAxis(int index) {
+    public ReferenceableAxis getAxis(int index) {
         if (index == 0) return this.xAxis;
         if (index == 1) return this.yAxis;
         throw new IndexOutOfBoundsException();
@@ -79,22 +88,47 @@ public class AbstractRectilinearGrid<HP extends HorizontalPosition>
     }
 
     @Override
-    public BoundingBox getExtent() {
-        return new BoundingBoxImpl(this.xAxis.getExtent(), this.yAxis.getExtent());
-    }
-
-    @Override
     public CoordinateReferenceSystem getCoordinateReferenceSystem() {
         return this.crs;
     }
 
     @Override
-    public HP transformCoordinates(GridCoordinates coords) {
+    public BoundingBox getExtent() { return this.extent; }
+
+    @Override
+    public GridEnvelope getGridExtent() { return this.gridExtent; }
+
+    @Override
+    public HorizontalPosition transformCoordinates(GridCoordinates coords) {
+        if (coords.getDimension() != 2) {
+            throw new IllegalArgumentException("GridCoordinates must be 2D");
+        }
+        if (!this.gridExtent.contains(coords)) {
+            return null;
+        }
+        double x = this.xAxis.getCoordinateValue(coords.getCoordinateValue(0));
+        double y = this.yAxis.getCoordinateValue(coords.getCoordinateValue(1));
+        return new HorizontalPositionImpl(x, y, this.getCoordinateReferenceSystem());
     }
 
     @Override
-    public GridCoordinates inverseTransformCoordinates(HP pos) {
-        throw new UnsupportedOperationException("Not supported yet.");
+    public GridCoordinates inverseTransformCoordinates(HorizontalPosition pos) {
+        int i = this.xAxis.getCoordinateIndex(pos.getX());
+        int j = this.yAxis.getCoordinateIndex(pos.getY());
+        if (i < 0 || j < 0) return null;
+        // [i,j] order corresponds with [x,y] as specified in the contract of
+        // RectilinearGrid
+        return new GridCoordinatesImpl(i, j);
+    }
+
+    @Override
+    public GridCoordinates findNearestGridPoint(HorizontalPosition pos) {
+        int i = this.xAxis.getNearestCoordinateIndex(pos.getX());
+        int j = this.yAxis.getNearestCoordinateIndex(pos.getY());
+        if (i < 0 || j < 0) return null;
+        // [i,j] order corresponds with [x,y] as specified in the contract of
+        // RectilinearGrid
+        return new GridCoordinatesImpl(i, j);
     }
 
     @Override
@@ -103,17 +137,7 @@ public class AbstractRectilinearGrid<HP extends HorizontalPosition>
     }
 
     @Override
-    public GridEnvelope getGridExtent() {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    @Override
-    public List<HP> getDomainObjects() {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    @Override
-    public GridCoordinates findNearestGridPoint(HP pos) {
+    public List<HorizontalPosition> getDomainObjects() {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 

@@ -28,7 +28,6 @@
 
 package uk.ac.rdg.resc.edal.position.impl;
 
-import org.opengis.geometry.DirectPosition;
 import org.opengis.geometry.Envelope;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
@@ -42,24 +41,6 @@ public abstract class AbstractEnvelope implements Envelope
     
     public AbstractEnvelope(CoordinateReferenceSystem crs) {
         this.crs = crs;
-    }
-
-    @Override
-    public final double getMinimum(int i) {
-        DirectPosition dp = this.getLowerCorner();
-        if (i >= dp.getDimension()) {
-            throw new IndexOutOfBoundsException();
-        }
-        return dp.getOrdinate(i);
-    }
-
-    @Override
-    public final double getMaximum(int i) {
-        DirectPosition dp = this.getUpperCorner();
-        if (i >= dp.getDimension()) {
-            throw new IndexOutOfBoundsException();
-        }
-        return dp.getOrdinate(i);
     }
 
     @Override

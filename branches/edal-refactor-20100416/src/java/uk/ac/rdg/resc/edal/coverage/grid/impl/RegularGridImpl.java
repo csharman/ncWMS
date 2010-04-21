@@ -28,11 +28,7 @@
 
 package uk.ac.rdg.resc.edal.coverage.grid.impl;
 
-import java.util.List;
-import org.opengis.coverage.grid.GridEnvelope;
-import org.opengis.geometry.DirectPosition;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import uk.ac.rdg.resc.edal.coverage.grid.GridCoordinates;
 import uk.ac.rdg.resc.edal.coverage.grid.RegularAxis;
 import uk.ac.rdg.resc.edal.coverage.grid.RegularGrid;
 
@@ -40,54 +36,21 @@ import uk.ac.rdg.resc.edal.coverage.grid.RegularGrid;
  * Immutable implementation of a {@link RegularGrid}.
  * @author Jon
  */
-public final class RegularGridImpl extends AbstractRectilinearGrid
+public final class RegularGridImpl extends AbstractRectilinearGrid implements RegularGrid
 {
+    public RegularGridImpl(RegularAxis xAxis, RegularAxis yAxis,
+            CoordinateReferenceSystem crs)
+    {
+        super(xAxis, yAxis, crs);
+    }
 
-    
+    public RegularGridImpl(RegularAxis xAxis, RegularAxis yAxis)
+    {
+        this(xAxis, yAxis, null);
+    }
 
     @Override
     public RegularAxis getAxis(int index) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return (RegularAxis)super.getAxis(index);
     }
-
-    @Override
-    public CoordinateReferenceSystem getCoordinateReferenceSystem() {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    @Override
-    public int getDimension() {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    @Override
-    public DirectPosition transformCoordinates(GridCoordinates coords) {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    @Override
-    public GridCoordinates inverseTransformCoordinates(DirectPosition pos) {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    @Override
-    public List<String> getAxisNames() {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    @Override
-    public GridEnvelope getExtent() {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    @Override
-    public int getSize() {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    @Override
-    public List getDomainObjects() {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
 }

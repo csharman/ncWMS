@@ -58,7 +58,7 @@ public final class LonLatPositionImpl extends HorizontalPositionImpl implements 
      * @param latitude The geodetic latitude
      */
     public LonLatPositionImpl(double longitude, double latitude) {
-        super(DefaultGeographicCRS.WGS84, Longitude.constrain180(longitude), latitude);
+        super(Longitude.constrain180(longitude), latitude, DefaultGeographicCRS.WGS84);
     }
 
 }

@@ -32,7 +32,8 @@ import org.opengis.referencing.cs.CoordinateSystemAxis;
 import uk.ac.rdg.resc.edal.coverage.grid.RegularAxis;
 
 /**
- * Immutable implementation of a {@link RegularAxis}.
+ * Immutable implementation of a {@link RegularAxis}, whose values are regularly
+ * spaced along the axis.
  * @author Jon
  */
 public final class RegularAxisImpl extends AbstractReferenceableAxis
@@ -109,7 +110,7 @@ public final class RegularAxisImpl extends AbstractReferenceableAxis
     }
 
     @Override
-    public int doGetNearestCoordinateIndex(double value) {
+    protected int doGetNearestCoordinateIndex(double value) {
         // We find the (non-integer) index of the given value
         double indexDbl = getIndex(value);
         // We round to the nearest integer

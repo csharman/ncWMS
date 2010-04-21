@@ -28,15 +28,13 @@
 
 package uk.ac.rdg.resc.edal.coverage.grid;
 
-import uk.ac.rdg.resc.edal.position.HorizontalPosition;
-
 /**
  * A two-dimensional grid whose coordinate values are equally-spaced along each
  * axis, and whose axes in real space are aligned with the axes
  * in grid space.
  * @author Jon
  */
-public interface RegularGrid<HP extends HorizontalPosition> extends RectilinearGrid<HP> {
+public interface RegularGrid extends RectilinearGrid {
 
     /** 
      * {@inheritDoc}
