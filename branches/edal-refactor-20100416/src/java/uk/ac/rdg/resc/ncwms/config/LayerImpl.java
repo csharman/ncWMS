@@ -149,7 +149,7 @@ public final class LayerImpl extends AbstractTimeAggregatedLayer
      */
     @Override
     public List<Float> readHorizontalPoints(DateTime time, double elevation,
-            Domain<? extends HorizontalPosition> domain)
+            Domain<HorizontalPosition> domain)
         throws InvalidDimensionValueException, IOException
     {
         int zIndex = this.findAndCheckElevationIndex(elevation);
@@ -158,7 +158,7 @@ public final class LayerImpl extends AbstractTimeAggregatedLayer
     }
     
     /** Reads a PointList based upon t and z indices rather than natural values */
-    List<Float> readPointList(FilenameAndTimeIndex fti, int zIndex, Domain<? extends HorizontalPosition> domain)
+    List<Float> readPointList(FilenameAndTimeIndex fti, int zIndex, Domain<HorizontalPosition> domain)
         throws IOException
     {
         return this.dataReader.read(fti.filename, this, fti.tIndexInFile, zIndex, domain);

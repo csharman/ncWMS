@@ -28,8 +28,10 @@
 
 package uk.ac.rdg.resc.edal.coverage.grid.impl;
 
+import java.util.AbstractList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
-import org.opengis.coverage.grid.GridEnvelope;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import uk.ac.rdg.resc.edal.coverage.grid.GridCoordinates;
 import uk.ac.rdg.resc.edal.coverage.grid.RectilinearGrid;
@@ -46,36 +48,33 @@ import uk.ac.rdg.resc.edal.position.impl.HorizontalPositionImpl;
  */
 public abstract class AbstractRectilinearGrid implements RectilinearGrid
 {
-    private final ReferenceableAxis xAxis;
-    private final ReferenceableAxis yAxis;
     private final CoordinateReferenceSystem crs;
-    private final BoundingBox extent;
-    private final GridEnvelopeImpl gridExtent;
-
-    public AbstractRectilinearGrid(ReferenceableAxis xAxis, ReferenceableAxis yAxis,
-            CoordinateReferenceSystem crs)
+    private GridEnvelopeImpl gridExtent = null;
+    
+    private final List<HorizontalPosition> domainObjectList = new AbstractList<HorizontalPosition>()
     {
-        if (xAxis == null || yAxis == null) {
-            throw new NullPointerException("Axes cannot be null");
+        @Override
+        public HorizontalPosition get(int index) {
+            int xAxisLength = AbstractRectilinearGrid.this.getXAxis().getSize();
+            int xi = index % xAxisLength;
+            int yi = index / xAxisLength;
+            GridCoordinates coords = new GridCoordinatesImpl(xi, yi);
+            HorizontalPosition pos = AbstractRectilinearGrid.this.transformCoordinates(coords);
+            if (pos == null) {
+                throw new IndexOutOfBoundsException("Index " + index + " is out of bounds");
+            }
+            return pos;
         }
-        this.xAxis = xAxis;
-        this.yAxis = yAxis;
+
+        @Override
+        public int size() {
+            return AbstractRectilinearGrid.this.getSize();
+        }
+    };
+
+    protected AbstractRectilinearGrid(CoordinateReferenceSystem crs)
+    {
         this.crs = crs;
-
-        this.extent = new BoundingBoxImpl(
-            this.xAxis.getExtent(),
-            this.yAxis.getExtent(),
-            this.getCoordinateReferenceSystem()
-        );
-
-        this.gridExtent = new GridEnvelopeImpl(xAxis.getSize() - 1, yAxis.getSize() - 1);
-    }
-
-    @Override
-    public ReferenceableAxis getAxis(int index) {
-        if (index == 0) return this.xAxis;
-        if (index == 1) return this.yAxis;
-        throw new IndexOutOfBoundsException();
     }
 
     /** Returns 2 */
@@ -83,8 +82,18 @@ public abstract class AbstractRectilinearGrid implements RectilinearGrid
     public final int getDimension() { return 2; }
 
     @Override
+    public ReferenceableAxis getXAxis() {
+        return this.getAxis(0);
+    }
+
+    @Override
+    public ReferenceableAxis getYAxis() {
+        return this.getAxis(1);
+    }
+
+    @Override
     public int getSize() {
-        return this.xAxis.getSize() * this.yAxis.getSize();
+        return this.getXAxis().getSize() * this.getYAxis().getSize();
     }
 
     @Override
@@ -93,28 +102,49 @@ public abstract class AbstractRectilinearGrid implements RectilinearGrid
     }
 
     @Override
-    public BoundingBox getExtent() { return this.extent; }
+    public BoundingBox getExtent() {
+        return new BoundingBoxImpl(
+            this.getAxis(0).getExtent(),
+            this.getAxis(1).getExtent(),
+            this.getCoordinateReferenceSystem()
+        );
+    }
 
     @Override
-    public GridEnvelope getGridExtent() { return this.gridExtent; }
+    public GridEnvelopeImpl getGridExtent() {
+        // We cache the GridEnvelopeImpl object because we will use it multiple
+        // times in transformCoordinates().  We cannot generate this object
+        // on construction because the axis objects may not have been created
+        // at this time.
+        if (this.gridExtent == null) {
+            this.gridExtent = new GridEnvelopeImpl(
+                this.getXAxis().getSize() - 1,
+                this.getYAxis().getSize() - 1
+            );
+        }
+        return this.gridExtent;
+    }
 
     @Override
     public HorizontalPosition transformCoordinates(GridCoordinates coords) {
         if (coords.getDimension() != 2) {
             throw new IllegalArgumentException("GridCoordinates must be 2D");
         }
-        if (!this.gridExtent.contains(coords)) {
-            return null;
-        }
-        double x = this.xAxis.getCoordinateValue(coords.getCoordinateValue(0));
-        double y = this.yAxis.getCoordinateValue(coords.getCoordinateValue(1));
+        if (!this.getGridExtent().contains(coords)) return null;
+        double x = this.getXAxis().getCoordinateValue(coords.getCoordinateValue(0));
+        double y = this.getYAxis().getCoordinateValue(coords.getCoordinateValue(1));
         return new HorizontalPositionImpl(x, y, this.getCoordinateReferenceSystem());
     }
 
     @Override
+    public HorizontalPosition transformCoordinates(int i, int j) {
+        return this.transformCoordinates(new GridCoordinatesImpl(i, j));
+    }
+
+    @Override
     public GridCoordinates inverseTransformCoordinates(HorizontalPosition pos) {
-        int i = this.xAxis.getCoordinateIndex(pos.getX());
-        int j = this.yAxis.getCoordinateIndex(pos.getY());
+        int i = this.getXAxis().getCoordinateIndex(pos.getX());
+        int j = this.getYAxis().getCoordinateIndex(pos.getY());
         if (i < 0 || j < 0) return null;
         // [i,j] order corresponds with [x,y] as specified in the contract of
         // RectilinearGrid
@@ -123,22 +153,31 @@ public abstract class AbstractRectilinearGrid implements RectilinearGrid
 
     @Override
     public GridCoordinates findNearestGridPoint(HorizontalPosition pos) {
-        int i = this.xAxis.getNearestCoordinateIndex(pos.getX());
-        int j = this.yAxis.getNearestCoordinateIndex(pos.getY());
+        int i = this.getXAxis().getNearestCoordinateIndex(pos.getX());
+        int j = this.getYAxis().getNearestCoordinateIndex(pos.getY());
         if (i < 0 || j < 0) return null;
         // [i,j] order corresponds with [x,y] as specified in the contract of
         // RectilinearGrid
         return new GridCoordinatesImpl(i, j);
     }
 
+    /** Returns an unmodifiable list of axis names in x,y order */
     @Override
     public List<String> getAxisNames() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return Collections.unmodifiableList(
+            Arrays.asList(this.getXAxis().getName(), this.getYAxis().getName())
+        );
     }
 
+    /**
+     * Returns an unmodifiable List of horizontal positions derived from the two axes.
+     * The x axis is considered to vary fastest, so the first point in the list
+     * represents the grid point [x0,y0], the second point is [x1,y0] and so on.
+     * @return
+     */
     @Override
     public List<HorizontalPosition> getDomainObjects() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return this.domainObjectList;
     }
 
 }

@@ -110,7 +110,7 @@ public abstract class DataReader
      * @throws IOException if an input/output exception occurred when reading data
      */
     public abstract List<Float> read(String filename, Layer layer,
-        int tIndex, int zIndex, Domain<? extends HorizontalPosition> domain)
+        int tIndex, int zIndex, Domain<HorizontalPosition> domain)
         throws IOException;
 
     /**

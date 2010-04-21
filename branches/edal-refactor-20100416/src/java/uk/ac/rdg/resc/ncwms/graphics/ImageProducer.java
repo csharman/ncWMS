@@ -160,7 +160,11 @@ public final class ImageProducer
             : WmsUtils.getMagnitudes(data.get(0), data.get(1));
         for (int i = 0; i < pixels.length; i++)
         {
-            pixels[i] = (byte)this.getColourIndex(magnitudes.get(i));
+            // The image coordinate system has the vertical axis increasing
+            // downward, but the data's coordinate system has the vertical axis
+            // increasing upwards.  The method below flips the axis
+            int dataIndex = this.getDataIndex(i);
+            pixels[i] = (byte)this.getColourIndex(magnitudes.get(dataIndex));
         }
         
         // Create a ColorModel for the image
@@ -201,7 +205,7 @@ public final class ImageProducer
             {
                 for (int j = 0; j < this.picHeight; j += Math.ceil(this.arrowLength * 1.2))
                 {
-                    int dataIndex = j * this.picWidth + i;
+                    int dataIndex = this.getDataIndex(i, j);
                     Float eastVal = east.get(dataIndex);
                     Float northVal = north.get(dataIndex);
                     if (eastVal != null && northVal != null)
@@ -226,6 +230,30 @@ public final class ImageProducer
         }
         
         return image;
+    }
+
+    /**
+     * Calculates the index of the data point in a data array that corresponds
+     * with the given index in the image array, taking into account that the
+     * vertical axis is flipped.
+     */
+    private int getDataIndex(int imageIndex)
+    {
+        int imageI = imageIndex % this.picWidth;
+        int imageJ = imageIndex / this.picWidth;
+        return this.getDataIndex(imageI, imageJ);
+    }
+
+    /**
+     * Calculates the index of the data point in a data array that corresponds
+     * with the given index in the image array, taking into account that the
+     * vertical axis is flipped.
+     */
+    private int getDataIndex(int imageI, int imageJ)
+    {
+        int dataJ = this.picHeight - imageJ - 1;
+        int dataIndex = dataJ * this.picWidth + imageI;
+        return dataIndex;
     }
     
     /**

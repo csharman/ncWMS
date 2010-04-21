@@ -29,7 +29,6 @@
 package uk.ac.rdg.resc.edal.coverage.grid.impl;
 
 import java.util.Arrays;
-import java.util.Collection;
 import org.opengis.referencing.cs.CoordinateSystemAxis;
 import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableAxis;
 
@@ -41,13 +40,12 @@ import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableAxis;
 public final class ReferenceableAxisImpl extends AbstractReferenceableAxis
 {
     private final double[] axisValues;
-    
+
     /**
      * Creates a ReferenceableAxis from the given array of axis values.  The
      * axis values are copied to internal data structures, therefore subsequent
      * modifications to the array of axis values have no effect on this object.
-     * @param axis The coordinate system axis to which values on this axis
-     * are referenceable
+     * @param name The name of the axis
      * @param axisValues Array of axis values; must be in strictly ascending
      * numerical order
      * @param isLongitude True if this is a longitude axis in degrees (hence
@@ -56,12 +54,30 @@ public final class ReferenceableAxisImpl extends AbstractReferenceableAxis
      * @throws IllegalArgumentException if the axis values are not in strictly
      * ascending numerical order
      */
-    public ReferenceableAxisImpl(CoordinateSystemAxis axis, double[] axisValues,
-            boolean isLongitude)
+    public ReferenceableAxisImpl(String name, double[] axisValues, boolean isLongitude)
+    {
+        super(name, isLongitude);
+        this.axisValues = axisValues.clone();
+        this.checkOrder();
+    }
+
+    /**
+     * Creates a ReferenceableAxis from the given array of axis values.  The
+     * axis values are copied to internal data structures, therefore subsequent
+     * modifications to the array of axis values have no effect on this object.
+     * @param axis The coordinate system axis to which values on this axis
+     * are referenceable.
+     * @param axisValues Array of axis values; must be in strictly ascending
+     * numerical order
+     * @param isLongitude True if this is a longitude axis in degrees (hence
+     * values of 0 and 360 are equivalent).
+     * @throws NullPointerException if {@code axisValues} is null
+     * @throws IllegalArgumentException if the axis values are not in strictly
+     * ascending numerical order
+     */
+    public ReferenceableAxisImpl(CoordinateSystemAxis axis, double[] axisValues, boolean isLongitude)
     {
         super(axis, isLongitude);
-        if (axisValues == null) throw new NullPointerException();
-        // Defensive copy taken to preserve immutability
         this.axisValues = axisValues.clone();
         this.checkOrder();
     }
@@ -70,6 +86,7 @@ public final class ReferenceableAxisImpl extends AbstractReferenceableAxis
      * Creates a ReferenceableAxis from the given collection of axis values.
      * The axis values are copied to internal data structures, therefore subsequent
      * modifications to the collection of axis values have no effect on this object.
+     * @param name The name of the axis
      * @param axis The coordinate system axis to which values on this axis
      * are referenceable
      * @param axisValues Collection of axis values; must be in strictly ascending
@@ -81,25 +98,25 @@ public final class ReferenceableAxisImpl extends AbstractReferenceableAxis
      * @throws IllegalArgumentException if the axis values are not in strictly
      * ascending numerical order
      */
-    public ReferenceableAxisImpl(CoordinateSystemAxis axis,
+    /*public ReferenceableAxisImpl(String name, CoordinateSystemAxis axis,
             Collection<? extends Number> axisValues, boolean isLongitude)
     {
-        super(axis, isLongitude);
+        super(name, axis, isLongitude);
         if (axisValues == null) throw new NullPointerException();
-        this.axisValues = new double[axisValues.size()];
+        double[] axisVals = new double[axisValues.size()];
         int i = 0;
-        for (Number d : axisValues)
+        for (Number d : axisVals)
         {
             if (d == null) throw new NullPointerException("Coordinate value cannot be null");
-            this.axisValues[i] = d.doubleValue();
+            axisVals[i] = d.doubleValue();
             i++;
         }
-        this.checkOrder();
-    }
+        this.setValuesAndCheckOrder(axisVals);
+    }*/
 
     /**
      * Checks that the axis values are in ascending order, throwing an
-     * IllegalArgumentException if not
+     * IllegalArgumentException if not.
      */
     private void checkOrder()
     {

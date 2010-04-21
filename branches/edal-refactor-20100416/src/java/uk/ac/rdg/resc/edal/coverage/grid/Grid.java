@@ -41,7 +41,9 @@ public interface Grid
 {
 
     /**
-     * Returns a list containing the names of the grid axes.
+     * Returns a list containing the names of the grid axes.  The order of these
+     * names matches the order of elements in this Grid's {@link GridCoordinates}
+     * and {@link #getGridExtent() grid envelope}.
      * @return a list containing the names of the grid axes.
      */
     public List<String> getAxisNames();

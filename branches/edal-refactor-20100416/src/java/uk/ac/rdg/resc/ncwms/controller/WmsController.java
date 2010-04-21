@@ -76,10 +76,11 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.AbstractController;
 import uk.ac.rdg.resc.edal.coverage.domain.Domain;
-import uk.ac.rdg.resc.ncwms.coords.CrsHelper;
+import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
+import uk.ac.rdg.resc.edal.coverage.grid.RegularGrid;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.edal.position.LonLatPosition;
-import uk.ac.rdg.resc.ncwms.coords.HorizontalGrid;
+import uk.ac.rdg.resc.ncwms.coords.CrsHelper;
 import uk.ac.rdg.resc.ncwms.coords.LineString;
 import uk.ac.rdg.resc.ncwms.coords.PixelMap;
 import uk.ac.rdg.resc.ncwms.coords.PointList;
@@ -475,8 +476,7 @@ public class WmsController extends AbstractController {
         }
 
         // Get the grid onto which the data will be projected
-        HorizontalGrid grid = new HorizontalGrid(dr.getCrsCode(), dr.getWidth(),
-                dr.getHeight(), dr.getBbox());
+        RegularGrid grid = WmsUtils.getImageGrid(dr);
 
         // Create an object that will turn data into BufferedImages
         String[] styles = styleRequest.getStyles();
@@ -556,7 +556,7 @@ public class WmsController extends AbstractController {
         // Render the images and write to the output stream
         imageFormat.writeImage(imageProducer.getRenderedFrames(),
                 httpServletResponse.getOutputStream(), layer, tValueStrings,
-                dr.getElevationString(), grid.getBbox(), legend);
+                dr.getElevationString(), grid.getExtent(), legend);
 
         return null;
     }
@@ -605,13 +605,13 @@ public class WmsController extends AbstractController {
         }
 
         // Get the grid onto which the data is being projected
-        HorizontalGrid grid = new HorizontalGrid(dr.getCrsCode(), dr.getWidth(),
-                dr.getHeight(), dr.getBbox());
-        // Get the x and y values of the point of interest
-        double x = grid.getXAxisValues()[dr.getPixelColumn()];
-        double y = grid.getYAxisValues()[dr.getPixelRow()];
+        RegularGrid grid = WmsUtils.getImageGrid(dr);
+        // Get the coordinate values of the point of interest in the CRS of
+        // the grid
+        HorizontalPosition pos = grid.transformCoordinates(dr.getPixelColumn(),
+                dr.getPixelRow());
         CrsHelper crsHelper = CrsHelper.fromCrs(grid.getCoordinateReferenceSystem());
-        LonLatPosition lonLat = crsHelper.crsToLonLat(x, y);
+        LonLatPosition lonLat = crsHelper.crsToLonLat(pos);
         usageLogEntry.setFeatureInfoLocation(lonLat.getLongitude(), lonLat.getLatitude());
 
         // Find out the i,j coordinates of this point in the source grid (could be null)
@@ -986,7 +986,7 @@ public class WmsController extends AbstractController {
         log.debug("Got {} control points", transect.getControlPoints().size());
 
         // Find the optimal number of points to sample the layer's source grid
-        Domain<? extends HorizontalPosition> transectDomain = getOptimalTransectDomain(layer, transect);
+        Domain<HorizontalPosition> transectDomain = getOptimalTransectDomain(layer, transect);
         log.debug("Using transect consisting of {} points", transectDomain.getDomainObjects().size());
 
         // Read the data from the data source, without using the tile cache
@@ -1120,7 +1120,7 @@ public class WmsController extends AbstractController {
      * @return a PointList that contains (near) the minimum necessary number of
      * points to sample a layer's source grid of data.
      */
-    private static Domain<? extends HorizontalPosition> getOptimalTransectDomain(Layer layer,
+    private static Domain<HorizontalPosition> getOptimalTransectDomain(Layer layer,
             LineString transect) throws Exception {
         // We need to work out how many points we need to include in order to
         // completely sample the data grid (i.e. we need the resolution of the

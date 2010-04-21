@@ -59,9 +59,9 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import ucar.nc2.dataset.NetcdfDataset;
 import ucar.unidata.io.RandomAccessFile;
+import uk.ac.rdg.resc.edal.coverage.grid.RegularGrid;
 import uk.ac.rdg.resc.ncwms.cache.TileCache;
 import uk.ac.rdg.resc.ncwms.cache.TileCacheKey;
-import uk.ac.rdg.resc.ncwms.coords.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.security.Users;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry;
@@ -321,7 +321,7 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
      */
     @Override
     public List<Float> readDataGrid(ScalarLayer layer, DateTime dateTime,
-        double elevation, HorizontalGrid grid, UsageLogEntry usageLogEntry)
+        double elevation, RegularGrid grid, UsageLogEntry usageLogEntry)
         throws InvalidDimensionValueException, IOException
     {
         // We know that this Config object only returns LayerImpl objects

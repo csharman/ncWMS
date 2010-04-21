@@ -38,12 +38,13 @@ import uk.ac.rdg.resc.edal.util.Utils;
 /**
  * Abstract superclass for {@link ReferenceableAxis} implementations.  Handles
  * the tricky case of searching for longitude values in the axis (longitude
- * values wrap around the globe.
+ * values wrap around the globe).
  * @author Jon
  */
 public abstract class AbstractReferenceableAxis implements ReferenceableAxis {
 
     private final CoordinateSystemAxis coordSysAxis;
+    private final String name;
     private final boolean isLongitude;
 
     private final List<Double> coordValues = new AbstractList<Double>()
@@ -67,9 +68,26 @@ public abstract class AbstractReferenceableAxis implements ReferenceableAxis {
         }
     };
 
-    protected AbstractReferenceableAxis(CoordinateSystemAxis coordSysAxis,
-            boolean isLongitude) {
+    /**
+     * Creates an axis that is referenceable to the given coordinate system axis.
+     * The name of the axis will be set to the name of the given axis.
+     * @throws NullPointerException if coordSysAxis is null
+     */
+    protected AbstractReferenceableAxis(CoordinateSystemAxis coordSysAxis, boolean isLongitude) {
+        if (coordSysAxis == null) throw new NullPointerException("coordSysAxis cannot be null");
+        this.name = coordSysAxis.getName().toString();
         this.coordSysAxis = coordSysAxis;
+        this.isLongitude = isLongitude;
+    }
+
+    /**
+     * Creates an axis with the given name.  The {@link #getCoordinateSystemAxis()
+     * coordinate system axis} will be null.
+     * @throws NullPointerException if name is null
+     */
+    protected AbstractReferenceableAxis(String name, boolean isLongitude) {
+        this.name = name;
+        this.coordSysAxis = null;
         this.isLongitude = isLongitude;
     }
 
@@ -87,6 +105,9 @@ public abstract class AbstractReferenceableAxis implements ReferenceableAxis {
         }
         return this.doGetCoordinateIndex(value);
     }
+
+    @Override
+    public final String getName() { return this.name; }
 
     /**
      * <p>Gets the index of the given coordinate value, ignoring the possibility

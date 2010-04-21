@@ -40,14 +40,26 @@ public final class RegularAxisImpl extends AbstractReferenceableAxis
         implements RegularAxis
 {
 
-    private final double firstValue; // The first value on the axis
-    private final double spacing; // The axis spacing
-    private final int size; // The number of points on the axis
+    private double firstValue; // The first value on the axis
+    private double spacing; // The axis spacing
+    private int size; // The number of points on the axis
 
     public RegularAxisImpl(CoordinateSystemAxis axis, double firstValue,
             double spacing, int size, boolean isLongitude)
     {
         super(axis, isLongitude);
+        this.setParams(firstValue, spacing, size);
+    }
+
+    public RegularAxisImpl(String name, double firstValue,
+            double spacing, int size, boolean isLongitude)
+    {
+        super(name, isLongitude);
+        this.setParams(firstValue, spacing, size);
+    }
+
+    private void setParams(double firstValue, double spacing, int size)
+    {
         if (spacing <= 0.0) {
             throw new IllegalArgumentException("Axis spacing must be positive");
         }

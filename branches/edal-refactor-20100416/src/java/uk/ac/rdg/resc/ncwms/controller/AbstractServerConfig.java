@@ -31,7 +31,7 @@ package uk.ac.rdg.resc.ncwms.controller;
 import java.io.IOException;
 import java.util.List;
 import org.joda.time.DateTime;
-import uk.ac.rdg.resc.ncwms.coords.HorizontalGrid;
+import uk.ac.rdg.resc.edal.coverage.grid.RegularGrid;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.exceptions.LayerNotDefinedException;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry;
@@ -84,7 +84,7 @@ public abstract class AbstractServerConfig implements ServerConfig
      */
     @Override
     public List<Float> readDataGrid(ScalarLayer layer, DateTime dateTime,
-        double elevation, HorizontalGrid grid, UsageLogEntry usageLogEntry)
+        double elevation, RegularGrid grid, UsageLogEntry usageLogEntry)
         throws InvalidDimensionValueException, IOException
     {
         return layer.readHorizontalPoints(dateTime, elevation, grid);

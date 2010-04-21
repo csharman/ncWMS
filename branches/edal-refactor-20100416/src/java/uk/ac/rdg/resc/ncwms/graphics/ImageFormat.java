@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.imageio.ImageIO;
+import uk.ac.rdg.resc.edal.position.BoundingBox;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidFormatException;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 
@@ -148,5 +149,5 @@ public abstract class ImageFormat
      */
     public abstract void writeImage(List<BufferedImage> frames,
         OutputStream out, Layer layer, List<String> tValues,
-        String zValue, double[] bbox, BufferedImage legend) throws IOException;
+        String zValue, BoundingBox bbox, BufferedImage legend) throws IOException;
 }

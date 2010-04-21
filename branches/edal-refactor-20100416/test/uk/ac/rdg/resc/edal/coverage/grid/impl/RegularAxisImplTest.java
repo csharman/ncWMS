@@ -43,7 +43,7 @@ public class RegularAxisImplTest {
     /** Tests the creation of the List of coordinate values */
     @Test
     public void testListGeneration() {
-        RegularAxis regAxis = new RegularAxisImpl(null, 0.0, 1.0, 10, false);
+        RegularAxis regAxis = new RegularAxisImpl("", 0.0, 1.0, 10, false);
         List<Double> testList = Arrays.asList(0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0);
         assertEquals(testList, regAxis.getCoordinateValues());
     }
@@ -51,7 +51,7 @@ public class RegularAxisImplTest {
     /** Tests the reverse lookup of all values in the list of coordinate values */
     @Test
     public void testReverseLookup() {
-        RegularAxis regAxis = new RegularAxisImpl(null, -25.4, 0.851, 100, false);
+        RegularAxis regAxis = new RegularAxisImpl("", -25.4, 0.851, 100, false);
         List<Double> coordValues = regAxis.getCoordinateValues();
         for (int i = 0; i < coordValues.size(); i++) {
             double value = coordValues.get(i);
@@ -68,11 +68,11 @@ public class RegularAxisImplTest {
     /** Test the behaviour for longitude axes */
     @Test
     public void testLongitudeAxes() {
-        RegularAxis regAxis = new RegularAxisImpl(null, 0.0, 1.0, 360, true);
+        RegularAxis regAxis = new RegularAxisImpl("", 0.0, 1.0, 360, true);
         testLonAxis(regAxis);
         assertEquals(-1, regAxis.getCoordinateIndex(0.5));
 
-        regAxis = new RegularAxisImpl(null, -180.0, 0.5, 720, true);
+        regAxis = new RegularAxisImpl("", -180.0, 0.5, 720, true);
         testLonAxis(regAxis);
         assertEquals(-1, regAxis.getCoordinateIndex(0.25));
     }
@@ -89,7 +89,7 @@ public class RegularAxisImplTest {
     /** Tests the use of getNearestCoordinateIndex() */
     @Test
     public void testGetNearestCoordinateIndex() {
-        RegularAxis regAxis = new RegularAxisImpl(null, 0.0, 1.0, 10, false);
+        RegularAxis regAxis = new RegularAxisImpl("", 0.0, 1.0, 10, false);
         assertEquals(-1, regAxis.getNearestCoordinateIndex(-0.51));
         assertEquals(0, regAxis.getNearestCoordinateIndex(-0.49));
         assertEquals(0, regAxis.getNearestCoordinateIndex(-0.01));
@@ -109,7 +109,7 @@ public class RegularAxisImplTest {
     @Test
     public void testGetNearestCoordinateIndexLonAxis() {
         // An axis that spans the globe
-        RegularAxis regAxis = new RegularAxisImpl(null, 0.0, 1.0, 360, true);
+        RegularAxis regAxis = new RegularAxisImpl("", 0.0, 1.0, 360, true);
         assertEquals(359, regAxis.getNearestCoordinateIndex(-0.51));
         assertEquals(0, regAxis.getNearestCoordinateIndex(-0.49));
         assertEquals(0, regAxis.getNearestCoordinateIndex(-0.01));

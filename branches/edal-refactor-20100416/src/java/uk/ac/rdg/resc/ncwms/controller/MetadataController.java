@@ -46,7 +46,7 @@ import org.joda.time.Period;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.servlet.ModelAndView;
-import uk.ac.rdg.resc.ncwms.coords.HorizontalGrid;
+import uk.ac.rdg.resc.edal.coverage.grid.RegularGrid;
 import uk.ac.rdg.resc.ncwms.exceptions.MetadataException;
 import uk.ac.rdg.resc.ncwms.graphics.ColorPalette;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry;
@@ -364,8 +364,7 @@ class MetadataController
         usageLogEntry.setLayer(layer);
         
         // Get the grid onto which the data is being projected
-        HorizontalGrid grid = new HorizontalGrid(dr.getCrsCode(), dr.getWidth(),
-                dr.getHeight(), dr.getBbox());
+        RegularGrid grid = WmsUtils.getImageGrid(dr);
         
         // Get the value on the z axis
         double zValue = WmsController.getElevationValue(dr.getElevationString(), layer);

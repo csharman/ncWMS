@@ -138,7 +138,7 @@ public class NSIDCSnowWaterDataReader extends DataReader
      */
     @Override
     public List<Float> read(String filename, Layer layer, int tIndex, int zIndex,
-            Domain<? extends HorizontalPosition> domain)
+            Domain<HorizontalPosition> domain)
         throws IOException
     {
         // Find the file containing the data

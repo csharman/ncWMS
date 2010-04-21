@@ -36,9 +36,11 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import org.geotoolkit.metadata.iso.extent.DefaultGeographicBoundingBox;
+import org.geotoolkit.referencing.crs.DefaultGeographicCRS;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.opengis.metadata.extent.GeographicBoundingBox;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,8 +50,10 @@ import ucar.ma2.Range;
 import ucar.nc2.Attribute;
 import ucar.nc2.constants.AxisType;
 import ucar.nc2.constants.FeatureType;
+import ucar.nc2.dataset.CoordinateAxis;
 import ucar.nc2.dataset.CoordinateAxis1D;
 import ucar.nc2.dataset.CoordinateAxis1DTime;
+import ucar.nc2.dataset.CoordinateAxis2D;
 import ucar.nc2.dataset.NetcdfDataset;
 import ucar.nc2.dataset.NetcdfDataset.Enhance;
 import ucar.nc2.dataset.VariableDS;
@@ -61,10 +65,17 @@ import ucar.nc2.dt.GridDatatype;
 import ucar.nc2.dt.TypedDatasetFactory;
 import ucar.unidata.geoloc.LatLonPoint;
 import ucar.unidata.geoloc.LatLonRect;
+import ucar.unidata.geoloc.ProjectionImpl;
 import uk.ac.rdg.resc.edal.coverage.domain.Domain;
+import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
+import uk.ac.rdg.resc.edal.coverage.grid.RectilinearGrid;
 import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableAxis;
+import uk.ac.rdg.resc.edal.coverage.grid.RegularAxis;
+import uk.ac.rdg.resc.edal.coverage.grid.RegularGrid;
+import uk.ac.rdg.resc.edal.coverage.grid.impl.RectilinearGridImpl;
 import uk.ac.rdg.resc.edal.coverage.grid.impl.ReferenceableAxisImpl;
 import uk.ac.rdg.resc.edal.coverage.grid.impl.RegularAxisImpl;
+import uk.ac.rdg.resc.edal.coverage.grid.impl.RegularGridImpl;
 import uk.ac.rdg.resc.ncwms.coords.CrsHelper;
 import uk.ac.rdg.resc.ncwms.coords.HorizontalCoordSys;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
@@ -72,6 +83,7 @@ import uk.ac.rdg.resc.edal.position.LonLatPosition;
 import uk.ac.rdg.resc.ncwms.coords.PixelMap;
 import uk.ac.rdg.resc.ncwms.coords.chrono.ThreeSixtyDayChronology;
 import uk.ac.rdg.resc.ncwms.util.TimeUtils;
+import uk.ac.rdg.resc.ncwms.wms.Layer;
 import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
 
 /**
@@ -93,19 +105,89 @@ public final class CdmUtils
     {
         if (axis == null) throw new NullPointerException();
         boolean isLongitude = axis.getAxisType() == AxisType.Lon;
-        // TODO: create the CoordinateSystemAxis objects
+        String name = axis.getName();
+        // TODO: generate coordinate system axes if appropriate
         if (axis.isRegular())
         {
-            return new RegularAxisImpl(null, axis.getMinValue(),
+            return new RegularAxisImpl(name, axis.getMinValue(),
                     axis.getIncrement(), (int)axis.getSize(), isLongitude);
         }
         else
         {
-            return new ReferenceableAxisImpl(null, axis.getCoordValues(), isLongitude);
+            return new ReferenceableAxisImpl(name, axis.getCoordValues(),
+                    isLongitude);
         }
     }
 
+    /**
+     * Creates a two-dimensional referenceable grid from the given grid
+     * coordinate system.  Will return more specific subclasses
+     * ({@link RectilinearGrid} or {@link RegularGrid}) if appropriate for the
+     * passed-in coordinate system.  The grid will be referenceable to the
+     * WGS84 longitude-latitude system.
+     * @todo May want to be careful about datum shifts - model data is often
+     * in spherical coordinates
+     */
+    public static HorizontalGrid createHorizontalGrid(GridCoordSystem coordSys)
+    {
+        CoordinateAxis xAxis = coordSys.getXHorizAxis();
+        CoordinateAxis yAxis = coordSys.getYHorizAxis();
+        boolean isLatLon = xAxis.getAxisType() == AxisType.Lon &&
+                           yAxis.getAxisType() == AxisType.Lat;
+        CoordinateReferenceSystem crs84 = DefaultGeographicCRS.WGS84;
 
+        if (xAxis instanceof CoordinateAxis1D && yAxis instanceof CoordinateAxis1D)
+        {
+            ReferenceableAxis xRefAxis = createReferenceableAxis((CoordinateAxis1D)xAxis);
+            ReferenceableAxis yRefAxis = createReferenceableAxis((CoordinateAxis1D)yAxis);
+            if (isLatLon)
+            {
+                // We can create a RectilinearGrid in lat-lon space
+                if (xRefAxis instanceof RegularAxis && yRefAxis instanceof RegularAxis)
+                {
+                    // We can create a regular grid
+                    return new RegularGridImpl(
+                        (RegularAxis)xRefAxis,
+                        (RegularAxis)yRefAxis,
+                        crs84
+                    );
+                }
+                else
+                {
+                    // Axes are not both regular
+                    return new RectilinearGridImpl(xRefAxis, yRefAxis, crs84);
+                }
+            }
+            else
+            {
+                // Axes are not latitude and longitude so we need to create a
+                // ReferenceableGrid that uses the coordinate system's
+                // Projection object to convert from x and y to lat and lon
+                // TODO
+                ProjectionImpl proj = coordSys.getProjection();
+                throw new UnsupportedOperationException("Can't yet create a" +
+                        " referenceable grid for projected gridcoordsys");
+            }
+        }
+        else if (xAxis instanceof CoordinateAxis2D && yAxis instanceof CoordinateAxis2D)
+        {
+            // The axis must be 2D so we have to create look-up tables
+            // TODO
+            throw new UnsupportedOperationException("Can't yet create a" +
+                    " referenceable grid for two-dimensional coordinate axes");
+            //if (!isLatLon)
+            //{
+            //    throw new UnsupportedOperationException("Can't create a HorizontalCoordSys" +
+            //        " from 2D coordinate axes that are not longitude and latitude.");
+            //}
+            //eturn TwoDCoordSys.generate(coordSys);
+        }
+        else
+        {
+            // Shouldn't get here
+            throw new IllegalStateException("Inconsistent axis types");
+        }
+    }
 
     /**
      * Searches through the given GridDataset for GridDatatypes, which are
@@ -399,7 +481,7 @@ public final class CdmUtils
      */
     public static List<Float> readHorizontalPoints(GridDatatype grid,
             HorizontalCoordSys horizCoordSys, int tIndex, int zIndex,
-            Domain<? extends HorizontalPosition> domain, DataReadingStrategy drStrategy,
+            Domain<HorizontalPosition> domain, DataReadingStrategy drStrategy,
             boolean scaleMissingDeferred)
             throws IOException
     {

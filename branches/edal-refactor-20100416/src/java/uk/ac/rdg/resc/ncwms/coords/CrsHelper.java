@@ -43,7 +43,6 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.cs.CoordinateSystemAxis;
 import org.opengis.referencing.operation.MathTransform;
 import org.opengis.referencing.operation.TransformException;
-import uk.ac.rdg.resc.ncwms.exceptions.InvalidCrsException;
 
 /**
  * This class wraps the GeoTools/GeoAPI coordinate reference system methods,
@@ -64,7 +63,8 @@ public final class CrsHelper {
         Collections.unmodifiableSet(CRS.getSupportedCodes("urn:ogc:def"));
 
     /**
-     * A CrsHelper for the WGS84 lon-lat coordinate system ("CRS:84")
+     * A CrsHelper for the WGS84 lon-lat coordinate system ("CRS:84").  Note
+     * that
      */
     public static final CrsHelper CRS_84;
 
@@ -88,23 +88,6 @@ public final class CrsHelper {
 
     /** Private constructor to prevent direct instantiation */
     private CrsHelper() { }
-
-    /**
-     * Returns a CrsHelper object corresponding with the given CRS code.  CrsHelper
-     * objects are cached, so only one CrsHelper per CRS code will ever exist.
-     * @throws InvalidCrsException if the CRS code is not recognized
-     */
-    public static CrsHelper fromCrsCode(String crsCode) throws InvalidCrsException {
-        try
-        {
-            // The "true" means "force longitude-first"
-            return fromCrs(CRS.decode(crsCode, true));
-        }
-        catch (Exception e)
-        {
-            throw new InvalidCrsException(crsCode);
-        }
-    }
 
     /**
      * Returns a CrsHelper object corresponding with the given CRS.  CrsHelper
@@ -141,6 +124,24 @@ public final class CrsHelper {
         {
             // Shouldn't happen unless crs is an engineering CRS
             throw new RuntimeException(fe);
+        }
+    }
+
+    /**
+     * Returns true if the CRS is a WGS84 longitude-latitude system (with the
+     * longitude axis first).
+     * @param crs
+     * @return
+     */
+    public static boolean isWgs84LonLat(CoordinateReferenceSystem crs)
+    {
+        try
+        {
+            return CRS.findMathTransform(crs, DefaultGeographicCRS.WGS84).isIdentity();
+        }
+        catch(FactoryException fe)
+        {
+            return false;
         }
     }
 

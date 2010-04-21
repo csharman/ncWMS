@@ -39,6 +39,24 @@ import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 public interface HorizontalGrid extends ReferenceableGrid<HorizontalPosition>
 {
     /**
+     * <p>Transforms a grid coordinates to a direct position.  The returned
+     * position's {@link DirectPosition#getCoordinateReferenceSystem() coordinate
+     * reference system} will match the {@link #getCoordinateReferenceSystem()
+     * coordinate reference system associated with this object}.</p>
+     *
+     * <p>This is a convenience method, which is exactly equivalent to calling
+     * {@link #transformCoordinates(uk.ac.rdg.resc.edal.coverage.grid.GridCoordinates)}
+     * with grid coordinates [i,j]</p>
+     * @param i The i coordinate within the grid
+     * @param j The j coordinate within the grid
+     * @return the "real world" coordinates, or null if the grid coordinates are
+     * not contained within the {@link #getGridExtent() envelope of the grid}.
+     * @throws IllegalArgumentException if the dimension of the grid coordinates
+     * does not match the {@link #getDimension() dimension of the grid}.
+     */
+    public HorizontalPosition transformCoordinates(int i, int j);
+
+    /**
      * Returns a two-dimensional horizontal coordinate reference system.
      * @return a two-dimensional horizontal coordinate reference system.
      */

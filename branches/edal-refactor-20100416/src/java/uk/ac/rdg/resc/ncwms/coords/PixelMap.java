@@ -28,8 +28,6 @@
 
 package uk.ac.rdg.resc.ncwms.coords;
 
-import uk.ac.rdg.resc.edal.position.HorizontalPosition;
-import uk.ac.rdg.resc.edal.position.LonLatPosition;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -38,6 +36,9 @@ import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.ac.rdg.resc.edal.coverage.domain.Domain;
+import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
+import uk.ac.rdg.resc.edal.position.HorizontalPosition;
+import uk.ac.rdg.resc.edal.position.LonLatPosition;
 import uk.ac.rdg.resc.ncwms.cdm.DataReadingStrategy;
 
 /**
@@ -85,7 +86,7 @@ public final class PixelMap
     // Number of unique i-j pairs
     private int numUniqueIJPairs = 0;
 
-    public PixelMap(HorizontalCoordSys horizCoordSys, Domain<? extends HorizontalPosition> domain)
+    public PixelMap(HorizontalCoordSys horizCoordSys, Domain<HorizontalPosition> domain)
             throws TransformException
     {
         long start = System.currentTimeMillis();
@@ -101,7 +102,7 @@ public final class PixelMap
     }
 
     private void initFromPointList(HorizontalCoordSys horizCoordSys,
-            Domain<? extends HorizontalPosition> pointList)
+            Domain<HorizontalPosition> pointList)
             throws TransformException
     {
         logger.debug("Using generic method based on iterating over the PointList");
@@ -129,7 +130,10 @@ public final class PixelMap
     /**
      * Generates a PixelMap for the given Layer.  Data read from the Layer will
      * be projected onto the given HorizontalGrid
-     *
+     * @param horizCoordSys The horizontal coordinate system of the layer
+     * (i.e. the source grid)
+     * @param grid the horizontal grid representing the image that is to be
+     * generated (i.e. the target grid).
      * @throws Exception if the necessary transformations could not be performed
      */
     private void initFromGrid(HorizontalCoordSys horizCoordSys, HorizontalGrid grid) throws TransformException
@@ -140,7 +144,8 @@ public final class PixelMap
         // We can gain efficiency if the target grid is a lat-lon grid and
         // the data exist on a lat-long grid by minimizing the number of
         // calls to axis.getIndex().
-        if (grid.isLatLon() && horizCoordSys instanceof LatLonCoordSys)
+        if (1 == 2) {}
+        /*if (grid.isLatLon() && horizCoordSys instanceof LatLonCoordSys)
         {
             logger.debug("Using optimized method for lat-lon coordinates with 1D axes");
             LatLonCoordSys latLonGrid = (LatLonCoordSys)horizCoordSys;
@@ -168,7 +173,7 @@ public final class PixelMap
                     pixelIndex += xIndices.length;
                 }
             }
-        }
+        }*/
         else
         {
             // We can't do better than the generic initialization method

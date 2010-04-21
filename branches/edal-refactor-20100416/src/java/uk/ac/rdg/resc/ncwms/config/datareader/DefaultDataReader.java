@@ -41,12 +41,11 @@ import ucar.nc2.dataset.NetcdfDataset.Enhance;
 import ucar.nc2.dt.GridDataset;
 import ucar.nc2.dt.GridDatatype;
 import uk.ac.rdg.resc.edal.coverage.domain.Domain;
+import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.cdm.AbstractScalarLayerBuilder;
 import uk.ac.rdg.resc.ncwms.cdm.CdmUtils;
 import uk.ac.rdg.resc.ncwms.config.LayerImpl;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
-import uk.ac.rdg.resc.edal.position.LonLatPosition;
-import uk.ac.rdg.resc.ncwms.coords.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 
@@ -91,7 +90,7 @@ public class DefaultDataReader extends DataReader
      */
     @Override
     public List<Float> read(String filename, Layer layer, int tIndex, int zIndex,
-        Domain<? extends HorizontalPosition> domain) throws IOException
+        Domain<HorizontalPosition> domain) throws IOException
     {
         NetcdfDataset nc = null;
         try

@@ -315,7 +315,7 @@ public abstract class AbstractScalarLayer implements ScalarLayer
      */
     @Override
     public List<Float> readHorizontalPoints(DateTime time,
-            double elevation, Domain<? extends HorizontalPosition> domain)
+            double elevation, Domain<HorizontalPosition> domain)
             throws InvalidDimensionValueException, IOException
     {
         List<? extends HorizontalPosition> points = domain.getDomainObjects();

@@ -38,14 +38,26 @@ import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableAxis;
  */
 public final class RectilinearGridImpl extends AbstractRectilinearGrid
 {
+    private final ReferenceableAxis xAxis;
+    private final ReferenceableAxis yAxis;
+
     public RectilinearGridImpl(ReferenceableAxis xAxis, ReferenceableAxis yAxis,
             CoordinateReferenceSystem crs)
     {
-        super(xAxis, yAxis, crs);
+        super(crs);
+        this.xAxis = xAxis;
+        this.yAxis = yAxis;
     }
 
     public RectilinearGridImpl(ReferenceableAxis xAxis, ReferenceableAxis yAxis)
     {
         this(xAxis, yAxis, null);
+    }
+
+    @Override
+    public ReferenceableAxis getAxis(int index) {
+        if (index == 0) return this.xAxis;
+        if (index == 1) return this.yAxis;
+        throw new IndexOutOfBoundsException();
     }
 }

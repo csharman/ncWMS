@@ -64,6 +64,16 @@ public interface RectilinearGrid extends HorizontalGrid {
     public ReferenceableAxis getAxis(int index);
 
     /**
+     * Gets the x axis of the grid, equivalent to {@code getAxis(0)}
+     */
+    public ReferenceableAxis getXAxis();
+
+    /**
+     * Gets the y axis of the grid, equivalent to {@code getAxis(1)}
+     */
+    public ReferenceableAxis getYAxis();
+
+    /**
      * {@inheritDoc}
      * <p>The number of dimensions in this coordinate reference system must
      * match the {@link #getDimension() number of dimensions in the grid}.</p>

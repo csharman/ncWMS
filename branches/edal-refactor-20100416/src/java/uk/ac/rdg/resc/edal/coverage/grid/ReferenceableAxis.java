@@ -42,6 +42,11 @@ import org.opengis.referencing.cs.CoordinateSystemAxis;
 public interface ReferenceableAxis {
 
     /**
+     * The name of the axis.
+     */
+    public String getName();
+
+    /**
      * The coordinate values along the axis, in ascending order.  Maps from
      * integer indices to coordinate values.  Note that the inverse mapping can be
      * found using the {@code indexOf()} method, although this method does not
@@ -105,7 +110,7 @@ public interface ReferenceableAxis {
 
     /**
      * Returns the {@link CoordinateSystemAxis} to which the points on the
-     * axis are referenced.
+     * axis are referenced.  May be null if unknown.
      * @return the {@link CoordinateSystemAxis} to which the points on the
      * axis are referenced.
      */
