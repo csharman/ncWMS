@@ -111,7 +111,7 @@ public class DefaultDataReader extends DataReader
 
             return CdmUtils.readHorizontalPoints(
                 gridData,           // The grid of data to read from
-                layer.getHorizontalCoordSys(),
+                layer.getHorizontalGrid(),
                 tIndex,
                 zIndex,
                 domain,
@@ -195,7 +195,7 @@ public class DefaultDataReader extends DataReader
             // Read and return the data
             return CdmUtils.readTimeseries(
                 grid,
-                layer.getHorizontalCoordSys(),
+                layer.getHorizontalGrid(),
                 tIndices,
                 zIndex,
                 xy,

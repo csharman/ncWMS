@@ -39,6 +39,7 @@ import org.geotoolkit.metadata.iso.extent.DefaultGeographicBoundingBox;
 import org.geotoolkit.referencing.crs.DefaultGeographicCRS;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.opengis.coverage.grid.GridCoordinates;
 import org.opengis.metadata.extent.GeographicBoundingBox;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.TransformException;
@@ -76,10 +77,7 @@ import uk.ac.rdg.resc.edal.coverage.grid.impl.RectilinearGridImpl;
 import uk.ac.rdg.resc.edal.coverage.grid.impl.ReferenceableAxisImpl;
 import uk.ac.rdg.resc.edal.coverage.grid.impl.RegularAxisImpl;
 import uk.ac.rdg.resc.edal.coverage.grid.impl.RegularGridImpl;
-import uk.ac.rdg.resc.ncwms.coords.CrsHelper;
-import uk.ac.rdg.resc.ncwms.coords.HorizontalCoordSys;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
-import uk.ac.rdg.resc.edal.position.LonLatPosition;
 import uk.ac.rdg.resc.ncwms.coords.PixelMap;
 import uk.ac.rdg.resc.ncwms.coords.chrono.ThreeSixtyDayChronology;
 import uk.ac.rdg.resc.ncwms.util.TimeUtils;
@@ -247,7 +245,7 @@ public final class CdmUtils
             {
                 logger.debug("Creating coordinate system objects");
                 // Create an object that will map lat-lon points to nearest grid points
-                HorizontalCoordSys horizCoordSys = HorizontalCoordSys.fromCoordSys(coordSys);
+                HorizontalGrid horizGrid = createHorizontalGrid(coordSys);
 
                 boolean zPositive = coordSys.isZPositive();
                 CoordinateAxis1D zAxis = coordSys.getVerticalAxis();
@@ -264,7 +262,7 @@ public final class CdmUtils
                     layerBuilder.setTitle(layer, getLayerTitle(grid.getVariable()));
                     layerBuilder.setAbstract(layer, grid.getDescription());
                     layerBuilder.setUnits(layer, grid.getUnitsString());
-                    layerBuilder.setHorizontalCoordSys(layer, horizCoordSys);
+                    layerBuilder.setHorizontalGrid(layer, horizGrid);
                     layerBuilder.setGeographicBoundingBox(layer, bbox);
                     layerBuilder.setGridDatatype(layer, grid);
 
@@ -467,6 +465,8 @@ public final class CdmUtils
      * Reads a set of points at a given time and elevation from the given
      * GridDatatype.
      * @param grid The GridDatatype from which we will read data
+     * @param horizGrid object that maps between real-world and grid coordinates
+     * in the source data grid
      * @param tIndex The time index, or -1 if the grid has no time axis
      * @param zIndex The elevation index, or -1 if the grid has no elevation axis
      * @param domain The list of horizontal points for which we need data
@@ -475,12 +475,12 @@ public final class CdmUtils
      * contained the GridDatatype was opened with the enhancement mode
      * {@link Enhance#ScaleMissingDefer}.
      * @return a List of floating point numbers, one for each point in the
-     * {@code pointList}, in the same order.  Missing values (e.g. land pixels
+     * {@code domain}, in the same order.  Missing values (e.g. land pixels
      * in oceanography data} are represented as nulls.
      * @throws IOException if there was an error reading data from the data source
      */
     public static List<Float> readHorizontalPoints(GridDatatype grid,
-            HorizontalCoordSys horizCoordSys, int tIndex, int zIndex,
+            HorizontalGrid horizGrid, int tIndex, int zIndex,
             Domain<HorizontalPosition> domain, DataReadingStrategy drStrategy,
             boolean scaleMissingDeferred)
             throws IOException
@@ -497,7 +497,7 @@ public final class CdmUtils
             List<Float> picData = nullArrayList(domain.getDomainObjects().size());
 
             long start = System.currentTimeMillis();
-            PixelMap pixelMap = new PixelMap(horizCoordSys, domain);
+            PixelMap pixelMap = new PixelMap(horizGrid, domain);
             if (pixelMap.isEmpty()) return picData;
 
             long readMetadata = System.currentTimeMillis();
@@ -532,7 +532,8 @@ public final class CdmUtils
      * Reads a timeseries of points from the given GridDatatype at a given
      * elevation and xy location
      * @param grid The GridDatatype from which we will read data
-     * @throws IOException if there was an error reading data from the data source
+     * @param horizGrid object that maps between real-world and grid coordinates
+     * in the source data grid
      * @param tIndices The list of indices along the time axis
      * @param zIndex The elevation index, or -1 if the grid has no elevation axis
      * @param xy The horizontal location of the required timeseries
@@ -544,41 +545,14 @@ public final class CdmUtils
      * @throws IOException if there was an error reading data from the data source
      */
     public static List<Float> readTimeseries(GridDatatype grid,
-            HorizontalCoordSys horizCoordSys, List<Integer> tIndices,
+            HorizontalGrid horizGrid, List<Integer> tIndices,
             int zIndex, HorizontalPosition xy, boolean scaleMissingDeferred)
             throws IOException
     {
-        LonLatPosition lonLat;
-        if (xy instanceof LonLatPosition)
-        {
-            lonLat = (LonLatPosition)xy;
-        }
-        else if (xy.getCoordinateReferenceSystem() == null)
-        {
-            throw new IllegalArgumentException("Horizontal position must have a"
-                + " coordinate reference system");
-        }
-        else
-        {
-            CrsHelper crsHelper = CrsHelper.fromCrs(xy.getCoordinateReferenceSystem());
-            try
-            {
-                lonLat = crsHelper.crsToLonLat(xy);
-            }
-            catch(TransformException te)
-            {
-                // This would only happen if there were an internal error transforming
-                // between coordinate systems in making the PixelMap.  There is
-                // nothing a client could do to recover from this so we turn it into
-                // a runtime exception
-                // TODO: think of a better exception type
-                throw new RuntimeException(te);
-            }
-        }
-        int[] gridCoords = horizCoordSys.lonLatToGrid(lonLat);
+        GridCoordinates gridCoords = horizGrid.findNearestGridPoint(xy);
         if (gridCoords == null)
         {
-            // The lon-lat point is outside the domain of the coord sys, so return
+            // The point is outside the domain of the coord sys, so return
             // a list of nulls
             return Collections.nCopies(tIndices.size(), null);
         }
@@ -596,10 +570,12 @@ public final class CdmUtils
 
         try
         {
+            int i = gridCoords.getCoordinateValue(0);
+            int j = gridCoords.getCoordinateValue(1);
             Range tRange = new Range(firstTIndex, lastTIndex);
             Range zRange = new Range(zIndex, zIndex);
-            Range yRange = new Range(gridCoords[1], gridCoords[1]);
-            Range xRange = new Range(gridCoords[0], gridCoords[0]);
+            Range yRange = new Range(j, j);
+            Range xRange = new Range(i, i);
 
             // Now read the data
             GridDatatype subset = grid.makeSubset(null, null, tRange, zRange, yRange, xRange);

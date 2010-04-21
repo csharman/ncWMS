@@ -76,6 +76,7 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.AbstractController;
 import uk.ac.rdg.resc.edal.coverage.domain.Domain;
+import uk.ac.rdg.resc.edal.coverage.grid.GridCoordinates;
 import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
 import uk.ac.rdg.resc.edal.coverage.grid.RegularGrid;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
@@ -428,9 +429,7 @@ public class WmsController extends AbstractController {
      * width/height).</li>
      * <li>Looks for TIME and ELEVATION parameters (TIME may be expressed as a
      * start/end range, in which case we will produce an animation).</li>
-     * <li>Extracts the data using
-     * {@link uk.ac.rdg.resc.ncwms.datareader.DataReader#read DataReader.read()}.
-     * This returns an array of floats, representing
+     * <li>Extracts the data, returning an array of floats, representing
      * the data values at each pixel in the final image.</li>
      * <li>Uses an {@link ImageProducer} object to turn the array of data into
      * a {@link java.awt.image.BufferedImage} (or, in the case of an animation, several
@@ -606,19 +605,24 @@ public class WmsController extends AbstractController {
 
         // Get the grid onto which the data is being projected
         RegularGrid grid = WmsUtils.getImageGrid(dr);
-        // Get the coordinate values of the point of interest in the CRS of
-        // the grid
-        HorizontalPosition pos = grid.transformCoordinates(dr.getPixelColumn(),
-                dr.getPixelRow());
+        // Get the real-world coordinate values of the point of interest
+        // Remember that the vertical axis is flipped
+        int j = dr.getHeight() - dr.getPixelRow() - 1;
+        HorizontalPosition pos = grid.transformCoordinates(dr.getPixelColumn(), j);
+        // Transform these coordinates into lon-lat
         CrsHelper crsHelper = CrsHelper.fromCrs(grid.getCoordinateReferenceSystem());
         LonLatPosition lonLat = crsHelper.crsToLonLat(pos);
-        usageLogEntry.setFeatureInfoLocation(lonLat.getLongitude(), lonLat.getLatitude());
 
         // Find out the i,j coordinates of this point in the source grid (could be null)
-        int[] gridCoords = layer.getHorizontalCoordSys().lonLatToGrid(lonLat);
-        // *** TODO: what if gridCoords is null? ***
-        // Get the location of the centre of the grid cell
-        LonLatPosition gridCellCentre = layer.getHorizontalCoordSys().gridToLonLat(gridCoords);
+        GridCoordinates gridCoords = layer.getHorizontalGrid().findNearestGridPoint(pos);
+        LonLatPosition gridCellCentre = null;
+        if (gridCoords != null)
+        {
+            // Get the location of the centre of the grid cell
+            HorizontalPosition gridCellCentrePos = layer.getHorizontalGrid().transformCoordinates(gridCoords);
+            crsHelper = CrsHelper.fromCrs(layer.getHorizontalGrid().getCoordinateReferenceSystem());
+            gridCellCentre = crsHelper.crsToLonLat(gridCellCentrePos);
+        }
 
         // Get the elevation value requested
         double zValue = getElevationValue(dr.getElevationString(), layer);
@@ -632,11 +636,11 @@ public class WmsController extends AbstractController {
         // axis this will return a List of one-element arrays.
         List<Float> tsData;
         if (layer instanceof ScalarLayer) {
-            tsData = ((ScalarLayer)layer).readTimeseries(tValues, zValue, lonLat);
+            tsData = ((ScalarLayer)layer).readTimeseries(tValues, zValue, pos);
         } else if (layer instanceof VectorLayer) {
             VectorLayer vecLayer = (VectorLayer)layer;
-            List<Float> tsDataEast  = vecLayer.getEastwardComponent() .readTimeseries(tValues, zValue, lonLat);
-            List<Float> tsDataNorth = vecLayer.getNorthwardComponent().readTimeseries(tValues, zValue, lonLat);
+            List<Float> tsDataEast  = vecLayer.getEastwardComponent() .readTimeseries(tValues, zValue, pos);
+            List<Float> tsDataNorth = vecLayer.getNorthwardComponent().readTimeseries(tValues, zValue, pos);
             tsData = WmsUtils.getMagnitudes(tsDataEast, tsDataNorth);
         } else {
             throw new IllegalStateException("Unrecognized layer type");
@@ -1139,7 +1143,7 @@ public class WmsController extends AbstractController {
             PointList testPointList = new PointList(points, transect.getCoordinateReferenceSystem());
             // Work out how many grid points will be sampled by this transect
             int numGridPointsSampled =
-                new PixelMap(layer.getHorizontalCoordSys(), testPointList).getNumUniqueIJPairs();
+                new PixelMap(layer.getHorizontalGrid(), testPointList).getNumUniqueIJPairs();
             log.debug("With {} transect points, we'll sample {} grid points",
                     numTransectPoints, numGridPointsSampled);
             // If this increase in resolution results in at least 10% more points

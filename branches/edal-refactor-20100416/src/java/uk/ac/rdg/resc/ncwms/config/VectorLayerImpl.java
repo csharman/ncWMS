@@ -32,7 +32,7 @@ import java.util.List;
 import org.joda.time.Chronology;
 import org.joda.time.DateTime;
 import org.opengis.metadata.extent.GeographicBoundingBox;
-import uk.ac.rdg.resc.ncwms.coords.HorizontalCoordSys;
+import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.graphics.ColorPalette;
 import uk.ac.rdg.resc.ncwms.util.Range;
 import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
@@ -137,8 +137,8 @@ public final class VectorLayerImpl implements VectorLayer
     }
 
     @Override
-    public HorizontalCoordSys getHorizontalCoordSys() {
-        return this.wrappedLayer.getHorizontalCoordSys();
+    public HorizontalGrid getHorizontalGrid() {
+        return this.wrappedLayer.getHorizontalGrid();
     }
 
     @Override

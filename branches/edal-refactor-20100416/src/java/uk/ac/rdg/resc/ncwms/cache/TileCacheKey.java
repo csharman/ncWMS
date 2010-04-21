@@ -228,9 +228,8 @@ public class TileCacheKey implements Serializable
         }
         else
         {
-            // TODO: I think this will work for all CRS objects we obtain from
-            // CRS.decode() but I'm not sure - I'm waiting for a response from
-            // the Geotoolkit mailing list
+            // This should work for all CRS objects we obtain from the Geotoolkit
+            // CRS factories (see http://lists.osgeo.org/pipermail/geotoolkit/2010-April/000347.html)
             this.crsCode = CRS.getDeclaredIdentifier(grid.getCoordinateReferenceSystem());
         }
     }

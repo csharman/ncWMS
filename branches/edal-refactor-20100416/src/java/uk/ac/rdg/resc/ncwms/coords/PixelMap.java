@@ -32,13 +32,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import org.opengis.coverage.grid.GridCoordinates;
 import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.ac.rdg.resc.edal.coverage.domain.Domain;
 import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
-import uk.ac.rdg.resc.edal.position.LonLatPosition;
 import uk.ac.rdg.resc.ncwms.cdm.DataReadingStrategy;
 
 /**
@@ -86,42 +86,40 @@ public final class PixelMap
     // Number of unique i-j pairs
     private int numUniqueIJPairs = 0;
 
-    public PixelMap(HorizontalCoordSys horizCoordSys, Domain<HorizontalPosition> domain)
+    /**
+     * Creates a PixelMap that maps from points within the grid of source
+     * data ({@code sourceGrid}) to points within the required target domain.
+     */
+    public PixelMap(HorizontalGrid sourceGrid, Domain<HorizontalPosition> targetDomain)
             throws TransformException
     {
         long start = System.currentTimeMillis();
-        if (domain instanceof HorizontalGrid)
+        if (targetDomain instanceof HorizontalGrid)
         {
-            this.initFromGrid(horizCoordSys, (HorizontalGrid)domain);
+            this.initFromGrid(sourceGrid, (HorizontalGrid)targetDomain);
         }
         else
         {
-            this.initFromPointList(horizCoordSys, domain);
+            this.initFromPointList(sourceGrid, targetDomain);
         }
         logger.debug("Built pixel map in {} ms", System.currentTimeMillis() - start);
     }
 
-    private void initFromPointList(HorizontalCoordSys horizCoordSys,
-            Domain<HorizontalPosition> pointList)
+    private void initFromPointList(HorizontalGrid sourceGrid, Domain<HorizontalPosition> targetDomain)
             throws TransformException
     {
-        logger.debug("Using generic method based on iterating over the PointList");
-        CrsHelper crsHelper = CrsHelper.fromCrs(pointList.getCoordinateReferenceSystem());
+        logger.debug("Using generic method based on iterating over the domain");
         int pixelIndex = 0;
-        for (HorizontalPosition point : pointList.getDomainObjects())
+        for (HorizontalPosition point : targetDomain.getDomainObjects())
         {
-            // Check that this point is valid in the target CRS
-            if (crsHelper.isPointValidForCrs(point))
+            GridCoordinates gridCoords = sourceGrid.findNearestGridPoint(point);
+            if (gridCoords != null)
             {
-                // Translate this point in the target grid to lat-lon
-                LonLatPosition lonLat = crsHelper.crsToLonLat(point);
-                // Now find the nearest index in the grid: gridCoords will be
-                // null if latLon is outside the grid's domain
-                int[] gridCoords = horizCoordSys.lonLatToGrid(lonLat);
-                if (gridCoords != null)
-                {
-                    this.put(gridCoords[0], gridCoords[1], pixelIndex);
-                }
+                this.put(
+                    gridCoords.getCoordinateValue(0),
+                    gridCoords.getCoordinateValue(1),
+                    pixelIndex
+                );
             }
             pixelIndex++;
         }
@@ -130,13 +128,14 @@ public final class PixelMap
     /**
      * Generates a PixelMap for the given Layer.  Data read from the Layer will
      * be projected onto the given HorizontalGrid
-     * @param horizCoordSys The horizontal coordinate system of the layer
+     * @param sourceGrid The horizontal coordinate system of the layer
      * (i.e. the source grid)
-     * @param grid the horizontal grid representing the image that is to be
+     * @param targetGrid the horizontal grid representing the image that is to be
      * generated (i.e. the target grid).
      * @throws Exception if the necessary transformations could not be performed
      */
-    private void initFromGrid(HorizontalCoordSys horizCoordSys, HorizontalGrid grid) throws TransformException
+    private void initFromGrid(HorizontalGrid sourceGrid, HorizontalGrid targetGrid)
+            throws TransformException
     {
         // Cycle through each pixel in the picture and work out which
         // i and j index in the source data it corresponds to
@@ -145,18 +144,18 @@ public final class PixelMap
         // the data exist on a lat-long grid by minimizing the number of
         // calls to axis.getIndex().
         if (1 == 2) {}
-        /*if (grid.isLatLon() && horizCoordSys instanceof LatLonCoordSys)
+        /*if (targetGrid.isLatLon() && sourceGrid instanceof LatLonCoordSys)
         {
             logger.debug("Using optimized method for lat-lon coordinates with 1D axes");
-            LatLonCoordSys latLonGrid = (LatLonCoordSys)horizCoordSys;
+            LatLonCoordSys latLonGrid = (LatLonCoordSys)sourceGrid;
             int pixelIndex = 0;
             // Calculate the indices along the x axis.
-            int[] xIndices = new int[grid.getXAxisValues().length];
-            for (int i = 0; i < grid.getXAxisValues().length; i++)
+            int[] xIndices = new int[targetGrid.getXAxisValues().length];
+            for (int i = 0; i < targetGrid.getXAxisValues().length; i++)
             {
-                xIndices[i] = latLonGrid.getLonIndex(grid.getXAxisValues()[i]);
+                xIndices[i] = latLonGrid.getLonIndex(targetGrid.getXAxisValues()[i]);
             }
-            for (double lat : grid.getYAxisValues())
+            for (double lat : targetGrid.getYAxisValues())
             {
                 if (lat >= -90.0 && lat <= 90.0)
                 {
@@ -178,7 +177,7 @@ public final class PixelMap
         {
             // We can't do better than the generic initialization method
             // based upon iterating through each point in the grid.
-            this.initFromPointList(horizCoordSys, grid);
+            this.initFromPointList(sourceGrid, targetGrid);
         }
     }
 

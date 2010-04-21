@@ -68,7 +68,7 @@ public interface HorizontalGrid extends ReferenceableGrid<HorizontalPosition>
     public int getDimension();
     
     /**
-     * Finds the nearest grid point to the given position.
+     * Finds the nearest (two-dimensional) grid point to the given position.
      * @return the nearest grid point to the given position, or null if the
      * position is outside the {@link BoundingBox bounding box} of the grid.
      */

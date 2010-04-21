@@ -32,7 +32,7 @@ import java.util.List;
 import org.joda.time.Chronology;
 import org.joda.time.DateTime;
 import org.opengis.metadata.extent.GeographicBoundingBox;
-import uk.ac.rdg.resc.ncwms.coords.HorizontalCoordSys;
+import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.graphics.ColorPalette;
 import uk.ac.rdg.resc.ncwms.util.Range;
 
@@ -88,11 +88,11 @@ public interface Layer
     public GeographicBoundingBox getGeographicBoundingBox();
 
     /**
-     * Returns the horizontal coordinate system of this layer, which is an object
-     * that translates from lat-lon coordinates to the nearest grid coordinates.
-     * @return the horizontal coordinate system of this layer.
+     * Returns the layer's horizontal grid, which is an object
+     * that translates from real world coordinates to grid coordinates.
+     * @return the horizontal grid of this layer.
      */
-    public HorizontalCoordSys getHorizontalCoordSys();
+    public HorizontalGrid getHorizontalGrid();
 
     /**
      * Returns the {@link Chronology} used to interpret {@link DateTime}s that

@@ -32,7 +32,7 @@ import java.util.List;
 import org.joda.time.DateTime;
 import org.opengis.metadata.extent.GeographicBoundingBox;
 import ucar.nc2.dt.GridDatatype;
-import uk.ac.rdg.resc.ncwms.coords.HorizontalCoordSys;
+import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
 
 /**
@@ -56,7 +56,7 @@ public interface LayerBuilder<L extends ScalarLayer> {
 
     public void setUnits(L layer, String units);
 
-    public void setHorizontalCoordSys(L layer, HorizontalCoordSys coordSys);
+    public void setHorizontalGrid(L layer, HorizontalGrid horizGrid);
 
     public void setElevationAxis(L layer, List<Double> zValues, boolean zPositive, String zUnits);
 

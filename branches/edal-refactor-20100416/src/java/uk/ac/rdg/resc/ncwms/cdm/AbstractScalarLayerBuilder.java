@@ -30,7 +30,7 @@ package uk.ac.rdg.resc.ncwms.cdm;
 
 import java.util.List;
 import org.opengis.metadata.extent.GeographicBoundingBox;
-import uk.ac.rdg.resc.ncwms.coords.HorizontalCoordSys;
+import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
 import uk.ac.rdg.resc.ncwms.wms.AbstractScalarLayer;
 
 /**
@@ -60,8 +60,8 @@ public abstract class AbstractScalarLayerBuilder<L extends AbstractScalarLayer> 
     }
 
     @Override
-    public void setHorizontalCoordSys(L layer, HorizontalCoordSys coordSys) {
-        layer.setHorizontalCoordSys(coordSys);
+    public void setHorizontalGrid(L layer, HorizontalGrid horizGrid) {
+        layer.setHorizontalGrid(horizGrid);
     }
 
     @Override

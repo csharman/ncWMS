@@ -37,7 +37,7 @@ import org.geotoolkit.metadata.iso.extent.DefaultGeographicBoundingBox;
 import org.joda.time.DateTime;
 import org.opengis.metadata.extent.GeographicBoundingBox;
 import uk.ac.rdg.resc.edal.coverage.domain.Domain;
-import uk.ac.rdg.resc.ncwms.coords.HorizontalCoordSys;
+import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.graphics.ColorPalette;
@@ -62,7 +62,7 @@ public abstract class AbstractScalarLayer implements ScalarLayer
     protected List<Double> zValues = Collections.emptyList(); // Prevents NullPointerExceptions
     protected boolean zPositive;
     protected GeographicBoundingBox bbox = DefaultGeographicBoundingBox.WORLD;
-    protected HorizontalCoordSys horizCoordSys;
+    protected HorizontalGrid horizGrid;
 
     /**
      * Creates an AbstractLayer with a bounding box that covers the whole world
@@ -123,8 +123,8 @@ public abstract class AbstractScalarLayer implements ScalarLayer
     }
 
     @Override
-    public HorizontalCoordSys getHorizontalCoordSys() { return this.horizCoordSys; }
-    public void setHorizontalCoordSys(HorizontalCoordSys horizCoordSys) { this.horizCoordSys = horizCoordSys; }
+    public HorizontalGrid getHorizontalGrid() { return this.horizGrid; }
+    public void setHorizontalGrid(HorizontalGrid horizGrid) { this.horizGrid = horizGrid; }
 
     /**
      * Returns true if this layer has a time axis.  This is a convenience method
