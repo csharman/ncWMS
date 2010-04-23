@@ -26,7 +26,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
 package uk.ac.rdg.resc.ncwms.cdm;
 
 import java.io.IOException;
@@ -121,7 +120,7 @@ public final class CdmUtils
      * Creates a two-dimensional referenceable grid from the given grid
      * coordinate system.  Will return more specific subclasses
      * ({@link RectilinearGrid} or {@link RegularGrid}) if appropriate for the
-     * passed-in coordinate system.  The grid will be referenceable to the
+     * passed-in coordinate system.  The grid's coordinate system will be a
      * WGS84 longitude-latitude system.
      * @todo May want to be careful about datum shifts - model data is often
      * in spherical coordinates

@@ -36,6 +36,18 @@ package uk.ac.rdg.resc.edal.coverage.grid;
  */
 public interface RegularGrid extends RectilinearGrid {
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public RegularAxis getXAxis();
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public RegularAxis getYAxis();
+
     /** 
      * {@inheritDoc}
      */

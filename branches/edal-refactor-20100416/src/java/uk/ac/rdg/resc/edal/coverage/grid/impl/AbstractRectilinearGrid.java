@@ -40,6 +40,7 @@ import uk.ac.rdg.resc.edal.position.BoundingBox;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.edal.position.impl.BoundingBoxImpl;
 import uk.ac.rdg.resc.edal.position.impl.HorizontalPositionImpl;
+import uk.ac.rdg.resc.edal.util.Utils;
 
 /**
  * Abstract superclass that partially implements a two-dimensional
@@ -82,13 +83,10 @@ public abstract class AbstractRectilinearGrid implements RectilinearGrid
     public final int getDimension() { return 2; }
 
     @Override
-    public ReferenceableAxis getXAxis() {
-        return this.getAxis(0);
-    }
-
-    @Override
-    public ReferenceableAxis getYAxis() {
-        return this.getAxis(1);
+    public ReferenceableAxis getAxis(int index) {
+        if (index == 0) return this.getXAxis();
+        if (index == 1) return this.getYAxis();
+        throw new IndexOutOfBoundsException();
     }
 
     @Override
@@ -143,6 +141,7 @@ public abstract class AbstractRectilinearGrid implements RectilinearGrid
 
     @Override
     public GridCoordinates inverseTransformCoordinates(HorizontalPosition pos) {
+        pos = Utils.transformPosition(pos, this.getCoordinateReferenceSystem());
         int i = this.getXAxis().getCoordinateIndex(pos.getX());
         int j = this.getYAxis().getCoordinateIndex(pos.getY());
         if (i < 0 || j < 0) return null;
@@ -153,6 +152,7 @@ public abstract class AbstractRectilinearGrid implements RectilinearGrid
 
     @Override
     public GridCoordinates findNearestGridPoint(HorizontalPosition pos) {
+        pos = Utils.transformPosition(pos, this.getCoordinateReferenceSystem());
         int i = this.getXAxis().getNearestCoordinateIndex(pos.getX());
         int j = this.getYAxis().getNearestCoordinateIndex(pos.getY());
         if (i < 0 || j < 0) return null;

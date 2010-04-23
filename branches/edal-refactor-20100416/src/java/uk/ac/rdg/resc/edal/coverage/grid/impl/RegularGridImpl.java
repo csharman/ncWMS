@@ -176,4 +176,10 @@ public final class RegularGridImpl extends AbstractRectilinearGrid implements Re
         if (index == 1) return this.yAxis;
         throw new IndexOutOfBoundsException();
     }
+
+    @Override
+    public RegularAxis getXAxis() { return this.xAxis; }
+
+    @Override
+    public RegularAxis getYAxis() { return this.yAxis; }
 }

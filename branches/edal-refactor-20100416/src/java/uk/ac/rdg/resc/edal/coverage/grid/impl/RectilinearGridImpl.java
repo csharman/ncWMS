@@ -55,9 +55,8 @@ public final class RectilinearGridImpl extends AbstractRectilinearGrid
     }
 
     @Override
-    public ReferenceableAxis getAxis(int index) {
-        if (index == 0) return this.xAxis;
-        if (index == 1) return this.yAxis;
-        throw new IndexOutOfBoundsException();
-    }
+    public ReferenceableAxis getXAxis() { return this.xAxis; }
+
+    @Override
+    public ReferenceableAxis getYAxis() { return this.yAxis; }
 }
