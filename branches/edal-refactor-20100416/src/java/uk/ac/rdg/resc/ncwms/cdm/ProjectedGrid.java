@@ -61,7 +61,6 @@ import uk.ac.rdg.resc.edal.util.Utils;
  */
 class ProjectedGrid extends AbstractHorizontalGrid
 {
-    private final int size;
     private final ProjectionImpl proj;
     private final ReferenceableAxis xAxis;
     private final ReferenceableAxis yAxis;
@@ -79,14 +78,10 @@ class ProjectedGrid extends AbstractHorizontalGrid
         this.proj = coordSys.getProjection();
         this.xAxis = CdmUtils.createReferenceableAxis((CoordinateAxis1D)coordSys.getXHorizAxis());
         this.yAxis = CdmUtils.createReferenceableAxis((CoordinateAxis1D)coordSys.getYHorizAxis());
-        this.size = this.xAxis.getSize() * this.yAxis.getSize();
         this.axisNames = Collections.unmodifiableList(Arrays.asList(
             this.xAxis.getName(), this.yAxis.getName()));
         this.gridEnvelope = new GridEnvelopeImpl(this.xAxis.getSize() - 1, this.yAxis.getSize() - 1);
-        GeographicBoundingBox bbox = CdmUtils.getBbox(coordSys);
-        this.extent = new BoundingBoxImpl(new double[]{bbox.getWestBoundLongitude(),
-            bbox.getSouthBoundLatitude(), bbox.getEastBoundLongitude(),
-            bbox.getNorthBoundLatitude()}, this.getCoordinateReferenceSystem());
+        this.extent = Utils.getBoundingBox(CdmUtils.getBbox(coordSys));
     }
 
     @Override
@@ -143,12 +138,6 @@ class ProjectedGrid extends AbstractHorizontalGrid
 
     @Override
     public GridEnvelope getGridExtent() { return this.gridEnvelope; }
-
-    @Override
-    public int getSize() { return this.size; }
-
-    @Override
-    protected int getIAxisSize() { return this.xAxis.getSize(); }
 
 
 }

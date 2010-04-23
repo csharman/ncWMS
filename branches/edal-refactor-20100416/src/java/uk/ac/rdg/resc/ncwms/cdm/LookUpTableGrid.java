@@ -26,15 +26,24 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.coords;
+package uk.ac.rdg.resc.ncwms.cdm;
 
+import java.util.List;
+import org.opengis.coverage.grid.GridEnvelope;
+import uk.ac.rdg.resc.edal.coverage.grid.GridCoordinates;
+import uk.ac.rdg.resc.edal.position.BoundingBox;
+import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.edal.position.LonLatPosition;
-import java.util.HashMap;
 import java.util.Map;
+import org.geotoolkit.referencing.crs.DefaultGeographicCRS;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ucar.nc2.dt.GridCoordSystem;
-import uk.ac.rdg.resc.ncwms.coords.CurvilinearGrid.Cell;
+import uk.ac.rdg.resc.edal.coverage.grid.impl.AbstractHorizontalGrid;
+import uk.ac.rdg.resc.edal.coverage.grid.impl.GridCoordinatesImpl;
+import uk.ac.rdg.resc.edal.util.CollectionUtils;
+import uk.ac.rdg.resc.edal.util.Utils;
+import uk.ac.rdg.resc.ncwms.cdm.CurvilinearGrid.Cell;
 
 /**
  * A HorizontalCoordSys that is created from a "curvilinear" coordinate system,
@@ -49,18 +58,19 @@ import uk.ac.rdg.resc.ncwms.coords.CurvilinearGrid.Cell;
  * @todo reduce the number of objects: fold in LookUpTable and BufferedImageLutGenerator
  * @author Jon Blower
  */
-final class TwoDCoordSys extends HorizontalCoordSys
+final class LookUpTableGrid extends AbstractHorizontalGrid
 {
-    private static final Logger logger = LoggerFactory.getLogger(TwoDCoordSys.class);
+    private static final Logger logger = LoggerFactory.getLogger(LookUpTableGrid.class);
 
     /**
-     * In-memory cache of TwoDCoordSys objects to save expensive re-generation of same object
+     * In-memory cache of LookUpTableGrid objects to save expensive re-generation of same object
      * @todo The CurvilinearGrid objects can be very big.  Really we only need to key
      * on the arrays of lon and lat: all other quantities can be calculated from
      * these.  This means that we could make other large objects available for
      * garbage collection.
      */
-    private static final Map<CurvilinearGrid, TwoDCoordSys> CACHE = new HashMap<CurvilinearGrid, TwoDCoordSys>();
+    private static final Map<CurvilinearGrid, LookUpTableGrid> CACHE =
+            CollectionUtils.newHashMap();
 
     private final CurvilinearGrid curvGrid;
     private final LookUpTable lut;
@@ -68,7 +78,7 @@ final class TwoDCoordSys extends HorizontalCoordSys
     /**
      * The passed-in coordSys must have 2D horizontal coordinate axes.
      */
-    public static TwoDCoordSys generate(GridCoordSystem coordSys)
+    public static LookUpTableGrid generate(GridCoordSystem coordSys)
     {
         CurvilinearGrid curvGrid = new CurvilinearGrid(coordSys);
 
@@ -79,15 +89,15 @@ final class TwoDCoordSys extends HorizontalCoordSys
 
         synchronized(CACHE)
         {
-            TwoDCoordSys lutCoordSys = CACHE.get(curvGrid);
+            LookUpTableGrid lutCoordSys = CACHE.get(curvGrid);
             if (lutCoordSys == null)
             {
                 logger.debug("Need to generate new look-up table");
                 // Create a look-up table for this coord sys
                 LookUpTable lut = new LookUpTable(curvGrid, minLutResolution);
                 logger.debug("Generated new look-up table");
-                // Create the TwoDCoordSys
-                lutCoordSys = new TwoDCoordSys(curvGrid, lut);
+                // Create the LookUpTableGrid
+                lutCoordSys = new LookUpTableGrid(curvGrid, lut);
                 // Now put this in the cache
                 CACHE.put(curvGrid, lutCoordSys);
             }
@@ -100,8 +110,10 @@ final class TwoDCoordSys extends HorizontalCoordSys
     }
 
     /** Private constructor to prevent direct instantiation */
-    private TwoDCoordSys(CurvilinearGrid curvGrid, LookUpTable lut)
+    private LookUpTableGrid(CurvilinearGrid curvGrid, LookUpTable lut)
     {
+        // All points will be returned in WGS84 lon-lat
+        super(DefaultGeographicCRS.WGS84);
         this.curvGrid = curvGrid;
         this.lut = lut;
     }
@@ -112,33 +124,34 @@ final class TwoDCoordSys extends HorizontalCoordSys
      * is given as a two-dimensional integer array: [i,j].
      */
     @Override
-    public int[] lonLatToGrid(LonLatPosition lonLatPoint)
+    public GridCoordinates findNearestGridPoint(HorizontalPosition pos)
     {
+        LonLatPosition lonLatPos = Utils.transformToWgs84LonLat(pos);
         int[] lutCoords =
-            this.lut.getGridCoordinates(lonLatPoint.getLongitude(), lonLatPoint.getLatitude());
+            this.lut.getGridCoordinates(lonLatPos.getLongitude(), lonLatPos.getLatitude());
         // Return null if the latLonPoint does not match a valid grid point
         if (lutCoords == null) return null;
         // Check that this cell really contains this point, if not, check
         // the neighbours
         Cell cell = this.curvGrid.getCell(lutCoords[0], lutCoords[1]);
-        if (cell.contains(lonLatPoint)) return lutCoords;
+        if (cell.contains(lonLatPos)) return new GridCoordinatesImpl(lutCoords);
         for (Cell neighbour : cell.getEdgeNeighbours())
         {
-            if (neighbour.contains(lonLatPoint))
+            if (neighbour.contains(lonLatPos))
             {
-                return new int[]{ neighbour.getI(), neighbour.getJ() };
+                return new GridCoordinatesImpl(neighbour.getI(), neighbour.getJ());
             }
         }
         for (Cell neighbour : cell.getCornerNeighbours())
         {
-            if (neighbour.contains(lonLatPoint))
+            if (neighbour.contains(lonLatPos))
             {
-                return new int[]{ neighbour.getI(), neighbour.getJ() };
+                return new GridCoordinatesImpl(neighbour.getI(), neighbour.getJ());
             }
         }
         // If we get this far something probably went wrong with the LUT
         //logger.debug("Point is not contained by cell or its neighbours");
-        return lutCoords;
+        return new GridCoordinatesImpl(lutCoords);
     }
 
     /**
@@ -146,16 +159,41 @@ final class TwoDCoordSys extends HorizontalCoordSys
      * the given grid coordinates [i,j] are outside the extent of the grid
      */
     @Override
-    public LonLatPosition gridToLonLat(int i, int j)
+    public HorizontalPosition transformCoordinates(GridCoordinates coords)
     {
+        if (coords.getDimension() != 2) 
+        {
+            throw new IllegalArgumentException("Coords.length must be 2");
+        }
+        int i = coords.getCoordinateValue(0);
+        int j = coords.getCoordinateValue(1);
         if (i >= 0 && i < this.curvGrid.getNi() &&
             j >= 0 && j < this.curvGrid.getNj())
         {
             return this.curvGrid.getMidpoint(i, j);
         }
-        else
-        {
-            return null;
-        }
+        return null;
+    }
+
+    @Override
+    public BoundingBox getExtent() {
+        return Utils.getBoundingBox(this.curvGrid.getBoundingBox());
+    }
+
+    ///// TODO!!! Implement the methods below
+
+    @Override
+    public List<String> getAxisNames() {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public GridEnvelope getGridExtent() {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public GridCoordinates inverseTransformCoordinates(HorizontalPosition pos) {
+        throw new UnsupportedOperationException("Not supported yet.");
     }
 }

@@ -63,11 +63,6 @@ public abstract class AbstractRectilinearGrid extends AbstractHorizontalGrid imp
     }
 
     @Override
-    public final int getSize() {
-        return this.getXAxis().getSize() * this.getYAxis().getSize();
-    }
-
-    @Override
     public final BoundingBox getExtent() {
         return new BoundingBoxImpl(
             this.getAxis(0).getExtent(),
@@ -130,11 +125,6 @@ public abstract class AbstractRectilinearGrid extends AbstractHorizontalGrid imp
         return Collections.unmodifiableList(
             Arrays.asList(this.getXAxis().getName(), this.getYAxis().getName())
         );
-    }
-    
-    @Override
-    protected final int getIAxisSize() {
-        return this.getXAxis().getSize();
     }
 
 }

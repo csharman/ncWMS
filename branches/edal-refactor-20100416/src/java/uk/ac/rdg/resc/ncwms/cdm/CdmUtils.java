@@ -165,15 +165,12 @@ public final class CdmUtils
         else if (xAxis instanceof CoordinateAxis2D && yAxis instanceof CoordinateAxis2D)
         {
             // The axis must be 2D so we have to create look-up tables
-            // TODO
-            throw new UnsupportedOperationException("Can't yet create a" +
-                    " referenceable grid for two-dimensional coordinate axes");
-            //if (!isLatLon)
-            //{
-            //    throw new UnsupportedOperationException("Can't create a HorizontalCoordSys" +
-            //        " from 2D coordinate axes that are not longitude and latitude.");
-            //}
-            //eturn TwoDCoordSys.generate(coordSys);
+            if (!isLatLon)
+            {
+                throw new UnsupportedOperationException("Can't create a HorizontalGrid" +
+                    " from 2D coordinate axes that are not longitude and latitude.");
+            }
+            return LookUpTableGrid.generate(coordSys);
         }
         else
         {
@@ -310,6 +307,9 @@ public final class CdmUtils
 
     /**
      * Gets the latitude-longitude bounding box of the given coordinate system.
+     * @todo Should probably be an Extent or a BoundingBox (I think Extent
+     * is more accurate - see the GeoAPI spec document.  Extents do not cross
+     * the anti-meridian).
      */
     public static GeographicBoundingBox getBbox(GridCoordSystem coordSys)
     {

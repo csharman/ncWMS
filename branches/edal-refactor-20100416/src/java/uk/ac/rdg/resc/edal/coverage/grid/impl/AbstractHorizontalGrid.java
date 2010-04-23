@@ -40,7 +40,7 @@ import uk.ac.rdg.resc.edal.position.HorizontalPosition;
  * {@link HorizontalGrid}.
  * @author Jon
  */
-public abstract class AbstractHorizontalGrid implements HorizontalGrid
+public abstract class AbstractHorizontalGrid extends AbstractGrid implements HorizontalGrid
 {
     private final CoordinateReferenceSystem crs;
 
@@ -48,9 +48,9 @@ public abstract class AbstractHorizontalGrid implements HorizontalGrid
     {
         @Override
         public HorizontalPosition get(int index) {
-            int xAxisLength = AbstractHorizontalGrid.this.getIAxisSize();
-            int xi = index % xAxisLength;
-            int yi = index / xAxisLength;
+            int iAxisSize = AbstractHorizontalGrid.this.getGridExtent().getSpan(0);
+            int xi = index % iAxisSize;
+            int yi = index / iAxisSize;
             GridCoordinates coords = new GridCoordinatesImpl(xi, yi);
             HorizontalPosition pos = AbstractHorizontalGrid.this.transformCoordinates(coords);
             if (pos == null) {
@@ -75,10 +75,6 @@ public abstract class AbstractHorizontalGrid implements HorizontalGrid
         return this.crs;
     }
 
-    /** Returns 2 */
-    @Override
-    public final int getDimension() { return 2; }
-
     /**
      * This is implemented on top of
      * {@link #transformCoordinates(uk.ac.rdg.resc.edal.coverage.grid.GridCoordinates)}.
@@ -98,9 +94,5 @@ public abstract class AbstractHorizontalGrid implements HorizontalGrid
     public final List<HorizontalPosition> getDomainObjects() {
         return this.domainObjectList;
     }
-
-    /** Returns the length of the i axis of the grid, which corresponds with
-     * the first coordinate in the GridCoordinates that are used by this object. */
-    protected abstract int getIAxisSize();
 
 }

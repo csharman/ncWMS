@@ -26,7 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.coords;
+package uk.ac.rdg.resc.ncwms.cdm;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
@@ -41,7 +41,7 @@ import java.awt.image.WritableRaster;
 import org.opengis.metadata.extent.GeographicBoundingBox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import uk.ac.rdg.resc.ncwms.coords.CurvilinearGrid.Cell;
+import uk.ac.rdg.resc.ncwms.cdm.CurvilinearGrid.Cell;
 
 /**
  * An object that provides an approximate means for mapping from longitude-latitude
@@ -249,16 +249,6 @@ final class LookUpTable
     public int getNumLatPoints()
     {
         return this.nLat;
-    }
-
-    /**
-     * Gets an affine transform that converts from lat-lon coordinates to the
-     * indices in the lat-lon grid used by this look-up table.
-     * @return
-     */
-    public AffineTransform getTransform()
-    {
-        return this.transform;
     }
 
 }
