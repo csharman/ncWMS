@@ -48,8 +48,8 @@ import ucar.nc2.dataset.CoordinateAxis;
 import ucar.nc2.dataset.CoordinateAxis2D;
 import ucar.nc2.dataset.NetcdfDataset.Enhance;
 import ucar.nc2.dt.GridCoordSystem;
+import uk.ac.rdg.resc.edal.util.Utils;
 import uk.ac.rdg.resc.ncwms.cdm.CurvilinearGrid.Cell;
-import uk.ac.rdg.resc.ncwms.coords.Longitude;
 
 /**
  * A horizontal (2D) grid that is defined by explicitly specifying the longitude and
@@ -147,7 +147,7 @@ final class CurvilinearGrid implements Iterable<Cell>
                 boolean isNaN = Double.isNaN(lon) || Double.isNaN(lat);
                 if (!isNaN)
                 {
-                    lon = Longitude.constrain180(lon);
+                    lon = Utils.constrainLongitude180(lon);
                     minLon = Math.min(minLon, lon);
                     maxLon = Math.max(maxLon, lon);
                     minLat = Math.min(minLat, lat);
@@ -304,7 +304,7 @@ final class CurvilinearGrid implements Iterable<Cell>
             throw new IllegalArgumentException("Reference longitude must be " +
                 "in the range [-180,180]");
         }
-        double lon1 = Longitude.constrain180(test);
+        double lon1 = Utils.constrainLongitude180(test);
         double lon2 = ref < 0.0 ? lon1 - 360.0 : lon1 + 360.0;
         double d1 = Math.abs(ref - lon1);
         double d2 = Math.abs(ref - lon2);

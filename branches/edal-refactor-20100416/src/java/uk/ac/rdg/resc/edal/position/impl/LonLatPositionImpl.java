@@ -30,7 +30,7 @@ package uk.ac.rdg.resc.edal.position.impl;
 
 import uk.ac.rdg.resc.edal.position.LonLatPosition;
 import org.geotoolkit.referencing.crs.DefaultGeographicCRS;
-import uk.ac.rdg.resc.ncwms.coords.Longitude;
+import uk.ac.rdg.resc.edal.util.Utils;
 
 /**
  * Immutable implementation of {@link LonLatPosition}.
@@ -58,7 +58,7 @@ public final class LonLatPositionImpl extends HorizontalPositionImpl implements 
      * @param latitude The geodetic latitude
      */
     public LonLatPositionImpl(double longitude, double latitude) {
-        super(Longitude.constrain180(longitude), latitude, DefaultGeographicCRS.WGS84);
+        super(Utils.constrainLongitude180(longitude), latitude, DefaultGeographicCRS.WGS84);
     }
 
 }
