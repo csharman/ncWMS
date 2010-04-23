@@ -65,7 +65,6 @@ import ucar.nc2.dt.GridDatatype;
 import ucar.nc2.dt.TypedDatasetFactory;
 import ucar.unidata.geoloc.LatLonPoint;
 import ucar.unidata.geoloc.LatLonRect;
-import ucar.unidata.geoloc.ProjectionImpl;
 import uk.ac.rdg.resc.edal.coverage.domain.Domain;
 import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
 import uk.ac.rdg.resc.edal.coverage.grid.RectilinearGrid;
@@ -131,7 +130,6 @@ public final class CdmUtils
         CoordinateAxis yAxis = coordSys.getYHorizAxis();
         boolean isLatLon = xAxis.getAxisType() == AxisType.Lon &&
                            yAxis.getAxisType() == AxisType.Lat;
-        CoordinateReferenceSystem crs84 = DefaultGeographicCRS.WGS84;
 
         if (xAxis instanceof CoordinateAxis1D && yAxis instanceof CoordinateAxis1D)
         {
@@ -139,6 +137,7 @@ public final class CdmUtils
             ReferenceableAxis yRefAxis = createReferenceableAxis((CoordinateAxis1D)yAxis);
             if (isLatLon)
             {
+                CoordinateReferenceSystem crs84 = DefaultGeographicCRS.WGS84;
                 // We can create a RectilinearGrid in lat-lon space
                 if (xRefAxis instanceof RegularAxis && yRefAxis instanceof RegularAxis)
                 {
@@ -160,10 +159,7 @@ public final class CdmUtils
                 // Axes are not latitude and longitude so we need to create a
                 // ReferenceableGrid that uses the coordinate system's
                 // Projection object to convert from x and y to lat and lon
-                // TODO
-                ProjectionImpl proj = coordSys.getProjection();
-                throw new UnsupportedOperationException("Can't yet create a" +
-                        " referenceable grid for projected gridcoordsys");
+                return new ProjectedGrid(coordSys);
             }
         }
         else if (xAxis instanceof CoordinateAxis2D && yAxis instanceof CoordinateAxis2D)
@@ -313,10 +309,9 @@ public final class CdmUtils
     }
 
     /**
-     * Gets the latitude-longitude bounding box of the given coordinate system
-     * in the form [minLon, minLat, maxLon, maxLat]
+     * Gets the latitude-longitude bounding box of the given coordinate system.
      */
-    private static GeographicBoundingBox getBbox(GridCoordSystem coordSys)
+    public static GeographicBoundingBox getBbox(GridCoordSystem coordSys)
     {
         // TODO: should take into account the cell bounds
         LatLonRect latLonRect = coordSys.getLatLonBoundingBox();

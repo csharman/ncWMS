@@ -28,7 +28,6 @@
 
 package uk.ac.rdg.resc.edal.coverage.grid.impl;
 
-import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -47,40 +46,14 @@ import uk.ac.rdg.resc.edal.util.Utils;
  * {@link RectilinearGrid}.
  * @author Jon
  */
-public abstract class AbstractRectilinearGrid implements RectilinearGrid
+public abstract class AbstractRectilinearGrid extends AbstractHorizontalGrid implements RectilinearGrid
 {
-    private final CoordinateReferenceSystem crs;
     private GridEnvelopeImpl gridExtent = null;
-    
-    private final List<HorizontalPosition> domainObjectList = new AbstractList<HorizontalPosition>()
-    {
-        @Override
-        public HorizontalPosition get(int index) {
-            int xAxisLength = AbstractRectilinearGrid.this.getXAxis().getSize();
-            int xi = index % xAxisLength;
-            int yi = index / xAxisLength;
-            GridCoordinates coords = new GridCoordinatesImpl(xi, yi);
-            HorizontalPosition pos = AbstractRectilinearGrid.this.transformCoordinates(coords);
-            if (pos == null) {
-                throw new IndexOutOfBoundsException("Index " + index + " is out of bounds");
-            }
-            return pos;
-        }
-
-        @Override
-        public int size() {
-            return AbstractRectilinearGrid.this.getSize();
-        }
-    };
 
     protected AbstractRectilinearGrid(CoordinateReferenceSystem crs)
     {
-        this.crs = crs;
+        super(crs);
     }
-
-    /** Returns 2 */
-    @Override
-    public final int getDimension() { return 2; }
 
     @Override
     public ReferenceableAxis getAxis(int index) {
@@ -90,17 +63,12 @@ public abstract class AbstractRectilinearGrid implements RectilinearGrid
     }
 
     @Override
-    public int getSize() {
+    public final int getSize() {
         return this.getXAxis().getSize() * this.getYAxis().getSize();
     }
 
     @Override
-    public CoordinateReferenceSystem getCoordinateReferenceSystem() {
-        return this.crs;
-    }
-
-    @Override
-    public BoundingBox getExtent() {
+    public final BoundingBox getExtent() {
         return new BoundingBoxImpl(
             this.getAxis(0).getExtent(),
             this.getAxis(1).getExtent(),
@@ -109,7 +77,7 @@ public abstract class AbstractRectilinearGrid implements RectilinearGrid
     }
 
     @Override
-    public GridEnvelopeImpl getGridExtent() {
+    public final GridEnvelopeImpl getGridExtent() {
         // We cache the GridEnvelopeImpl object because we will use it multiple
         // times in transformCoordinates().  We cannot generate this object
         // on construction because the axis objects may not have been created
@@ -124,7 +92,7 @@ public abstract class AbstractRectilinearGrid implements RectilinearGrid
     }
 
     @Override
-    public HorizontalPosition transformCoordinates(GridCoordinates coords) {
+    public final HorizontalPosition transformCoordinates(GridCoordinates coords) {
         if (coords.getDimension() != 2) {
             throw new IllegalArgumentException("GridCoordinates must be 2D");
         }
@@ -132,11 +100,6 @@ public abstract class AbstractRectilinearGrid implements RectilinearGrid
         double x = this.getXAxis().getCoordinateValue(coords.getCoordinateValue(0));
         double y = this.getYAxis().getCoordinateValue(coords.getCoordinateValue(1));
         return new HorizontalPositionImpl(x, y, this.getCoordinateReferenceSystem());
-    }
-
-    @Override
-    public HorizontalPosition transformCoordinates(int i, int j) {
-        return this.transformCoordinates(new GridCoordinatesImpl(i, j));
     }
 
     @Override
@@ -163,21 +126,15 @@ public abstract class AbstractRectilinearGrid implements RectilinearGrid
 
     /** Returns an unmodifiable list of axis names in x,y order */
     @Override
-    public List<String> getAxisNames() {
+    public final List<String> getAxisNames() {
         return Collections.unmodifiableList(
             Arrays.asList(this.getXAxis().getName(), this.getYAxis().getName())
         );
     }
-
-    /**
-     * Returns an unmodifiable List of horizontal positions derived from the two axes.
-     * The x axis is considered to vary fastest, so the first point in the list
-     * represents the grid point [x0,y0], the second point is [x1,y0] and so on.
-     * @return
-     */
+    
     @Override
-    public List<HorizontalPosition> getDomainObjects() {
-        return this.domainObjectList;
+    protected final int getIAxisSize() {
+        return this.getXAxis().getSize();
     }
 
 }

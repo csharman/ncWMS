@@ -36,7 +36,6 @@ import org.opengis.referencing.cs.CoordinateSystemAxis;
  * <p>A one-dimensional axis of a Grid, which maps between integer indices along
  * the axis and real-world coordinates.  It is in spirit a one-dimensional
  * special case of a {@link ReferenceableGrid}.</p>
- * @param <T> the type of the coordinate values
  * @author Jon
  */
 public interface ReferenceableAxis {

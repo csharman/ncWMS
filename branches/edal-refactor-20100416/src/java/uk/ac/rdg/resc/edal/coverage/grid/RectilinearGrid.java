@@ -34,8 +34,8 @@ import org.opengis.referencing.cs.CoordinateSystemAxis;
 import uk.ac.rdg.resc.edal.position.BoundingBox;
 
 /**
- * <p>A {@link HorizontalGrid} whose axes in real space are aligned with the axes
- * in grid space.  Therefore the axes of the grid are separable.</p>
+ * <p>A {@link HorizontalGrid} whose axes in the {@link #getCoordinateReferenceSystem() 
+ * external CRS} are aligned with the axes in grid space.</p>
  *
  * <p>The order of grid coordinates must match the order of the coordinate
  * axes in the external coordinate reference system.  Therefore, for grid coordinates
