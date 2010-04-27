@@ -1,0 +1,315 @@
+html {
+	font-family: Calibri, Arial, sans-serif;
+}
+
+.body_pop {
+	margin: 5px;
+    padding: 5px;
+    font-size: 80%;
+    background:white;
+    margin-top: -10px;
+
+}
+
+.body_main {
+	background:white;
+	position: relative;
+	margin: auto;
+	width: 760px;
+	margin-bottom: 10px;
+	padding-top: 0px;
+	padding-bottom: 0px;
+    margin-top: -10px;
+}
+
+
+a {
+	text-decoration: underline;
+	color: #6f477d;
+}
+
+a:hover {
+	text-decoration: underline;
+	color: #bf0071;
+}
+
+a#white {
+	color: #FFFFFF;
+	text-decoration: none;
+}
+
+.gray {
+	color: #999999;
+}
+
+.header {
+  	color: #FFFFFF;
+    font-size: 2.0em;
+	padding-bottom: 3px;
+	text-align: right;
+	font-weight: bold;
+	margin-top: 2px;
+    border-bottom: 3px solid #bf0071;
+}
+
+.header h1 {
+    margin-top:10px;
+    background-image: url('logo.jpg');
+    width: 220px;
+    height: 39px;
+    float:right;
+}
+
+.header h2 {
+	text-align: left;
+	padding-top: 60px;
+	padding-left: 10px;
+}
+
+
+.top_bit {
+    background-color: #6f477d;
+	color: #666666;
+	padding-right: 0px;
+	padding-left: 0px;
+	padding-bottom: 3px;
+	font-size: 0.8em;
+	font-weight: normal;
+	color:white;
+}
+
+.top_bit a, .footer a{
+	color:white;
+}
+
+.footer {
+    background-color: #6f477d;
+	clear: both;
+	text-align: center;
+	color: #white;
+	font-size: 0.7em;
+}
+
+.header .img {
+	position: absolute;
+	right: 15px;
+	top: 5px;
+}
+
+
+.description {
+	font-size: 0.35em;
+	font-weight: normal;
+}
+
+.container {
+	margin: 10px;
+	font-size: 0.75em;
+	background: #FFFFFF;
+}
+
+.containerPost {
+	margin: 10px 225px 0px 10px;
+}
+
+.postInfo {
+	padding-top: 25px;
+	padding-bottom: 15px;
+	text-align: center;
+	font-size: 0.75em;
+	margin-left: 5px;
+}
+
+.postInfo a {
+	color: #6f477d;
+}
+
+.postInfo a:hover {
+	color: #bf0071;
+	text-decoration: underline;
+}
+
+h1, h2, h3, h4 {
+    padding:0px;
+    margin:2px 0px;
+
+}
+
+.postTitle {
+	font-size: 1.25em;
+	font-weight: bold;
+	margin-bottom: -3px;
+}
+
+.postTitle a {
+	color: #333333;
+}
+
+.postTitle a:hover {
+	color: #6f477d;
+	text-decoration: none;
+}
+
+.dataBox {
+	padding: 5px;
+	border: 1px solid #6f477d;
+	min-height: 20px;
+}
+.infoBox {
+	padding: 5px;
+
+	margin-bottom: 10px;
+
+	border: 1px solid #6f477d;
+    font-size: 0.75em;
+    text-align: center;
+}
+.dataPic {
+	margin: 4px;
+	border: 1px solid #6f477d;
+	font-size: 0.75em;
+	text-align: center;
+
+}
+
+.dataTitle {
+	margin-top: 10px;
+	font-size: 0.8em;
+	line-height: 1.6em;
+	font-weight:bold;
+}
+
+.timestamp {
+	color: #777777;
+	font-size: 0.7em;
+	line-height: 1.5em;
+}
+
+.postText {
+	font-size: 0.75em;
+	margin-top: 15px;
+	text-align: justify;
+}
+
+hr {
+	border: 0;
+	height: 1px;
+	color: #2F85D5;
+}
+
+.info {
+	float: right;
+	position: relative;
+	left: -15px;
+	width: 180px;
+	padding: 10px;
+	padding-top: 5px;
+	font-size: 0.6em;
+	line-height: 1.55em;
+}
+
+.info a {
+	color: #6f477d;
+}
+
+.info a:hover {
+	color: #bf0071;
+	text-decoration: underline;
+}
+
+.infoSection {
+	color: #333333;
+	padding: 2px;
+	font-weight: bold;
+	margin-top: 10px;
+	margin-bottom: 3px;
+	margin-left: -10px;
+	font-size: 1.2em;
+}
+
+.containerComments {
+	margin: 25px 225px 0px 20px;
+	font-size: 0.75em;
+}
+
+.commentInfo {
+	text-align: right;
+	color: #999999;
+	font-size: 0.75em;
+	margin-top: -5px;
+	margin-bottom: 5px;
+	padding-bottom: 15px;
+}
+
+.timestampComment {
+	color: #777777;
+	font-size: 0.9em;
+	line-height: 1.5em;
+}
+
+
+.inputTitle {
+	width: 600px;
+}
+
+.comment_title {
+	width: 400px;
+}
+
+textarea {
+	width: 600px;
+	height: 300px;
+	font-size: 11px;
+}
+
+.commentTextarea {
+	width: 400px;
+	height: 200px;
+	font-size: 11px;
+}
+
+.code {
+	font: 1.1em 'Courier New', Courier, Fixed;
+}
+
+blockquote {
+	margin: 15px 30px 0 10px;
+	padding-left: 20px;
+	border-left: 5px solid #ddd;
+}
+
+.num_posts {
+	color: #777777;
+}
+
+
+
+.table_st {
+	border: 1px solid #6f477d;
+
+}
+.table_title {
+
+	font-weight: bold;
+}
+
+.dialog {
+      border: solid 2px #6f477d;
+    padding:3px;
+    line-height:1.2em;
+	font-size: 0.7em;
+}
+.dialog h2 {
+    margin:0px;
+    background: #6f477d;
+    color:white;
+    padding:3px;
+}
+.dialog h2 a{
+    color:white;
+}
+.dashboard_item {
+    width: 400px;
+    margin-top:5px
+}
+
