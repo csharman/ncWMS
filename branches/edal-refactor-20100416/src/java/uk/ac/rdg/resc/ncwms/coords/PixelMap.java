@@ -30,6 +30,7 @@ package uk.ac.rdg.resc.ncwms.coords;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.opengis.coverage.grid.GridCoordinates;
@@ -38,7 +39,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.ac.rdg.resc.edal.coverage.domain.Domain;
 import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
+import uk.ac.rdg.resc.edal.coverage.grid.RectilinearGrid;
+import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableAxis;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
+import uk.ac.rdg.resc.edal.util.Utils;
 import uk.ac.rdg.resc.ncwms.cdm.DataReadingStrategy;
 
 /**
@@ -110,9 +114,9 @@ public final class PixelMap
     {
         logger.debug("Using generic method based on iterating over the domain");
         int pixelIndex = 0;
-        for (HorizontalPosition point : targetDomain.getDomainObjects())
+        // Find the nearest grid coordinates to all the points in the domain
+        for (GridCoordinates gridCoords : sourceGrid.findNearestGridPoints(targetDomain))
         {
-            GridCoordinates gridCoords = sourceGrid.findNearestGridPoint(point);
             if (gridCoords != null)
             {
                 this.put(
@@ -126,8 +130,8 @@ public final class PixelMap
     }
 
     /**
-     * Generates a PixelMap for the given Layer.  Data read from the Layer will
-     * be projected onto the given HorizontalGrid
+     * Generates a PixelMap for reading data from the given source grid and
+     * projecting onto the target grid.
      * @param sourceGrid The horizontal coordinate system of the layer
      * (i.e. the source grid)
      * @param targetGrid the horizontal grid representing the image that is to be
@@ -140,26 +144,39 @@ public final class PixelMap
         // Cycle through each pixel in the picture and work out which
         // i and j index in the source data it corresponds to
 
-        // We can gain efficiency if the target grid is a lat-lon grid and
-        // the data exist on a lat-long grid by minimizing the number of
-        // calls to axis.getIndex().
-        if (1 == 2) {}
-        /*if (targetGrid.isLatLon() && sourceGrid instanceof LatLonCoordSys)
+        // We can gain efficiency if the source and target grids are both
+        // rectilinear lat-lon grids (i.e. they have separable latitude and
+        // longitude axes).
+        if (sourceGrid instanceof RectilinearGrid && targetGrid instanceof RectilinearGrid &&
+            Utils.isWgs84LonLat(sourceGrid.getCoordinateReferenceSystem()) &&
+            Utils.isWgs84LonLat(targetGrid.getCoordinateReferenceSystem()))
         {
             logger.debug("Using optimized method for lat-lon coordinates with 1D axes");
-            LatLonCoordSys latLonGrid = (LatLonCoordSys)sourceGrid;
-            int pixelIndex = 0;
-            // Calculate the indices along the x axis.
-            int[] xIndices = new int[targetGrid.getXAxisValues().length];
-            for (int i = 0; i < targetGrid.getXAxisValues().length; i++)
+
+            RectilinearGrid sourceGridRect = (RectilinearGrid)sourceGrid;
+            ReferenceableAxis sourceGridXAxis = sourceGridRect.getXAxis();
+            ReferenceableAxis sourceGridYAxis = sourceGridRect.getYAxis();
+            
+            RectilinearGrid targetGridRect = (RectilinearGrid)targetGrid;
+            ReferenceableAxis targetGridXAxis = targetGridRect.getXAxis();
+            ReferenceableAxis targetGridYAxis = targetGridRect.getYAxis();
+
+            // Calculate the indices along the x axis
+            int[] xIndices = new int[targetGridXAxis.getSize()];
+            List<Double> targetGridLons = targetGridXAxis.getCoordinateValues();
+            for (int i = 0; i < targetGridLons.size(); i++)
             {
-                xIndices[i] = latLonGrid.getLonIndex(targetGrid.getXAxisValues()[i]);
+                double lon = targetGridLons.get(i);
+                xIndices[i] = sourceGridXAxis.getNearestCoordinateIndex(lon);
             }
-            for (double lat : targetGrid.getYAxisValues())
+
+            // Now cycle through the latitude values in the target grid
+            int pixelIndex = 0;
+            for (double lat : targetGridYAxis.getCoordinateValues())
             {
                 if (lat >= -90.0 && lat <= 90.0)
                 {
-                    int yIndex = latLonGrid.getLatIndex(lat);
+                    int yIndex = sourceGridYAxis.getNearestCoordinateIndex(lat);
                     for (int xIndex : xIndices)
                     {
                         this.put(xIndex, yIndex, pixelIndex);
@@ -168,11 +185,11 @@ public final class PixelMap
                 }
                 else
                 {
-                    // We still need to increment the pixel index
+                    // We still need to increment the pixel index value
                     pixelIndex += xIndices.length;
                 }
             }
-        }*/
+        }
         else
         {
             // We can't do better than the generic initialization method
@@ -386,7 +403,8 @@ public final class PixelMap
      * Gets the number of unique i-j pairs in this pixel map. When combined
      * with the size of the resulting image we can quantify the under- or
      * oversampling.  This is the number of data points that will be extracted
-     * by the {@link PixelByPixelDataReader}.
+     * by the {@link DataReadingStrategy#PIXEL_BY_PIXEL PIXEL_BY_PIXEL} data
+     * reading strategy.
      * @return the number of unique i-j pairs in this pixel map.
      */
     public int getNumUniqueIJPairs()
@@ -397,7 +415,8 @@ public final class PixelMap
     /**
      * Gets the sum of the lengths of each row of data points,
      * {@literal i.e.} sum(imax - imin + 1).  This is the number of data points that will
-     * be extracted by the data reader.
+     * be extracted by the {@link DataReadingStrategy#SCANLINE SCANLINE} data
+     * reading strategy.
      * @return the sum of the lengths of each row of data points
      */
     public int getSumRowLengths()
@@ -412,8 +431,8 @@ public final class PixelMap
 
     /**
      * Gets the size of the i-j bounding box that encompasses all data.  This is
-     * the number of data points that will be extracted by the
-     * {@link BoundingBoxDataReader}.
+     * the number of data points that will be extracted using the
+     * {@link DataReadingStrategy#BOUNDING_BOX BOUNDING_BOX} data reading strategy.
      * @return the size of the i-j bounding box that encompasses all data.
      */
     public int getBoundingBoxSize()

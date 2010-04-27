@@ -45,6 +45,7 @@ public interface ProfileDomain extends Domain<VerticalPosition>
      * the coordinate values.
      * @return
      */
+    @Override
     public VerticalCRS getCoordinateReferenceSystem();
 
     /**
@@ -53,21 +54,5 @@ public interface ProfileDomain extends Domain<VerticalPosition>
      * @return
      */
     public List<Double> getCoordinateValues();
-
-}
-
-class ProfileDomainImpl implements ProfileDomain {
-
-    public VerticalCRS getCoordinateReferenceSystem() {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    public List<Double> getCoordinateValues() {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    public List<VerticalPosition> getDomainObjects() {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
 
 }

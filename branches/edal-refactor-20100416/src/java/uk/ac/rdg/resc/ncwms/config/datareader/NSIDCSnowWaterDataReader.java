@@ -39,14 +39,13 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import org.joda.time.DateTime;
-import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.ac.rdg.resc.edal.coverage.domain.Domain;
 import uk.ac.rdg.resc.ncwms.config.LayerImpl;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.edal.position.LonLatPosition;
-import uk.ac.rdg.resc.ncwms.coords.CrsHelper;
+import uk.ac.rdg.resc.edal.util.Utils;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 
 /**
@@ -164,19 +163,9 @@ public class NSIDCSnowWaterDataReader extends DataReader
         }
         
         int picIndex = 0;
-        CrsHelper crsHelper = CrsHelper.fromCrs(domain.getCoordinateReferenceSystem());
         for (HorizontalPosition point : domain.getDomainObjects())
         {
-            LonLatPosition lonLat;
-            try
-            {
-                lonLat = crsHelper.crsToLonLat(point);
-            }
-            catch (TransformException te)
-            {
-                // This is an internal error from which we can't recover
-                throw new RuntimeException(te); // TODO: more specific exception type
-            }
+            LonLatPosition lonLat = Utils.transformToWgs84LonLat(point);
             if (lonLat.getLatitude() >= 0.0 && lonLat.getLatitude() <= 90.0)
             {
                 // Find the index in the source data

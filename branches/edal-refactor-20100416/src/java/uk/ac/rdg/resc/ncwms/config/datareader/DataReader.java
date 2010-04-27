@@ -28,7 +28,7 @@
 
 package uk.ac.rdg.resc.ncwms.config.datareader;
 
-import uk.ac.rdg.resc.ncwms.coords.PointList;
+import uk.ac.rdg.resc.edal.coverage.domain.impl.HorizontalDomain;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FilenameFilter;
@@ -124,7 +124,7 @@ public abstract class DataReader
      * sensible.)</p>
      * <p>This default implementation simply makes multiple calls to
      * {@link #read(java.lang.String, uk.ac.rdg.resc.ncwms.metadata.Layer, int,
-     * int, uk.ac.rdg.resc.ncwms.datareader.PointList) read()},
+     * int, uk.ac.rdg.resc.ncwms.datareader.HorizontalDomain) read()},
      * which is not very efficient because the same file may be opened and closed
      * multiple times (a particular problem when reading from OPeNDAP servers).
      * Subclasses are encouraged to override this with a more efficient method.</p>
@@ -142,7 +142,7 @@ public abstract class DataReader
         List<Integer> tIndices, int zIndex, HorizontalPosition xy)
         throws IOException {
 
-        PointList pointList = new PointList(xy);
+        HorizontalDomain pointList = new HorizontalDomain(xy);
         List<Float> tsData = new ArrayList<Float>();
         for (int tIndex : tIndices) {
             tsData.add(this.read(filename, layer, tIndex, zIndex, pointList).get(0));

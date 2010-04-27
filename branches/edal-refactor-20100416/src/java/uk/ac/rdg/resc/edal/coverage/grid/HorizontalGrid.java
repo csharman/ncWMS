@@ -28,7 +28,10 @@
 
 package uk.ac.rdg.resc.edal.coverage.grid;
 
+import java.util.List;
+import org.opengis.geometry.DirectPosition;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import uk.ac.rdg.resc.edal.coverage.domain.Domain;
 import uk.ac.rdg.resc.edal.position.BoundingBox;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 
@@ -73,6 +76,16 @@ public interface HorizontalGrid extends ReferenceableGrid<HorizontalPosition>
      * position is outside the {@link BoundingBox bounding box} of the grid.
      */
     public GridCoordinates findNearestGridPoint(HorizontalPosition pos);
+        
+    /**
+     * Finds the nearest grid points to each of the positions in the given domain
+     * in a single operation.  The results of this method will be exactly
+     * equivalent to calling {@link #findNearestGridPoint(uk.ac.rdg.resc.edal.position.HorizontalPosition)}
+     * for each point within the domain.  The order of the grid coordinates in
+     * the returned list will be the same as the order of the positions within
+     * the domain.
+     */
+    public List<GridCoordinates> findNearestGridPoints(Domain<HorizontalPosition> domain);
 
     /**
      * Gets the 2D bounding box of the grid in the grid's

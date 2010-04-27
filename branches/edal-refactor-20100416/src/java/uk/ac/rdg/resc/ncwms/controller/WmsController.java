@@ -81,10 +81,10 @@ import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
 import uk.ac.rdg.resc.edal.coverage.grid.RegularGrid;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.edal.position.LonLatPosition;
-import uk.ac.rdg.resc.ncwms.coords.CrsHelper;
+import uk.ac.rdg.resc.edal.util.Utils;
 import uk.ac.rdg.resc.ncwms.coords.LineString;
 import uk.ac.rdg.resc.ncwms.coords.PixelMap;
-import uk.ac.rdg.resc.ncwms.coords.PointList;
+import uk.ac.rdg.resc.edal.coverage.domain.impl.HorizontalDomain;
 import uk.ac.rdg.resc.ncwms.exceptions.CurrentUpdateSequence;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidFormatException;
@@ -610,18 +610,17 @@ public class WmsController extends AbstractController {
         int j = dr.getHeight() - dr.getPixelRow() - 1;
         HorizontalPosition pos = grid.transformCoordinates(dr.getPixelColumn(), j);
         // Transform these coordinates into lon-lat
-        CrsHelper crsHelper = CrsHelper.fromCrs(grid.getCoordinateReferenceSystem());
-        LonLatPosition lonLat = crsHelper.crsToLonLat(pos);
+        LonLatPosition lonLat = Utils.transformToWgs84LonLat(pos);
 
         // Find out the i,j coordinates of this point in the source grid (could be null)
-        GridCoordinates gridCoords = layer.getHorizontalGrid().findNearestGridPoint(pos);
+        HorizontalGrid horizGrid = layer.getHorizontalGrid();
+        GridCoordinates gridCoords = horizGrid.findNearestGridPoint(pos);
         LonLatPosition gridCellCentre = null;
         if (gridCoords != null)
         {
             // Get the location of the centre of the grid cell
-            HorizontalPosition gridCellCentrePos = layer.getHorizontalGrid().transformCoordinates(gridCoords);
-            crsHelper = CrsHelper.fromCrs(layer.getHorizontalGrid().getCoordinateReferenceSystem());
-            gridCellCentre = crsHelper.crsToLonLat(gridCellCentrePos);
+            HorizontalPosition gridCellCentrePos = horizGrid.transformCoordinates(gridCoords);
+            gridCellCentre = Utils.transformToWgs84LonLat(gridCellCentrePos);
         }
 
         // Get the elevation value requested
@@ -1115,13 +1114,13 @@ public class WmsController extends AbstractController {
     }
 
     /**
-     * Gets a PointList that contains (near) the minimum necessary number of
+     * Gets a HorizontalDomain that contains (near) the minimum necessary number of
      * points to sample a layer's source grid of data.  That is to say,
-     * creating a PointList at higher resolution would not result in sampling
+     * creating a HorizontalDomain at higher resolution would not result in sampling
      * significantly more points in the layer's source grid.
      * @param layer The layer for which the transect will be generated
      * @param transect The transect as specified in the request
-     * @return a PointList that contains (near) the minimum necessary number of
+     * @return a HorizontalDomain that contains (near) the minimum necessary number of
      * points to sample a layer's source grid of data.
      */
     private static Domain<HorizontalPosition> getOptimalTransectDomain(Layer layer,
@@ -1134,13 +1133,13 @@ public class WmsController extends AbstractController {
         // working out how many grid points will be sampled.
         int numTransectPoints = 500; // a bit more than the final image width
         int lastNumGridPointsSampled = -1;
-        PointList pointList = null;
+        HorizontalDomain pointList = null;
         while (true) {
             // Create a transect with the required number of points, interpolating
             // between the control points in the line string
             List<HorizontalPosition> points = transect.getPointsOnPath(numTransectPoints);
-            // Create a PointList from the interpolated points
-            PointList testPointList = new PointList(points, transect.getCoordinateReferenceSystem());
+            // Create a HorizontalDomain from the interpolated points
+            HorizontalDomain testPointList = new HorizontalDomain(points, transect.getCoordinateReferenceSystem());
             // Work out how many grid points will be sampled by this transect
             int numGridPointsSampled =
                 new PixelMap(layer.getHorizontalGrid(), testPointList).getNumUniqueIJPairs();

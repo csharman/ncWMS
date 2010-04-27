@@ -29,11 +29,14 @@
 package uk.ac.rdg.resc.edal.coverage.grid.impl;
 
 import java.util.AbstractList;
+import java.util.Collections;
 import java.util.List;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import uk.ac.rdg.resc.edal.coverage.domain.Domain;
 import uk.ac.rdg.resc.edal.coverage.grid.GridCoordinates;
 import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
+import uk.ac.rdg.resc.edal.util.CollectionUtils;
 
 /**
  * Abstract superclass that partially implements a two-dimensional
@@ -80,8 +83,25 @@ public abstract class AbstractHorizontalGrid extends AbstractGrid implements Hor
      * {@link #transformCoordinates(uk.ac.rdg.resc.edal.coverage.grid.GridCoordinates)}.
      */
     @Override
-    public final HorizontalPosition transformCoordinates(int i, int j) {
+    public HorizontalPosition transformCoordinates(int i, int j) {
         return this.transformCoordinates(new GridCoordinatesImpl(i, j));
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>This implementation simply calls
+     * {@link #findNearestGridPoint(uk.ac.rdg.resc.edal.position.HorizontalPosition)
+     * for each horizontal position within the domain, returning an unmodifiable
+     * list of grid coordinates.  Subclasses are encouraged
+     * to implement more efficient methods if possible.</p>
+     */
+    @Override
+    public List<GridCoordinates> findNearestGridPoints(Domain<HorizontalPosition> domain) {
+        List<GridCoordinates> gridCoords = CollectionUtils.newArrayList();
+        for (HorizontalPosition pos : domain.getDomainObjects()) {
+            gridCoords.add(this.findNearestGridPoint(pos));
+        }
+        return Collections.unmodifiableList(gridCoords);
     }
 
     /**

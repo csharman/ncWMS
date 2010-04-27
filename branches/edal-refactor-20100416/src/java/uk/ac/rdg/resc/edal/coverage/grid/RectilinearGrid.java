@@ -64,7 +64,7 @@ public interface RectilinearGrid extends HorizontalGrid {
     public ReferenceableAxis getAxis(int index);
 
     /**
-     * Gets the x axis of the grid, equivalent to {@code getAxis(0)}
+     * Gets the x axis of the grid, equivalent to {@code getAxis(0)}.
      */
     public ReferenceableAxis getXAxis();
 

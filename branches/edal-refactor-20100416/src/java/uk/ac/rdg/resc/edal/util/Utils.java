@@ -28,18 +28,21 @@
 
 package uk.ac.rdg.resc.edal.util;
 
+import java.util.Collections;
+import java.util.List;
 import org.geotoolkit.referencing.CRS;
 import org.geotoolkit.referencing.crs.DefaultGeographicCRS;
 import org.opengis.metadata.extent.GeographicBoundingBox;
+import org.opengis.referencing.FactoryException;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.MathTransform;
+import uk.ac.rdg.resc.edal.coverage.domain.Domain;
 import uk.ac.rdg.resc.edal.position.BoundingBox;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.edal.position.LonLatPosition;
 import uk.ac.rdg.resc.edal.position.impl.BoundingBoxImpl;
 import uk.ac.rdg.resc.edal.position.impl.HorizontalPositionImpl;
 import uk.ac.rdg.resc.edal.position.impl.LonLatPositionImpl;
-import uk.ac.rdg.resc.ncwms.coords.CrsHelper;
 
 /**
  * Contains some useful utility methods.
@@ -127,6 +130,62 @@ public final class Utils {
     }
 
     /**
+     * Transforms all the points in the given domain into a list of horizontal
+     * positions in the required coordinate reference system, in the same order
+     * as the positions within the domain
+     * @param domain The domain of positions to translate
+     * @param targetCrs The CRS to translate into
+     * @return a list of new positions in the given CRS.  The returned points'
+     * CRS will be set to {@code targetCrs}.
+     * @throws NullPointerException if {@code domain} is null, if
+     * {@code pos.getCoordinateReferenceSystem()} is null, or if {@code targetCrs} is null.
+     * @todo error handling
+     */
+    public static List<HorizontalPosition> transformDomain(Domain<HorizontalPosition> domain,
+            CoordinateReferenceSystem targetCrs)
+    {
+        CoordinateReferenceSystem sourceCrs = domain.getCoordinateReferenceSystem();
+        if (domain == null) throw new NullPointerException("Domain cannot be null");
+        if (sourceCrs == null) throw new NullPointerException("Position must have a valid CRS");
+        if (targetCrs == null) throw new NullPointerException("Target CRS cannot be null");
+
+        // CRS.findMathTransform() caches recently-used transform objects so
+        // we should incur no large penalty for multiple invocations
+        try
+        {
+            MathTransform transform = CRS.findMathTransform(sourceCrs, targetCrs);
+            // TODO: perhaps we should change the return type to domain so that
+            // we can simply return the source domain is the transform is the
+            // identity transform?
+            //if (transform.isIdentity()) return pos;
+            // Convert the points from the domain into an array of doubles so
+            // that we can transform them in a single operation
+            double[] points = new double[domain.getDomainObjects().size() * 2];
+            int i = 0;
+            for (HorizontalPosition pos : domain.getDomainObjects())
+            {
+                points[i] = pos.getX();
+                points[i+1] = pos.getY();
+                i += 2;
+            }
+            // transform the points in-place
+            transform.transform(points, 0, points, 0, 1);
+
+            // Create a new list of horizontal positions in the new CRS
+            List<HorizontalPosition> posList = CollectionUtils.newArrayList();
+            for (i = 0; i < points.length; i += 2)
+            {
+                posList.add(new HorizontalPositionImpl(points[i], points[i+1], targetCrs));
+            }
+            return Collections.unmodifiableList(posList);
+        }
+        catch(Exception e)
+        {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
      * Transforms the given HorizontalPosition to a longitude-latitude position
      * in the WGS84 coordinate reference system.
      * @param pos The position to translate
@@ -163,6 +222,24 @@ public final class Utils {
     }
 
     /**
+     * Returns true if the CRS is a WGS84 longitude-latitude system (with the
+     * longitude axis first).
+     * @param crs
+     * @return
+     */
+    public static boolean isWgs84LonLat(CoordinateReferenceSystem crs)
+    {
+        try
+        {
+            return CRS.findMathTransform(crs, DefaultGeographicCRS.WGS84).isIdentity();
+        }
+        catch(FactoryException fe)
+        {
+            return false;
+        }
+    }
+
+    /**
      * Converts the given GeographicBoundingBox to a BoundingBox in WGS84
      * longitude-latitude coordinates.  This method assumes that the longitude
      * and latitude coordinates in the given GeographicBoundingBox are in the
@@ -180,21 +257,21 @@ public final class Utils {
         );
     }
 
-    public static void main(String[] args) throws Exception
-    {
-        CoordinateReferenceSystem nPolar = CRS.decode("EPSG:32661", true);
-        double x = 2000000;
-        double y = 2000000;
-        HorizontalPosition pos = new HorizontalPositionImpl(x/4, y, nPolar);
-        HorizontalPosition pos84 = transformPosition(pos, DefaultGeographicCRS.WGS84);
-        System.out.printf("%f,%f%n", pos84.getX(), pos84.getY());
-
-        System.out.println(nPolar);
-
-
-        CrsHelper helper = CrsHelper.fromCrs(CRS.decode("EPSG:32661", true));
-        LonLatPosition lonLat = helper.crsToLonLat(x/4, y);
-        System.out.printf("%f,%f%n", lonLat.getLongitude(), lonLat.getLatitude());
-    }
+//    public static void main(String[] args) throws Exception
+//    {
+//        CoordinateReferenceSystem nPolar = CRS.decode("EPSG:32661", true);
+//        double x = 2000000;
+//        double y = 2000000;
+//        HorizontalPosition pos = new HorizontalPositionImpl(x/4, y, nPolar);
+//        HorizontalPosition pos84 = transformPosition(pos, DefaultGeographicCRS.WGS84);
+//        System.out.printf("%f,%f%n", pos84.getX(), pos84.getY());
+//
+//        System.out.println(nPolar);
+//
+//
+//        CrsHelper helper = CrsHelper.fromCrs(CRS.decode("EPSG:32661", true));
+//        LonLatPosition lonLat = helper.crsToLonLat(x/4, y);
+//        System.out.printf("%f,%f%n", lonLat.getLongitude(), lonLat.getLatitude());
+//    }
 
 }

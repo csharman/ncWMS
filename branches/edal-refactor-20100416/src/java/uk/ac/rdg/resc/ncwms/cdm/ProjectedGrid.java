@@ -33,7 +33,6 @@ import java.util.Collections;
 import java.util.List;
 import org.geotoolkit.referencing.crs.DefaultGeographicCRS;
 import org.opengis.coverage.grid.GridEnvelope;
-import org.opengis.metadata.extent.GeographicBoundingBox;
 import ucar.nc2.dataset.CoordinateAxis1D;
 import ucar.nc2.dt.GridCoordSystem;
 import ucar.unidata.geoloc.LatLonPoint;
@@ -49,7 +48,6 @@ import uk.ac.rdg.resc.edal.coverage.grid.impl.GridEnvelopeImpl;
 import uk.ac.rdg.resc.edal.position.BoundingBox;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.edal.position.LonLatPosition;
-import uk.ac.rdg.resc.edal.position.impl.BoundingBoxImpl;
 import uk.ac.rdg.resc.edal.position.impl.LonLatPositionImpl;
 import uk.ac.rdg.resc.edal.util.Utils;
 
@@ -138,6 +136,5 @@ class ProjectedGrid extends AbstractHorizontalGrid
 
     @Override
     public GridEnvelope getGridExtent() { return this.gridEnvelope; }
-
 
 }

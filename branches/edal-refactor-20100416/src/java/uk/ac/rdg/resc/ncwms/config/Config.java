@@ -351,7 +351,7 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
         {
             // We didn't get any data from the cache, so we have to read from
             // the source data.
-            data = layerImpl.readPointList(fti, zIndex, grid);
+            data = layerImpl.readHorizontalDomain(fti, zIndex, grid);
             // Put the data in the tile cache
             if (this.cache.isEnabled()) this.tileCache.put(key, data);
         }

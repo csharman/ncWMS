@@ -28,6 +28,8 @@
 
 package uk.ac.rdg.resc.ncwms.cdm;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import org.opengis.coverage.grid.GridEnvelope;
 import uk.ac.rdg.resc.edal.coverage.grid.GridCoordinates;
@@ -41,6 +43,7 @@ import org.slf4j.LoggerFactory;
 import ucar.nc2.dt.GridCoordSystem;
 import uk.ac.rdg.resc.edal.coverage.grid.impl.AbstractHorizontalGrid;
 import uk.ac.rdg.resc.edal.coverage.grid.impl.GridCoordinatesImpl;
+import uk.ac.rdg.resc.edal.coverage.grid.impl.GridEnvelopeImpl;
 import uk.ac.rdg.resc.edal.util.CollectionUtils;
 import uk.ac.rdg.resc.edal.util.Utils;
 import uk.ac.rdg.resc.ncwms.cdm.CurvilinearGrid.Cell;
@@ -74,6 +77,9 @@ final class LookUpTableGrid extends AbstractHorizontalGrid
 
     private final CurvilinearGrid curvGrid;
     private final LookUpTable lut;
+    private final GridEnvelopeImpl gridExtent;
+    private final List<String> axisNames = Collections.unmodifiableList(
+            Arrays.asList("i", "j"));
 
     /**
      * The passed-in coordSys must have 2D horizontal coordinate axes.
@@ -115,6 +121,7 @@ final class LookUpTableGrid extends AbstractHorizontalGrid
         // All points will be returned in WGS84 lon-lat
         super(DefaultGeographicCRS.WGS84);
         this.curvGrid = curvGrid;
+        this.gridExtent = new GridEnvelopeImpl(curvGrid.getNi(), curvGrid.getNj());
         this.lut = lut;
     }
 
@@ -180,20 +187,29 @@ final class LookUpTableGrid extends AbstractHorizontalGrid
         return Utils.getBoundingBox(this.curvGrid.getBoundingBox());
     }
 
-    ///// TODO!!! Implement the methods below
+    @Override
+    public GridEnvelope getGridExtent() {
+        return this.gridExtent;
+    }
 
     @Override
     public List<String> getAxisNames() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return this.axisNames;
     }
 
-    @Override
-    public GridEnvelope getGridExtent() {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
+    /**
+     * {@inheritDoc}
+     * <p>This implementation uses {@link #findNearestGridPoint(uk.ac.rdg.resc.edal.position.HorizontalPosition)}
+     * to find the nearest grid point, then finds the real-world coordinates
+     * of the grid point using {@link #transformCoordinates(uk.ac.rdg.resc.edal.coverage.grid.GridCoordinates)}.
+     * If the real-world position matches {@code pos}, the grid coordinates
+     * will be returned, otherwise null.</p>
+     */
     @Override
     public GridCoordinates inverseTransformCoordinates(HorizontalPosition pos) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        GridCoordinates nearestGridPoint = this.findNearestGridPoint(pos);
+        HorizontalPosition nearestPos = this.transformCoordinates(nearestGridPoint);
+        if (nearestPos.equals(pos)) return nearestGridPoint;
+        return null;
     }
 }

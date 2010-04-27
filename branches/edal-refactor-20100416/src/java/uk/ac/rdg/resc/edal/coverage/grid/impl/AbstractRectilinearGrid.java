@@ -32,6 +32,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import uk.ac.rdg.resc.edal.coverage.domain.Domain;
 import uk.ac.rdg.resc.edal.coverage.grid.GridCoordinates;
 import uk.ac.rdg.resc.edal.coverage.grid.RectilinearGrid;
 import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableAxis;
@@ -39,6 +40,7 @@ import uk.ac.rdg.resc.edal.position.BoundingBox;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.edal.position.impl.BoundingBoxImpl;
 import uk.ac.rdg.resc.edal.position.impl.HorizontalPositionImpl;
+import uk.ac.rdg.resc.edal.util.CollectionUtils;
 import uk.ac.rdg.resc.edal.util.Utils;
 
 /**
@@ -65,8 +67,8 @@ public abstract class AbstractRectilinearGrid extends AbstractHorizontalGrid imp
     @Override
     public final BoundingBox getExtent() {
         return new BoundingBoxImpl(
-            this.getAxis(0).getExtent(),
-            this.getAxis(1).getExtent(),
+            this.getXAxis().getExtent(),
+            this.getYAxis().getExtent(),
             this.getCoordinateReferenceSystem()
         );
     }
@@ -111,8 +113,22 @@ public abstract class AbstractRectilinearGrid extends AbstractHorizontalGrid imp
     @Override
     public GridCoordinates findNearestGridPoint(HorizontalPosition pos) {
         pos = Utils.transformPosition(pos, this.getCoordinateReferenceSystem());
-        int i = this.getXAxis().getNearestCoordinateIndex(pos.getX());
-        int j = this.getYAxis().getNearestCoordinateIndex(pos.getY());
+        return this.findNearestGridPoint(pos.getX(), pos.getY());
+    }
+
+    @Override
+    public List<GridCoordinates> findNearestGridPoints(Domain<HorizontalPosition> domain) {
+        List<HorizontalPosition> posList = Utils.transformDomain(domain, this.getCoordinateReferenceSystem());
+        List<GridCoordinates> gridCoords = CollectionUtils.newArrayList();
+        for (HorizontalPosition pos : posList) {
+            gridCoords.add(this.findNearestGridPoint(pos.getX(), pos.getY()));
+        }
+        return Collections.unmodifiableList(gridCoords);
+    }
+
+    private GridCoordinates findNearestGridPoint(double x, double y) {
+        int i = this.getXAxis().getNearestCoordinateIndex(x);
+        int j = this.getYAxis().getNearestCoordinateIndex(y);
         if (i < 0 || j < 0) return null;
         // [i,j] order corresponds with [x,y] as specified in the contract of
         // RectilinearGrid
