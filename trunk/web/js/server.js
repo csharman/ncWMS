@@ -213,6 +213,7 @@ function getScreenshotLink(url, params) {
         onSuccess: function(transport) {
             try {
                 var myobj = transport.responseText.evalJSON();
+          
             } catch(err) {
                 alert("Invalid JSON returned from server");
                 return;

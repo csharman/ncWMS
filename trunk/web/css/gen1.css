@@ -1,0 +1,78 @@
+DIV{-moz-box-sizing:border-box; -webkit-box-sizing:border-box; box-sizing:border-box;margin:0;padding:0;}
+
+body {
+   font-family: "Trebuchet MS";
+}
+
+
+.header h1, .header h2{
+    padding:0px;
+    margin:0px;
+    font-size:100%;
+}
+
+.header h1 {
+    text-indent: -1000em;
+    cursor:pointer;
+    }
+
+
+
+.datathumb {
+    width:100px;
+    height:95px;
+    float:left;
+    text-align:center;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.datathumb div {
+    width:100px;
+    height:75px;
+}
+
+#openid, #openid INPUT{
+        font-family: "Trebuchet MS";
+        font-size: 12px;
+    }
+
+    #openid INPUT.openid_login{
+       background: url(/openid/openid.gif) no-repeat;
+       background-color: #fff;
+       background-position: 0 50%;
+       color: #000;
+       padding-left: 18px;
+       width: 220px;
+       margin-right: 10px;
+    }
+
+    #openid form { margin:0px; }
+
+.msg{
+	border: 2px solid #FFD724;
+	background: #FFF4C4;
+	width:500px;
+	padding: 10px;
+	margin:20px;
+}
+
+.dialog {
+      border: solid 2px #014359;
+    padding:3px;
+    line-height:1.2em;
+	font-size: 0.7em;
+}
+.dialog h2 {
+    margin:0px;
+    background: #014359;
+    color:white;
+    padding:3px;
+}
+.dialog h2 a{
+    color:white;
+}
+.dashboard_item {
+    width: 400px;
+    margin-top:5px
+}

@@ -15,16 +15,20 @@ var menu = ''; // The menu that is being displayed (e.g. "mersea", "ecoop")
 var bbox = null; // The bounding box of the currently-displayed layer
 var featureInfoUrl = null; // The last-called URL for getFeatureInfo (following a click on the map)
 
+var imageurl=null;
+
+
+
 var layerSwitcher = null;
 var ncwms = null; // Points to the currently-active layer that is coming from this ncWMS
-                  // Will point to either ncwms_tiled or ncwms_untiled.
+// Will point to either ncwms_tiled or ncwms_untiled.
 var ncwms_tiled = null; // We shall maintain two separate layers, one tiles (for scalar
 var ncwms_untiled = null; // quantities) and one untiled (for vector quantities)
 
 var animation_layer = null; // The layer that will be used to display animations
 
 var servers = ['']  // URLs to the servers from which we will display layers
-                    // An empty string means the server that is serving this page.
+// An empty string means the server that is serving this page.
 var activeLayer = null; // The currently-selected layer metadata
 
 var tree = null; // The tree control in the left-hand panel
@@ -37,16 +41,19 @@ var editingToolbar; // Toolbar containing vector graphics editing controls (for 
 
 var screenshotPanel; // Will display a screenshot
 
+var blogPanel; // User to input dataset and variable details
+
+
 var layersLoading = 0;
 var animationSelector = null; // Pop-up panel for selecting the time resolution of an animation
 var projectionCode = null; // Projection code for map baselayer
 
 var debugMode = false; // Can be switched on with a URL parameter to provide more
-                       // information in GetFeatureInfo requests
+// information in GetFeatureInfo requests
 
 var isGoogleEarthAnim = false; // Set true in createAnimation() when we are
-                               // loading a Google Earth animation (nasty use
-                               // of global variable)
+// loading a Google Earth animation (nasty use
+// of global variable)
 
 // Called when the page has loaded
 window.onload = function()
@@ -76,12 +83,12 @@ window.onload = function()
         // Load an image of the transect
         var server = activeLayer.server == '' ? 'wms' : activeLayer.server;
         var transectUrl = server + '?REQUEST=GetTransect' +
-            '&LAYER=' + activeLayer.id +
-            '&CRS=' + map.baseLayer.projection.toString() +
-            '&ELEVATION=' + getZValue() +
-            '&TIME=' + isoTValue +
-            '&LINESTRING=' + line +
-            '&FORMAT=image/png';
+        '&LAYER=' + activeLayer.id +
+        '&CRS=' + map.baseLayer.projection.toString() +
+        '&ELEVATION=' + getZValue() +
+        '&TIME=' + isoTValue +
+        '&LINESTRING=' + line +
+        '&FORMAT=image/png';
         popUp(transectUrl, 450, 350);
     });
 
@@ -97,10 +104,10 @@ window.onload = function()
     // Set up the OpenLayers map widget
     map = new OpenLayers.Map( 'map', {
         controls: [
-            new OpenLayers.Control.PanZoom(),
-            nav,
-            navHistoryPanel,
-            editingToolbar
+        new OpenLayers.Control.PanZoom(),
+        nav,
+        navHistoryPanel,
+        editingToolbar
         ]
     });
     editingToolbar.div.style.visibility = 'hidden';
@@ -128,18 +135,28 @@ window.onload = function()
         }
     });
 
-    var ol_wms = new OpenLayers.Layer.WMS1_1_1( "OpenLayers WMS", 
-        "http://labs.metacarta.com/wms-c/Basic.py?", {layers: 'basic'});
-    var bluemarble_wms = new OpenLayers.Layer.WMS1_1_1( "Blue Marble", 
-        "http://labs.metacarta.com/wms-c/Basic.py?", {layers: 'satellite' });
-    var osm_wms = new OpenLayers.Layer.WMS1_1_1( "Openstreetmap", 
-        "http://labs.metacarta.com/wms-c/Basic.py?", {layers: 'osm-map' });
-    var human_wms = new OpenLayers.Layer.WMS1_1_1( "Human Footprint", 
-        "http://labs.metacarta.com/wms-c/Basic.py?", {layers: 'hfoot' });
+    var ol_wms = new OpenLayers.Layer.WMS1_1_1( "OpenLayers WMS",
+        "http://labs.metacarta.com/wms-c/Basic.py?", {
+            layers: 'basic'
+        });
+    var bluemarble_wms = new OpenLayers.Layer.WMS1_1_1( "Blue Marble",
+        "http://labs.metacarta.com/wms-c/Basic.py?", {
+            layers: 'satellite'
+        });
+    var osm_wms = new OpenLayers.Layer.WMS1_1_1( "Openstreetmap",
+        "http://labs.metacarta.com/wms-c/Basic.py?", {
+            layers: 'osm-map'
+        });
+    var human_wms = new OpenLayers.Layer.WMS1_1_1( "Human Footprint",
+        "http://labs.metacarta.com/wms-c/Basic.py?", {
+            layers: 'hfoot'
+        });
     var demis_wms = new OpenLayers.Layer.WMS1_1_1( "Demis WMS",
-        "http://www2.Demis.nl/MapServer/Request.asp?WRAPDATELINE=TRUE", {layers:
-        'Bathymetry,Topography,Hillshading,Coastlines,Builtup+areas,Waterbodies,Rivers,Streams,Railroads,Highways,Roads,Trails,Borders,Cities,Airports'});
-        
+        "http://www2.Demis.nl/MapServer/Request.asp?WRAPDATELINE=TRUE", {
+            layers:
+            'Bathymetry,Topography,Hillshading,Coastlines,Builtup+areas,Waterbodies,Rivers,Streams,Railroads,Highways,Roads,Trails,Borders,Cities,Airports'
+        });
+
     // Now for the polar stereographic layers, one for each pole.  We do this
     // as an Untiled layer because, for some reason, if we use a tiled layer
     // this results in lots of spurious tiles being requested when switching
@@ -176,7 +193,7 @@ window.onload = function()
             maxExtent: polarWindow,
             maxResolution: polarMaxResolution
         }
-    );
+        );
     var southPoleBaseLayer = new OpenLayers.Layer.WMS.Untiled(
         "South polar stereographic",
         "http://nsidc.org/cgi-bin/atlas_south",
@@ -195,21 +212,21 @@ window.onload = function()
             maxExtent: polarWindow,
             maxResolution: polarMaxResolution
         }
-    );
+        );
 
     // ESSI WMS (see Stefano Nativi's email to me, Feb 15th)
-    /*var essi_wms = new OpenLayers.Layer.WMS.Untiled( "ESSI WMS", 
+    /*var essi_wms = new OpenLayers.Layer.WMS.Untiled( "ESSI WMS",
         "http://athena.pin.unifi.it:8080/ls/servlet/LayerService?",
         {layers: 'sst(time-lat-lon)-T0', transparent: 'true' } );
     essi_wms.setVisibility(false);*/
-            
+
     // The SeaZone Web Map server
     /*var seazone_wms = new OpenLayers.Layer.WMS1_3("SeaZone bathymetry", "http://ws.cadcorp.com/seazone/wms.exe?",
         {layers: 'Bathymetry___Elevation.bds', transparent: 'true'});
     seazone_wms.setVisibility(false);*/
-    
+
     map.addLayers([bluemarble_wms, demis_wms, ol_wms, osm_wms, human_wms, northPoleBaseLayer, southPoleBaseLayer, drawinglayer/*, seazone_wms, essi_wms*/]);
-    
+
     map.setBaseLayer(demis_wms);
     projectionCode = map.baseLayer.projection.getCode();
 
@@ -219,25 +236,29 @@ window.onload = function()
     map.events.register('moveend', map, setPermalinkURL);
     // Register an event for when the base layer of the map is changed
     map.events.register('changebaselayer', map, baseLayerChanged);
-    
+
     // If we have loaded Google Maps and the browser is compatible, add it as a base layer
     if (typeof GBrowserIsCompatible == 'function' && GBrowserIsCompatible()) {
-        var gmapLayer = new OpenLayers.Layer.Google("Google Maps (satellite)", {type: G_SATELLITE_MAP});
-        var gmapLayer2 = new OpenLayers.Layer.Google("Google Maps (political)", {type: G_NORMAL_MAP});
+        var gmapLayer = new OpenLayers.Layer.Google("Google Maps (satellite)", {
+            type: G_SATELLITE_MAP
+        });
+        var gmapLayer2 = new OpenLayers.Layer.Google("Google Maps (political)", {
+            type: G_NORMAL_MAP
+        });
         map.addLayers([gmapLayer, gmapLayer2]);
     }
-    
+
     layerSwitcher = new OpenLayers.Control.LayerSwitcher()
     map.addControl(layerSwitcher);
 
     //map.addControl(new OpenLayers.Control.MousePosition({prefix: 'Lon: ', separator: ' Lat:'}));
     map.zoomTo(1);
-    
+
     // Add a listener for changing the base map
     //map.events.register("changebaselayer", map, function() { alert(this.projection) });
     // Add a listener for GetFeatureInfo
     map.events.register('click', map, getFeatureInfo);
-    
+
     // Set up the autoload object
     // Note that we must get the query string from the top-level frame
     // strip off the leading question mark
@@ -246,9 +267,9 @@ window.onload = function()
         // We're in an iframe so we must also use the query string from the top frame
         populateAutoLoad(window.top.location);
     }
-    
+
     // Set up the palette selector pop-up
-    paletteSelector = new YAHOO.widget.Panel("paletteSelector", { 
+    paletteSelector = new YAHOO.widget.Panel("paletteSelector", {
         width:"400px",
         constraintoviewport: true,
         fixedcenter: true,
@@ -282,6 +303,16 @@ window.onload = function()
         visible:false,
         draggable:true,
         modal:true
+    });
+
+    blogPanel = new YAHOO.widget.Panel("blogPanel", {
+        height:"400px",
+        width:"400px",
+        constraintoviewport: true,
+        close:true,
+	visible:false,
+	draggable:true,
+	modal:true
     });
 
     // Set up the left-hand menu of layers
@@ -330,7 +361,7 @@ function setupLayerMenu()
         // Clear the contents of the tree
         tree.removeChildren(tree.getRoot());
     }
-    
+
     // The servers can be specified using the global "servers" array above
     // but if not, we'll just use the default server
     if (typeof servers == 'undefined' || servers == null) {
@@ -341,10 +372,13 @@ function setupLayerMenu()
     // a "menu" option then this will be sent to all the servers.
     for (var i = 0; i < servers.length; i++) {
         var layerRootNode = new YAHOO.widget.TextNode(
-            {label: "Loading ...", server: servers[i]},
-            tree.getRoot(),
+        {
+            label: "Loading ...",
+            server: servers[i]
+        },
+        tree.getRoot(),
             servers.length == 1 // Only show expanded if this is the only server
-        );
+            );
         layerRootNode.multiExpand = false;
         getMenu(layerRootNode, {
             menu: menu,
@@ -438,9 +472,13 @@ function addNodes(parentNode, layerArray)
         }
         // The treeview control uses the layer.label string for display
         var newNode = new YAHOO.widget.TextNode(
-            {label: layer.label, id: layer.id, server: layer.server},
-            parentNode,
-            false
+        {
+            label: layer.label,
+            id: layer.id,
+            server: layer.server
+        },
+        parentNode,
+        false
         );
         if (typeof layer.children != 'undefined') {
             newNode.multiExpand = false;
@@ -466,10 +504,10 @@ function getFeatureInfo(e)
             "Loading...",
             true, // Means "add a close box"
             null  // Do nothing when popup is closed.
-        );
+            );
         tempPopup.autoSize = true;
         map.addPopup(tempPopup);
-        
+
         var params = {
             REQUEST: "GetFeatureInfo",
             BBOX: map.getExtent().toBBOX(),
@@ -487,7 +525,7 @@ function getFeatureInfo(e)
         featureInfoUrl = ncwms.getFullRequestString(
             params,
             'wms' // We must always load from the home server
-        );
+            );
         // Now make the call to GetFeatureInfo
         OpenLayers.loadURL(featureInfoUrl, '', this, function(response) {
             var xmldoc = response.responseXML;
@@ -503,21 +541,21 @@ function getFeatureInfo(e)
                 // We have a successful result
                 var truncVal = val.toPrecision(4);
                 html = "<b>Lon:</b> " + lon.toFixed(6) + "<br /><b>Lat:</b> " +
-                    lat.toFixed(6) + "<br /><b>Value:</b> " + truncVal + "<br />"
+                lat.toFixed(6) + "<br /><b>Value:</b> " + truncVal + "<br />"
                 if (iIndex && debugMode) {
                     // Add extra information about the grid
                     html += "<i>(Grid indices: i=" + iIndex + ", j=" + jIndex + ")</i><br />";
                     html += "<i>(Grid centre: lon=" + gridCentreLon.toFixed(6) + ", lat="
-                        + gridCentreLat.toFixed(6) + ")</i><br />";
+                    + gridCentreLat.toFixed(6) + ")</i><br />";
                 }
                 if (!isNaN(truncVal)) {
                     // Add links to alter colour scale min/max
                     html += "<a href='#' onclick=setColourScaleMin(" + val + ") " +
-                        "title='Sets the minimum of the colour scale to " + truncVal + "'>" +
-                        "Set colour min</a><br />";
+                    "title='Sets the minimum of the colour scale to " + truncVal + "'>" +
+                    "Set colour min</a><br />";
                     html += "<a href='#' onclick=setColourScaleMax(" + val + ") " +
-                        "title='Sets the maximum of the colour scale to " + truncVal + "'>" +
-                        "Set colour max</a>";
+                    "title='Sets the maximum of the colour scale to " + truncVal + "'>" +
+                    "Set colour max</a>";
                 }
                 if (timeSeriesSelected()) {
                     // Construct a GetFeatureInfo request for the timeseries plot
@@ -538,8 +576,8 @@ function getFeatureInfo(e)
                     }
                     // Image will be 400x300, need to allow a little elbow room
                     html += "<br /><a href='#' onclick=popUp('"
-                        + newURL + "',450,350) title='Creates a plot of the value"
-                        + " at this point over the selected time range'>Create timeseries plot</a>";
+                    + newURL + "',450,350) title='Creates a plot of the value"
+                    + " at this point over the selected time range'>Create timeseries plot</a>";
                 }
             } else {
                 html = "Can't get feature info data<br /> for this layer <a href=\"javascript:popUp('whynot.html', 200, 200)\">(why not?)</a>";
@@ -554,7 +592,7 @@ function getFeatureInfo(e)
                 html,
                 true, // Means "add a close box"
                 null  // Do nothing when popup is closed.
-            );
+                );
             popup.autoSize = true;
             popups.push(popup);
             map.addPopup(popup);
@@ -589,14 +627,14 @@ function clearPopups() {
 }
 
 // Called when the user clicks on the name of a displayable layer in the left-hand menu
-// Gets the details (units, grid etc) of the given layer. 
+// Gets the details (units, grid etc) of the given layer.
 function layerSelected(layerDetails)
 {
     clearPopups();
     activeLayer = layerDetails;
     gotScaleRange = false;
     resetAnimation();
-    
+
     // Units are ncWMS-specific
     var isNcWMS = false;
     if (typeof layerDetails.units != 'undefined') {
@@ -608,8 +646,8 @@ function layerSelected(layerDetails)
 
     // Set the range selector objects
     var zValue = typeof autoLoad.zValue == 'undefined'
-        ? getZValue()
-        : parseFloat(autoLoad.zValue);
+    ? getZValue()
+    : parseFloat(autoLoad.zValue);
 
     // clear the list of z values
     $('zValues').options.length = 0;
@@ -640,7 +678,7 @@ function layerSelected(layerDetails)
         }
         $('zValues').selectedIndex = nearestIndex;
     }
-    
+
     // Only show the scale bar if the data are coming from an ncWMS server
     var scaleVisibility = isNcWMS ? 'visible' : 'hidden';
     $('scaleBar').style.visibility = scaleVisibility;
@@ -648,13 +686,13 @@ function layerSelected(layerDetails)
     $('scaleMax').style.visibility = scaleVisibility;
     $('scaleControls').style.visibility = scaleVisibility;
     $('autoScale').style.visibility = scaleLocked ? 'hidden' : scaleVisibility;
-    
+
     // Set the scale value if this is present in the metadata
     if (typeof layerDetails.scaleRange != 'undefined' &&
-            layerDetails.scaleRange != null &&
-            layerDetails.scaleRange.length > 1 &&
-            layerDetails.scaleRange[0] != layerDetails.scaleRange[1] &&
-            !scaleLocked) {
+        layerDetails.scaleRange != null &&
+        layerDetails.scaleRange.length > 1 &&
+        layerDetails.scaleRange[0] != layerDetails.scaleRange[1] &&
+        !scaleLocked) {
         scaleMinVal = parseFloat(layerDetails.scaleRange[0]);
         scaleMaxVal = parseFloat(layerDetails.scaleRange[1]);
         $('scaleMin').value = scaleMinVal.toPrecision(4);
@@ -665,8 +703,8 @@ function layerSelected(layerDetails)
     // Set the auto-zoom box
     bbox = layerDetails.bbox;
     $('autoZoom').innerHTML = '<a href="#" onclick="map.zoomToExtent(new OpenLayers.Bounds(' +
-        bbox[0] + ',' + bbox[1] + ',' + bbox[2] + ',' + bbox[3] +
-        '));\">Fit layer to window</a>';
+    bbox[0] + ',' + bbox[1] + ',' + bbox[2] + ',' + bbox[3] +
+    '));\">Fit layer to window</a>';
 
     // Automatically zoom to the max extent of the layer if selected
     if ($('zoomOnSelect').checked) {
@@ -675,13 +713,13 @@ function layerSelected(layerDetails)
 
     // Set the link to more details about this dataset
     if (typeof layerDetails.moreInfo != 'undefined' &&
-            layerDetails.moreInfo != '') {
+        layerDetails.moreInfo != '') {
         $('moreInfo').innerHTML = '<a target="_blank" href="' + layerDetails.moreInfo +
-            '">More information</a>';
+        '">More information</a>';
     } else {
         $('moreInfo').innerHTML = '';
     }
-    
+
     // Set up the copyright statement
     $('copyright').innerHTML = layerDetails.copyright;
 
@@ -766,7 +804,7 @@ function layerSelected(layerDetails)
             // Widen the panel text to accommodate the calendar
             $('panelText').style.width = "512px";
             $('date').innerHTML = '<b>Date/time: </b>';
-            
+
             if (basicDateSelector == null) {
                 basicDateSelector = new BasicDateSelector({
                     el: $('date'),
@@ -817,8 +855,8 @@ function dateSelected(cal, force)
         var selectedDate = new Date(cal.date.getTime());
         // Print out date, e.g. "15 Oct 2007"
         var prettyPrintDate = selectedDate.getFullYear() == 0
-            ? selectedDate.print('%d %b 0000')
-            : selectedDate.print('%d %b %Y');
+        ? selectedDate.print('%d %b 0000')
+        : selectedDate.print('%d %b %Y');
         $('date').innerHTML = '<b>Date/time: </b>' + prettyPrintDate;
         loadTimesteps(makeIsoDate(selectedDate));
     }
@@ -886,7 +924,7 @@ function updateTimesteps(selectedIsoDate, times)
     }
     s += '</select>';
     $('time').innerHTML = s;
-    
+
     timeSelect = $('tValues');
     // If there was a previously-selected time, select it
     if (selectedTimeStr) {
@@ -945,7 +983,7 @@ function autoScale(newVariable)
         isoTValue = $('tValues').value;
     }
     if (newVariable) {
-        // We use the bounding box of the whole layer 
+        // We use the bounding box of the whole layer
         dataBounds = bbox[0] + ',' + bbox[1] + ',' + bbox[2] + ',' + bbox[3];
     } else {
         // Use the intersection of the viewport and the layer's bounding box
@@ -1153,7 +1191,7 @@ function animationLoaded()
             minResolution: map.baseLayer.minResolution,
             resolutions: map.baseLayer.resolutions
         }
-    );
+        );
     setVisibleLayer(true);
     map.addLayers([animation_layer]);
 }
@@ -1171,9 +1209,9 @@ function baseLayerChanged(event)
     clearPopups();
     // Change the parameters of the map based on the new base layer
     map.setOptions({
-       //projection: projCode,
-       maxExtent: map.baseLayer.maxExtent,
-       maxResolution: map.baseLayer.maxResolution
+        //projection: projCode,
+        maxExtent: map.baseLayer.maxExtent,
+        maxResolution: map.baseLayer.maxResolution
     });
     if (projectionCode != map.baseLayer.projection.getCode()) {
         // We've changed the projection of the base layer
@@ -1208,9 +1246,9 @@ function updateMap()
     // because it seems that the calendar.show() method can change the visibility
     // unexpectedly
     $('zValues').style.visibility = $('zValues').options.length == 0 ? 'hidden' : 'visible';
-    
+
     var logscale = $('scaleSpacing').value == 'logarithmic';
-    
+
     // Update the intermediate scale markers
     var min = logscale ? Math.log(parseFloat(scaleMinVal)) : parseFloat(scaleMinVal);
     var max = logscale ? Math.log(parseFloat(scaleMaxVal)) : parseFloat(scaleMaxVal);
@@ -1219,20 +1257,20 @@ function updateMap()
     var scaleTwoThirds = logscale ? Math.exp(min + 2 * third) : min + 2 * third;
     $('scaleOneThird').innerHTML = scaleOneThird.toPrecision(4);
     $('scaleTwoThirds').innerHTML = scaleTwoThirds.toPrecision(4);
-    
+
     if ($('tValues')) {
         isoTValue = $('tValues').value;
     }
-    
+
     // Set the map bounds automatically
     if (typeof autoLoad.bbox != 'undefined') {
         map.zoomToExtent(getBounds(autoLoad.bbox));
     }
-    
+
     // Make sure the autoLoad object is cleared
     autoLoad = new Object();
-    
-    // Get the default style for this layer.  There is some defensive programming here to 
+
+    // Get the default style for this layer.  There is some defensive programming here to
     // take old servers into account that don't advertise the supported styles
     var style = typeof activeLayer.supportedStyles == 'undefined' ? 'boxfill' : activeLayer.supportedStyles[0];
     if (paletteName != null) {
@@ -1257,30 +1295,39 @@ function updateMap()
         // Buffer is set to 1 to avoid loading a large halo of tiles outside the
         // current viewport
         ncwms_tiled = new OpenLayers.Layer.WMS1_3("ncWMS",
-            activeLayer.server == '' ? 'wms' : activeLayer.server, 
+            activeLayer.server == '' ? 'wms' : activeLayer.server,
             params,
-            {buffer: 1, wrapDateLine: map.baseLayer.projection == 'EPSG:4326'}
-        );
+            {
+                buffer: 1,
+                wrapDateLine: map.baseLayer.projection == 'EPSG:4326'
+            }
+            );
         ncwms_untiled = new OpenLayers.Layer.WMS1_3("ncWMS",
-            activeLayer.server == '' ? 'wms' : activeLayer.server, 
+            activeLayer.server == '' ? 'wms' : activeLayer.server,
             params,
-            {buffer: 1, ratio: 1.5, singleTile: true, wrapDateLine: map.baseLayer.projection == 'EPSG:4326'}
-        );
+            {
+                buffer: 1,
+                ratio: 1.5,
+                singleTile: true,
+                wrapDateLine: map.baseLayer.projection == 'EPSG:4326'
+            }
+            );
         setVisibleLayer(false);
         map.addLayers([ncwms_tiled, ncwms_untiled]);
-        // Create a layer for coastlines
-        // TOOD: only works at low res (zoomed out)
-        //var coastline_wms = new OpenLayers.Layer.WMS( "Coastlines", 
-        //    "http://labs.metacarta.com/wms/vmap0?", {layers: 'coastline_01', transparent: 'true' } );
-        //map.addLayers([ncwms, coastline_wms]);
-        //map.addLayers([ncwms_tiled, ncwms_untiled]);
+    // Create a layer for coastlines
+    // TOOD: only works at low res (zoomed out)
+    //var coastline_wms = new OpenLayers.Layer.WMS( "Coastlines",
+    //    "http://labs.metacarta.com/wms/vmap0?", {layers: 'coastline_01', transparent: 'true' } );
+    //map.addLayers([ncwms, coastline_wms]);
+    //map.addLayers([ncwms_tiled, ncwms_untiled]);
     } else {
         setVisibleLayer(false);
         ncwms.url = activeLayer.server == '' ? 'wms' : activeLayer.server;
         ncwms.mergeNewParams(params);
     }
-    
+
     var imageURL = ncwms.getURL(new OpenLayers.Bounds(bbox[0], bbox[1], bbox[2], bbox[3]));
+    $('blog').style.visibility = 'visible';
     $('testImage').innerHTML = '<a target="_blank" href="' + imageURL + '">test image</a>';
     $('screenshot').style.visibility = 'visible'; // TODO: enable this when working properly
     setGEarthURL();
@@ -1306,25 +1353,25 @@ function updatePaletteSelector()
         $('paletteDiv').innerHTML = 'There are no alternative palettes for this layer';
         return;
     }
-    
+
     // TODO test if coming from a different server
     var width = 50;
     var height = 200;
     var server = activeLayer.server;
     if (server == '') server = 'wms';
     var paletteUrl = server + '?REQUEST=GetLegendGraphic' +
-        '&LAYER=' + activeLayer.id +
-        '&COLORBARONLY=true' +
-        '&WIDTH=1' +
-        '&HEIGHT=' + height +
-        '&NUMCOLORBANDS=' + $('numColorBands').value;
+    '&LAYER=' + activeLayer.id +
+    '&COLORBARONLY=true' +
+    '&WIDTH=1' +
+    '&HEIGHT=' + height +
+    '&NUMCOLORBANDS=' + $('numColorBands').value;
     var palStr = '<div style="overflow: auto">'; // ensures scroll bars appear if necessary
     palStr += '<table border="1"><tr>';
     for (var i = 0; i < palettes.length; i++) {
         palStr += '<td><img src="' + paletteUrl + '&PALETTE=' + palettes[i] +
-            '" width="' + width + '" height="' + height + '" title="' + palettes[i] +
-            '" onclick="paletteSelected(\'' + palettes[i] + '\')"' +
-            '/></td>';
+        '" width="' + width + '" height="' + height + '" title="' + palettes[i] +
+        '" onclick="paletteSelected(\'' + palettes[i] + '\')"' +
+        '/></td>';
     }
     palStr += '</tr></table></div>';
     $('paletteDiv').innerHTML = palStr;
@@ -1344,7 +1391,7 @@ function paletteSelected(thePalette)
 function updateScaleBar()
 {
     $('scaleBar').src = 'wms?REQUEST=GetLegendGraphic&COLORBARONLY=true&WIDTH=1&HEIGHT=398'
-        + '&PALETTE=' + paletteName + '&NUMCOLORBANDS=' + $('numColorBands').value;
+    + '&PALETTE=' + paletteName + '&NUMCOLORBANDS=' + $('numColorBands').value;
 }
 
 // Decides whether to display the animation, or the tiled or untiled
@@ -1398,15 +1445,15 @@ function setPermalinkURL()
         var loc = window.top.location;
         var url = loc.protocol + '//' + loc.host + loc.pathname;
         url +=
-            '?menu=' + menu +
-            '&layer=' + activeLayer.id +
-            '&elevation=' + getZValue() +
-            '&time=' + isoTValue +
-            '&scale=' + scaleMinVal + ',' + scaleMaxVal +
-            '&bbox=' + map.getExtent().toBBOX();
+        '?menu=' + menu +
+        '&layer=' + activeLayer.id +
+        '&elevation=' + getZValue() +
+        '&time=' + isoTValue +
+        '&scale=' + scaleMinVal + ',' + scaleMaxVal +
+        '&bbox=' + map.getExtent().toBBOX();
         $('permalink').innerHTML = '<a target="_blank" href="' + url +
-            '">Permalink</a>&nbsp;|&nbsp;<a href="mailto:?subject=Godiva2%20link&body='
-            + escape(url) + '">email</a>';
+        '">Permalink</a>&nbsp;|&nbsp;<a href="mailto:?subject=Godiva2%20link&body='
+        + escape(url) + '">email</a>';
         $('permalink').style.visibility = 'visible';
     }
 }
@@ -1456,6 +1503,73 @@ function getGEarthURL()
     return gEarthURL;
 }
 
+
+
+//The following data items are required
+//DATASET	The id of the dataset being viewed	false
+//VARIABLE	The variable within the dataset being viewed	false
+//TIME	The timestep (ISO 8601 string) of the data being viewed	true
+//ELEVATION	The z value of the data being viewed	true
+//GEOMETRY	Well-Known Text representation of the spatial geometry. For a map, this will represent the bounding box of the map. Will usually, but not always, be in latitude-longitude coordinates	true
+//CRS	The code of the horizontal coordinate reference system of the map being viewed	true
+
+function loadBlogPost() {
+    if (ncwms == null) {
+        alert('Data not yet loaded');
+    } else {
+        if (activeLayer != null) {
+
+            // Note that we must use window.top to get the containing page, in case
+            // the Godiva2 page is embedded in an iframe
+            // Get the window location, minus any query string or hash
+            var loc = window.top.location;
+            var url = loc.protocol + '//' + loc.host + loc.pathname;
+            url +=
+            '?menu=' + menu +
+            '&layer=' + activeLayer.id +
+            '&elevation=' + getZValue() +
+            '&time=' + isoTValue +
+            '&scale=' + scaleMinVal + ',' + scaleMaxVal +
+            '&bbox=' + map.getExtent().toBBOX();
+
+            // See code in server.js
+            var bounds = map.getExtent();
+
+            document.blogging.urlBG.value = map.baseLayer.getURL(bounds);
+            document.blogging.urlFG.value = ncwms.getURL(bounds);
+            document.blogging.urlPalette.value = $('scaleBar').src;
+            document.blogging.title.value = $('layerPath').innerHTML;
+            document.blogging.upperValue.value = $('scaleMax').value;
+            document.blogging.twoThirds.value = $('scaleTwoThirds').innerHTML;
+            document.blogging.oneThird.value = $('scaleOneThird').innerHTML;
+            document.blogging.lowerValue.value = $('scaleMin').value;
+            document.blogging.latLon.value = map.baseLayer.projection.getCode() == 'EPSG:4326';
+            document.blogging.crs.value = map.baseLayer.projection.getCode();
+            document.blogging.geom.value =  map.getExtent().toBBOX().toString();
+            document.blogging.url.value = url;
+            document.blogging.datasetid.value = activeLayer.id;
+
+            // Add the elevation, time and units if this layer has them
+            var zAxis = activeLayer.zaxis;
+            if (zAxis != null) {
+                var axisLabel = zAxis.positive ? 'Elevation' : 'Depth';
+                var zValue = $('zValues').options[$('zValues').selectedIndex].text;
+                document.blogging.elevation.value = axisLabel + ': ' + zValue + ' ' + zAxis.units;
+            }
+            document.blogging.timetxt.value = isoTValue;
+
+            if (typeof activeLayer.units != 'undefined') {
+                document.blogging.units.value = activeLayer.units;
+            }
+
+            blogPanel.render(document.body);
+            blogPanel.show();
+        }
+    }
+}
+
+
+
 // Loads a screenshot
 function loadScreenshot() {
     if (ncwms == null) {
@@ -1497,8 +1611,10 @@ function loadScreenshot() {
             error: screenshotError,
             urlparams: params
         });
+
     }
 }
+
 
 // Called when the server has generated a screenshot
 function gotScreenshotLink(url)
@@ -1516,7 +1632,7 @@ function screenshotError(exception)
 }
 
 // Returns a bounding box as a string in format "minlon,minlat,maxlon,maxlat"
-// that represents the intersection of the currently-visible map layer's 
+// that represents the intersection of the currently-visible map layer's
 // bounding box and the viewport's bounding box.
 function getIntersectionBBOX()
 {

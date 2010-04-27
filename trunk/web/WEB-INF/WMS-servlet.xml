@@ -121,6 +121,14 @@
         <property name="screenshotCache" value="${ncwms.workingDirectory}/screenshots"/>
         <property name="methodNameResolver"><ref local="screenshotMethodNameResolver"/></property>
     </bean>
+
+
+    <!-- This Controller is used for login to blog -->
+    <!--bean id="openidController" class="uk.ac.rdg.resc.ncwms.controller.Consumer"
+            init-method="init">
+    </bean-->
+
+
     <!-- This maps URL patterns to the methods of the screenshot controller -->
     <bean id="screenshotMethodNameResolver" class="org.springframework.web.servlet.mvc.multiaction.PropertiesMethodNameResolver">
         <property name="mappings">

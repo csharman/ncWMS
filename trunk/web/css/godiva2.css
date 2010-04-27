@@ -23,9 +23,24 @@ div.help {
     font-size: 11px;
 }
 
+
+#topRight {
+    position: absolute;
+    left: 900px;
+    top: 1px;
+}
+
+
+#topleft {
+    position: absolute;
+    left: 1px;
+    top: 1px;
+}
+
 #leftPanel {
     position: absolute;
-    left: 0px;
+    top:20px;
+    left: 1px;
     overflow: auto;
     /*margin: 8px;*/
     padding: 0px;
