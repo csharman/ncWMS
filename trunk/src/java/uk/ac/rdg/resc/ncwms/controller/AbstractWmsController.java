@@ -433,6 +433,9 @@ public abstract class AbstractWmsController extends AbstractController {
 
         // Create an object that will turn data into BufferedImages
         String[] styles = styleRequest.getStyles();
+        if (styles.length == 0) {
+            throw new StyleNotDefinedException("There is no STYLE defined");
+        }
         Range<Float> scaleRange = styleRequest.getColorScaleRange();
         if (scaleRange == null) scaleRange = layer.getApproxValueRange();
         Boolean logScale = styleRequest.isScaleLogarithmic();
@@ -448,6 +451,11 @@ public abstract class AbstractWmsController extends AbstractController {
             String styleType = styleStrEls[0];
             if (styleType.equalsIgnoreCase("boxfill")) style = ImageProducer.Style.BOXFILL;
             else if (styleType.equalsIgnoreCase("vector")) style = ImageProducer.Style.VECTOR;
+            else if (styleType.equalsIgnoreCase("fancyvec")) style = ImageProducer.Style.FANCYVEC;
+            else if (styleType.equalsIgnoreCase("linevec")) style = ImageProducer.Style.LINEVEC;
+            else if (styleType.equalsIgnoreCase("stumpvec")) style = ImageProducer.Style.STUMPVEC;
+            else if (styleType.equalsIgnoreCase("trivec")) style = ImageProducer.Style.TRIVEC;
+            else if (styleType.equalsIgnoreCase("barb")) style = ImageProducer.Style.BARB;
             else throw new StyleNotDefinedException("The style " + styles[0] +
                 " is not supported by this server");
 
