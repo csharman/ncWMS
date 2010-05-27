@@ -47,37 +47,6 @@ public final class CollectionUtils {
     private CollectionUtils() { throw new AssertionError(); }
 
     /**
-     * Returns a view of the given array as a List of Doubles.
-     * Note that we can't use {@link Arrays#asList(T[])} with an array of
-     * primitives to get the desired result.
-     * @param arr The array of doubles to wrap as a List
-     * @return A list of double that wraps the given array.  The list is
-     * modifiable in that it supports the {@link List#set(int, java.lang.Object)}
-     * method, but does not support {@link List#add(java.lang.Object)} or
-     * {@link List#remove(int)}, because the list has a fixed size.
-     * @throws NullPointerException if {@code arr == null}
-     */
-    public static List<Double> doubleListFromArray(final double[] arr)
-    {
-        return new AbstractList<Double>()
-        {
-            @Override public Double get(int index) {
-                return arr[index];
-            }
-
-            @Override public int size() {
-                return arr.length;
-            }
-
-            @Override public Double set(int index, Double val) {
-                double prev = arr[index];
-                arr[index] = val;
-                return prev;
-            }
-        };
-    }
-
-    /**
      * Returns a new empty ArrayList for objects of a certain type
      */
     public static <T> ArrayList<T> newArrayList()
@@ -115,6 +84,40 @@ public final class CollectionUtils {
     public static <K, V> LinkedHashMap<K, V> newLinkedHashMap()
     {
         return new LinkedHashMap<K, V>();
+    }
+
+    /**
+     * Creates and returns an unmodifiable List that wraps the given array.
+     * Changes to the array will be reflected in the List.
+     * @param arr The array to wrap as a List
+     * @return an unmodifiable List that wraps the array
+     * @throws NullPointerException if the array is null
+     */
+    public static List<Float> listFromFloatArray(final float[] arr)
+    {
+        if (arr == null) throw new NullPointerException("array cannot be null");
+        return new AbstractList<Float>()
+        {
+            @Override public Float get(int index) { return arr[index]; }
+            @Override public int size() { return arr.length; }
+        };
+    }
+
+    /**
+     * Creates and returns an unmodifiable List that wraps the given array.
+     * Changes to the array will be reflected in the List.
+     * @param arr The array to wrap as a List
+     * @return an unmodifiable List that wraps the array
+     * @throws NullPointerException if the array is null
+     */
+    public static List<Double> listFromDoubleArray(final double[] arr)
+    {
+        if (arr == null) throw new NullPointerException("array cannot be null");
+        return new AbstractList<Double>()
+        {
+            @Override public Double get(int index) { return arr[index]; }
+            @Override public int size() { return arr.length; }
+        };
     }
 
 }

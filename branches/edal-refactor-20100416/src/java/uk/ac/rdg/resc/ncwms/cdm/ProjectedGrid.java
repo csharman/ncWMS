@@ -120,7 +120,7 @@ class ProjectedGrid extends AbstractHorizontalGrid
     private ProjectionPoint getProjectionPoint(HorizontalPosition pos) {
         // Translate the point into lat-lon coordinates
         pos = Utils.transformPosition(pos, this.getCoordinateReferenceSystem());
-        // Now we go from lon-lat to the coordinate system of the axes
+        // Now we go from lon-lat to the coordinate system of the axes.
         // ProjectionImpls are not thread-safe.  Thanks to Marcos
         // Hermida of Meteogalicia for pointing this out!
         synchronized(this.proj) {

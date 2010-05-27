@@ -28,6 +28,8 @@
 
 package uk.ac.rdg.resc.ncwms.util;
 
+import uk.ac.rdg.resc.edal.util.Ranges;
+import uk.ac.rdg.resc.edal.util.Range;
 import java.io.File;
 import java.io.IOException;
 import java.text.ParseException;

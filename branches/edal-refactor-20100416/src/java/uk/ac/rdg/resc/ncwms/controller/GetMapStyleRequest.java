@@ -30,8 +30,8 @@ package uk.ac.rdg.resc.ncwms.controller;
 
 import java.awt.Color;
 import uk.ac.rdg.resc.ncwms.exceptions.WmsException;
-import uk.ac.rdg.resc.ncwms.util.Range;
-import uk.ac.rdg.resc.ncwms.util.Ranges;
+import uk.ac.rdg.resc.edal.util.Range;
+import uk.ac.rdg.resc.edal.util.Ranges;
 
 /**
  * Contains those portions of a GetMap request that pertain to styling and
