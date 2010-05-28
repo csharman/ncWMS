@@ -27,35 +27,38 @@
  */
 package uk.ac.rdg.resc.edal.coverage;
 
-import org.opengis.geometry.DirectPosition;
+import org.opengis.coverage.grid.GridCoordinates;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import uk.ac.rdg.resc.edal.coverage.grid.Grid;
-import uk.ac.rdg.resc.edal.coverage.grid.GridValuesMatrix;
-import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableGrid;
+import uk.ac.rdg.resc.edal.coverage.domain.GridSeriesDomain;
+import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
+import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableAxis;
 
 /**
- *
+ * @todo I guess we don't need a GridValuesMatrix class?  Maybe we only need the
+ * high-level methods in this class for extracting different coverage types?  The
+ * referencing is taken care of by the GridSeriesDomain.
  * @author Jon
  */
-public interface DiscreteGridPointCoverage<DP extends DirectPosition> extends DiscreteCoverage<DP> {
+public interface DiscreteGridPointCoverage extends DiscreteCoverage<GridCoordinates> {
 
     /**
-     * Returns the {@link Grid} object that forms the domain of this coverage.
-     * This object must also implement {@link GridValuesMatrix}.
-     * @return the {@link Grid} object that forms the domain of this coverage.
+     * Returns the domain of this coverage, which is modelled as a composition
+     * of a {@link HorizontalGrid}, plus {@link ReferenceableAxis ReferenceableAxes}
+     * for the vertical and temporal dimensions.
+     * @return the domain of this coverage.
      */
     @Override
-    public ReferenceableGrid<DP> getDomain();
+    public GridSeriesDomain getDomain();
 
     /** getValues() will re-use the GridValueMatrix's getValues() method */
 
     /**
      * Returns the {@link CoordinateReferenceSystem} to which the points in the
-     * {@link #getGrid() grid} can be referenced.  This must match the Grid's
-     * own {@link ReferenceableGrid#getCoordinateReferenceSystem() coordinate reference
+     * {@link #getDomain() grid} can be referenced.  This must match the domain's
+     * own {@link GridSeriesDomain#getCoordinateReferenceSystem() coordinate reference
      * system}.
      * @return the {@link CoordinateReferenceSystem} to which the points in the
-     * {@link #getGrid() grid} can be referenced.
+     * {@link #getDomain() grid} can be referenced.
      */
     @Override
     public CoordinateReferenceSystem getCoordinateReferenceSystem();

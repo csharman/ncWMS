@@ -144,6 +144,9 @@ public final class Utils {
      * @throws NullPointerException if {@code domain} is null, if
      * {@code pos.getCoordinateReferenceSystem()} is null, or if {@code targetCrs} is null.
      * @todo error handling
+     * @todo perhaps we should change the return type to domain so that
+     * we can simply return the source domain if the transform is the
+     * identity transform?
      */
     public static List<HorizontalPosition> transformDomain(Domain<HorizontalPosition> domain,
             CoordinateReferenceSystem targetCrs)
@@ -166,10 +169,6 @@ public final class Utils {
         try
         {
             MathTransform transform = CRS.findMathTransform(sourceCrs, targetCrs);
-            // TODO: perhaps we should change the return type to domain so that
-            // we can simply return the source domain if the transform is the
-            // identity transform?
-            //if (transform.isIdentity()) return pos;
             // Convert the points from the domain into an array of doubles so
             // that we can transform them in a single operation
             double[] points = new double[domainObjects.size() * 2];

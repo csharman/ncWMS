@@ -28,6 +28,10 @@
 
 package uk.ac.rdg.resc.edal.coverage.domain;
 
+import java.util.List;
+import org.opengis.coverage.grid.GridCoordinates;
+import org.opengis.geometry.DirectPosition;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
 import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableAxis;
 import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableGrid;
@@ -42,21 +46,50 @@ import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableGrid;
  * {@link ReferenceableGrid}, but this would introduce significant complications
  * mapping from four-dimensional grid points to real-world points, particularly
  * taking into account all the possibilities of different axis ordering.</p>
+ * @todo Provide convenience methods to get the horizontal, vertical and temporal CRSs
+ * separately?  The horizontal CRS is available through the HorizontalGrid.
  * @author Jon
  */
-public interface GridSeriesDomain
+public interface GridSeriesDomain extends Domain<GridCoordinates>
 {
 
+    /**
+     * @todo Constraints?  Is this allowed to be null?
+     * @return
+     */
     public HorizontalGrid getHorizontalGrid();
 
+    /**
+     * Returns the vertical axis of this domain, which translates between grid
+     * indices and real-world vertical positions, or null if this domain has no
+     * vertical axis.
+     */
     public ReferenceableAxis getVerticalAxis();
 
+    /**
+     * Returns the temporal axis of this domain, which translates between grid
+     * indices and real-world temporal positions, or null if this domain has no
+     * temporal axis.
+     */
     public ReferenceableAxis getTemporalAxis();
 
     /**
-     * Returns the total number of points in the domain, i.e. the product of
-     * the sizes of the horizontal grid and the temporal and vertical axes
+     * Gets the coordinate reference system to which objects in this domain are
+     * referenced.  Returns null if the domain objects cannot be referenced
+     * to an external coordinate reference system.
+     * @return the coordinate reference system to which objects in this domain are
+     * referenced, or null if the domain objects are not externally referenced.
+     * @todo Should this be a CompoundCRS of the horizontal, vertical and temporal
+     * CRSs?  In which order?
      */
-    public int getSize();
+    @Override
+    public CoordinateReferenceSystem getCoordinateReferenceSystem();
+
+    /**
+     * Returns the {@link List} of domain objects that comprise this domain.
+     * (Probably not a very useful method generally.)
+     */
+    @Override
+    public List<GridCoordinates> getDomainObjects();
 
 }
