@@ -36,6 +36,8 @@ import org.opengis.metadata.extent.GeographicBoundingBox;
 import org.opengis.referencing.FactoryException;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.MathTransform;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import uk.ac.rdg.resc.edal.coverage.domain.Domain;
 import uk.ac.rdg.resc.edal.position.BoundingBox;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
@@ -49,6 +51,8 @@ import uk.ac.rdg.resc.edal.position.impl.LonLatPositionImpl;
  * @author Jon
  */
 public final class Utils {
+
+    private static final Logger logger = LoggerFactory.getLogger(Utils.class);
 
     /** Prevents direct instantiation */
     private Utils() { throw new AssertionError(); }
@@ -144,10 +148,18 @@ public final class Utils {
     public static List<HorizontalPosition> transformDomain(Domain<HorizontalPosition> domain,
             CoordinateReferenceSystem targetCrs)
     {
+        logger.debug("Transforming {} points from {} to {}", new Object[]{
+            domain.getDomainObjects().size(),
+            domain.getCoordinateReferenceSystem().getName(),
+            targetCrs.getName()
+        });
+        
         CoordinateReferenceSystem sourceCrs = domain.getCoordinateReferenceSystem();
         if (domain == null) throw new NullPointerException("Domain cannot be null");
         if (sourceCrs == null) throw new NullPointerException("Position must have a valid CRS");
         if (targetCrs == null) throw new NullPointerException("Target CRS cannot be null");
+
+        List<HorizontalPosition> domainObjects = domain.getDomainObjects();
 
         // CRS.findMathTransform() caches recently-used transform objects so
         // we should incur no large penalty for multiple invocations
@@ -155,21 +167,21 @@ public final class Utils {
         {
             MathTransform transform = CRS.findMathTransform(sourceCrs, targetCrs);
             // TODO: perhaps we should change the return type to domain so that
-            // we can simply return the source domain is the transform is the
+            // we can simply return the source domain if the transform is the
             // identity transform?
             //if (transform.isIdentity()) return pos;
             // Convert the points from the domain into an array of doubles so
             // that we can transform them in a single operation
-            double[] points = new double[domain.getDomainObjects().size() * 2];
+            double[] points = new double[domainObjects.size() * 2];
             int i = 0;
-            for (HorizontalPosition pos : domain.getDomainObjects())
+            for (HorizontalPosition pos : domainObjects)
             {
                 points[i] = pos.getX();
                 points[i+1] = pos.getY();
                 i += 2;
             }
             // transform the points in-place
-            transform.transform(points, 0, points, 0, 1);
+            transform.transform(points, 0, points, 0, domainObjects.size());
 
             // Create a new list of horizontal positions in the new CRS
             List<HorizontalPosition> posList = CollectionUtils.newArrayList();

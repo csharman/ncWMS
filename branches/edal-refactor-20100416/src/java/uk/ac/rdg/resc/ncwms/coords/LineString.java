@@ -48,8 +48,8 @@ public final class LineString {
 
     private final List<HorizontalPosition> controlPoints;
     private final transient double[] controlPointDistances;
-    private double pathLength;
-    private CoordinateReferenceSystem crs;
+    private final double pathLength;
+    private final CoordinateReferenceSystem crs;
 
     /**
      * Constructs a {@link LineString} from a line string in the form.
@@ -93,16 +93,17 @@ public final class LineString {
         // While we're doing this we'll calculate the total length of the path
         // up to each waypoint
         this.controlPointDistances = new double[this.controlPoints.size()];
-        this.pathLength = 0.0;
+        double pathLengthTmp = 0.0;
         this.controlPointDistances[0] = this.pathLength;
         for (int i = 1; i < this.controlPoints.size(); i++) {
             HorizontalPosition p1 = this.controlPoints.get(i - 1);
             HorizontalPosition p2 = this.controlPoints.get(i);
             double dx = p2.getX() - p1.getX();
             double dy = p2.getY() - p1.getY();
-            this.pathLength += Math.sqrt(dx * dx + dy * dy);
+            pathLengthTmp += Math.sqrt(dx * dx + dy * dy);
             this.controlPointDistances[i] = this.pathLength;
         }
+        this.pathLength = pathLengthTmp;
     }
 
     /**

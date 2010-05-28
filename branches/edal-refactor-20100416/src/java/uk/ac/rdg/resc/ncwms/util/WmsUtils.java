@@ -442,7 +442,8 @@ public class WmsUtils
     }
 
     /**
-     * Finds a {@link CoordinateReferenceSystem} with the given code
+     * Finds a {@link CoordinateReferenceSystem} with the given code, forcing
+     * longitude-first axis order.
      * @param crsCode The code for the CRS
      * @return a coordinate reference system with the longitude axis first
      * @throws InvalidCrsException if a CRS matching the code cannot be found

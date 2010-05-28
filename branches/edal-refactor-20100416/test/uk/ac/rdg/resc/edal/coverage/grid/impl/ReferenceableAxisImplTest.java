@@ -44,8 +44,8 @@ public class ReferenceableAxisImplTest {
         1.0, 2.0, 3.0, 2.5, 3.5, 4.5
     };
 
-    private static List<Double> NON_MONOTONIC_COLLECTION =
-        CollectionUtils.doubleListFromArray(NON_MONOTONIC_ARRAY);
+//    private static List<Double> NON_MONOTONIC_COLLECTION =
+//        CollectionUtils.listFromDoubleArray(NON_MONOTONIC_ARRAY);
 
     /** Tests the enforcement of strict monotonicity in axis values */
     @Test(expected=IllegalArgumentException.class)

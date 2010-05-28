@@ -97,6 +97,11 @@ public final class PixelMap
     public PixelMap(HorizontalGrid sourceGrid, Domain<HorizontalPosition> targetDomain)
             throws TransformException
     {
+        logger.debug("Creating PixelMap: Source CRS: {}, Target CRS: {}",
+                sourceGrid.getCoordinateReferenceSystem().getName(),
+                targetDomain.getCoordinateReferenceSystem().getName());
+        logger.debug("SourceGrid class: {}, targetDomain class: {}",
+                sourceGrid.getClass(), targetDomain.getClass());
         long start = System.currentTimeMillis();
         if (targetDomain instanceof HorizontalGrid)
         {

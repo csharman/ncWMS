@@ -32,7 +32,6 @@ import uk.ac.rdg.resc.edal.coverage.domain.Domain;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 /**
  * <p>A {@link Coverage} whose domain consists of a finite number of domain
