@@ -77,6 +77,8 @@ public final class PixelMap
 {
     private static final Logger logger = LoggerFactory.getLogger(PixelMap.class);
 
+    private final int targetDomainSize;
+
     // These define the bounding box (in terms of axis indices) of the data
     // to extract from the source files
     private int minIIndex = Integer.MAX_VALUE;
@@ -102,6 +104,7 @@ public final class PixelMap
                 targetDomain.getCoordinateReferenceSystem().getName());
         logger.debug("SourceGrid class: {}, targetDomain class: {}",
                 sourceGrid.getClass(), targetDomain.getClass());
+        this.targetDomainSize = targetDomain.getDomainObjects().size();
         long start = System.currentTimeMillis();
         if (targetDomain instanceof HorizontalGrid)
         {
@@ -152,6 +155,10 @@ public final class PixelMap
         // We can gain efficiency if the source and target grids are both
         // rectilinear lat-lon grids (i.e. they have separable latitude and
         // longitude axes).
+
+        // TODO: could also be efficient for any matching CRS?  But how test
+        // for CRS equality, when one CRS will have been created from an EPSG code
+        // and the other will have been inferred from the source data file (e.g. NetCDF)
         if (sourceGrid instanceof RectilinearGrid && targetGrid instanceof RectilinearGrid &&
             Utils.isWgs84LonLat(sourceGrid.getCoordinateReferenceSystem()) &&
             Utils.isWgs84LonLat(targetGrid.getCoordinateReferenceSystem()))
@@ -444,6 +451,12 @@ public final class PixelMap
     {
         return (this.maxIIndex - this.minIIndex + 1) *
                (this.maxJIndex - this.minJIndex + 1);
+    }
+
+    /** Returns the number of points in the target domain */
+    public int getTargetDomainSize()
+    {
+        return this.targetDomainSize;
     }
 
 }

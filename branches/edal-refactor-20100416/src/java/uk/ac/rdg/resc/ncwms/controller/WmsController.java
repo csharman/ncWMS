@@ -101,6 +101,7 @@ import uk.ac.rdg.resc.ncwms.graphics.ColorPalette;
 import uk.ac.rdg.resc.ncwms.graphics.ImageProducer;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry;
 import uk.ac.rdg.resc.edal.util.Range;
+import uk.ac.rdg.resc.ncwms.exceptions.StyleNotDefinedException;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Dataset;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
@@ -478,16 +479,46 @@ public class WmsController extends AbstractController {
         RegularGrid grid = WmsUtils.getImageGrid(dr);
 
         // Create an object that will turn data into BufferedImages
+        // We use the settings from the URL parameters where present, defaulting
+        // to the defaults in the Layer object
         String[] styles = styleRequest.getStyles();
+        Range<Float> scaleRange = styleRequest.getColorScaleRange();
+        if (scaleRange == null) scaleRange = layer.getApproxValueRange();
+        Boolean logScale = styleRequest.isScaleLogarithmic();
+        if (logScale == null) logScale = layer.isLogScaling();
+        ImageProducer.Style style = layer instanceof VectorLayer
+                ? ImageProducer.Style.VECTOR
+                : ImageProducer.Style.BOXFILL;
+        ColorPalette palette = layer.getDefaultColorPalette();
+        if (styles[0] != null) {
+            String[] styleStrEls = styles[0].split("/");
+
+            // Get the style type
+            String styleType = styleStrEls[0];
+            if (styleType.equalsIgnoreCase("boxfill")) style = ImageProducer.Style.BOXFILL;
+            else if (styleType.equalsIgnoreCase("vector")) style = ImageProducer.Style.VECTOR;
+            else throw new StyleNotDefinedException("The style " + styles[0] +
+                " is not supported by this server");
+
+            // Now get the colour palette
+            String paletteName = null;
+            if (styleStrEls.length > 1) paletteName = styleStrEls[1];
+            palette = ColorPalette.get(paletteName);
+            if (palette == null) {
+                throw new StyleNotDefinedException("There is no palette with the name "
+                    + paletteName);
+            }
+        }
+
         ImageProducer imageProducer = new ImageProducer.Builder()
-            .layer(layer)
             .width(dr.getWidth())
             .height(dr.getHeight())
-            .style(styles.length == 0 ? null : styles[0]) // Use null to trigger default style
-            .colourScaleRange(styleRequest.getColorScaleRange())
+            .style(style)
+            .palette(palette)
+            .colourScaleRange(scaleRange)
             .backgroundColour(styleRequest.getBackgroundColour())
             .transparent(styleRequest.isTransparent())
-            .logarithmic(styleRequest.isScaleLogarithmic())
+            .logarithmic(logScale)
             .opacity(styleRequest.getOpacity())
             .numColourBands(styleRequest.getNumColourBands())
             .build();
@@ -514,34 +545,32 @@ public class WmsController extends AbstractController {
         usageLogEntry.setNumTimeSteps(timeValues.size());
         long beforeExtractData = System.currentTimeMillis();
         for (DateTime timeValue : timeValues) {
-            // A List<Float> for each component of a vector quantity, although
-            // we only use the first component for scalars.
-            List<List<Float>> picData = new ArrayList<List<Float>>(2);
-            if (layer instanceof ScalarLayer) {
-                // Note that if the layer doesn't have a time axis, timeValue==null but this
-                // will be ignored by readHorizontalPoints()
-                picData.add(this.serverConfig.readDataGrid((ScalarLayer)layer, timeValue, zValue, grid, usageLogEntry));
-            } else if (layer instanceof VectorLayer) {
-                VectorLayer vecLayer = (VectorLayer)layer;
-                picData.add(this.serverConfig.readDataGrid(vecLayer.getEastwardComponent(),  timeValue, zValue, grid, usageLogEntry));
-                picData.add(this.serverConfig.readDataGrid(vecLayer.getNorthwardComponent(), timeValue, zValue, grid, usageLogEntry));
-            } else {
-                throw new IllegalStateException("Unrecognized layer type");
-            }
-
             // Only add a label if this is part of an animation
             String tValueStr = "";
             if (timeValues.size() > 1 && timeValue != null) {
                 tValueStr = WmsUtils.dateTimeToISO8601(timeValue);
             }
             tValueStrings.add(tValueStr);
-            imageProducer.addFrame(picData, tValueStr); // the tValue is the label for the image
+
+            if (layer instanceof ScalarLayer) {
+                // Note that if the layer doesn't have a time axis, timeValue==null but this
+                // will be ignored by readHorizontalPoints()
+                List<Float> data = this.serverConfig.readDataGrid((ScalarLayer)layer, timeValue, zValue, grid, usageLogEntry);
+                imageProducer.addFrame(data, tValueStr);
+            } else if (layer instanceof VectorLayer) {
+                VectorLayer vecLayer = (VectorLayer)layer;
+                List<Float> eastData  = this.serverConfig.readDataGrid(vecLayer.getEastwardComponent(),  timeValue, zValue, grid, usageLogEntry);
+                List<Float> northData = this.serverConfig.readDataGrid(vecLayer.getNorthwardComponent(), timeValue, zValue, grid, usageLogEntry);
+                imageProducer.addFrame(eastData, northData, tValueStr);
+            } else {
+                throw new IllegalStateException("Unrecognized layer type");
+            }
         }
         long timeToExtractData = System.currentTimeMillis() - beforeExtractData;
         usageLogEntry.setTimeToExtractDataMs(timeToExtractData);
 
         // We only create a legend object if the image format requires it
-        BufferedImage legend = imageFormat.requiresLegend() ? imageProducer.getLegend() : null;
+        BufferedImage legend = imageFormat.requiresLegend() ? imageProducer.getLegend(layer) : null;
 
         // Write the image to the client.
         // First we set the HTTP headers
@@ -823,7 +852,8 @@ public class WmsController extends AbstractController {
             }
 
             // Now create the legend image
-            legend = palette.createLegend(numColourBands, layer, logarithmic, colorScaleRange);
+            legend = palette.createLegend(numColourBands, layer.getTitle(),
+                    layer.getUnits(), logarithmic, colorScaleRange);
         }
         httpServletResponse.setContentType("image/png");
         ImageIO.write(legend, "png", httpServletResponse.getOutputStream());

@@ -115,10 +115,25 @@ public final class RegularGridImpl extends AbstractRectilinearGrid implements Re
         );
     }
 
-    private RegularGridImpl(double minx, double miny, double maxx, double maxy,
+    /**
+     * @param bbox [minx, miny, maxx, maxy]
+     * @param crs
+     * @param width
+     * @param height
+     */
+    public RegularGridImpl(double[] bbox, CoordinateReferenceSystem crs, int width, int height)
+    {
+        this(bbox[0], bbox[1], bbox[2], bbox[3], crs, width, height);
+    }
+
+    public RegularGridImpl(double minx, double miny, double maxx, double maxy,
             CoordinateReferenceSystem crs, int width, int height)
     {
         super(crs);
+        if (maxx < minx || maxy < miny)
+        {
+            throw new IllegalArgumentException("Invalid bounding box");
+        }
 
         double xSpacing = (maxx - minx) / width;
         double ySpacing = (maxy - miny) / height;

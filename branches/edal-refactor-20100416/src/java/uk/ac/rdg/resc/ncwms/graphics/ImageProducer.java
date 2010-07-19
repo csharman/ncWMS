@@ -47,7 +47,6 @@ import uk.ac.rdg.resc.edal.util.Range;
 import uk.ac.rdg.resc.edal.util.Ranges;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
-import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
 
 /**
  * An object that is used to render data into images.  Instances of this class
@@ -59,9 +58,8 @@ public final class ImageProducer
 {
     private static final Logger logger = LoggerFactory.getLogger(ImageProducer.class);
 
-    private enum Style {BOXFILL, VECTOR};
+    public static enum Style {BOXFILL, VECTOR};
     
-    private Layer layer;
     private Style style;
     // Width and height of the resulting picture
     private int picWidth;
@@ -87,21 +85,34 @@ public final class ImageProducer
     
     // set of rendered images, ready to be turned into a picture
     private List<BufferedImage> renderedFrames = new ArrayList<BufferedImage>();
+    
     // If we need to cache the frame data and associated labels (we do this if
     // we have to auto-scale the image) this is where we put them.
-    // The inner List<Float> is the data for a single vector component
-    // The middle List contains the two vector components
-    // The outer List contains data for each animation frame
-    private List<List<List<Float>>> frameData; // YUCK!!!
+    private static final class Components {
+        private final List<Float> x;
+        private final List<Float> y;
+        public Components(List<Float> x, List<Float> y) {
+            this.x = x;
+            this.y = y;
+        }
+        public Components(List<Float> x) {
+            this(x, null);
+        }
+        public List<Float> getMagnitudes() {
+            return this.y == null ? this.x : WmsUtils.getMagnitudes(this.x, this.y);
+        }
+    }
+    private List<Components> frameData;
+    
     private List<String> labels;
 
     /** Prevents direct instantiation */
     private ImageProducer() {}
 
-    public BufferedImage getLegend()
+    public BufferedImage getLegend(Layer layer)
     {
-        return this.colorPalette.createLegend(this.numColourBands, this.layer,
-            this.logarithmic, this.scaleRange);
+        return this.colorPalette.createLegend(this.numColourBands, layer.getTitle(),
+            layer.getUnits(), this.logarithmic, this.scaleRange);
     }
     
     public int getPicWidth()
@@ -120,27 +131,37 @@ public final class ImageProducer
     }
     
     /**
-     * Adds a frame of data to this ImageProducer.  If the data cannot yet be rendered
+     * Adds a frame of scalar data to this ImageProducer.  If the data cannot yet be rendered
      * into a BufferedImage, the data and label are stored.
      */
-    public void addFrame(List<List<Float>> data, String label)
+    public void addFrame(List<Float> data, String label)
+    {
+        this.addFrame(data, null, label);
+    }
+    
+    /**
+     * Adds a frame of vector data to this ImageProducer.  If the data cannot yet be rendered
+     * into a BufferedImage, the data and label are stored.
+     */
+    public void addFrame(List<Float> xData, List<Float> yData, String label)
     {
         logger.debug("Adding frame with label {}", label);
+        Components comps = new Components(xData, yData);
         if (this.scaleRange.isEmpty())
         {
             logger.debug("Auto-scaling, so caching frame");
             if (this.frameData == null)
             {
-                this.frameData = new ArrayList<List<List<Float>>>();
+                this.frameData = new ArrayList<Components>();
                 this.labels = new ArrayList<String>();
             }
-            this.frameData.add(data);
+            this.frameData.add(comps);
             this.labels.add(label);
         }
         else
         {
             logger.debug("Scale is set, so rendering image");
-            this.renderedFrames.add(this.createImage(data, label));
+            this.renderedFrames.add(this.createImage(comps, label));
         }
     }
     
@@ -149,15 +170,13 @@ public final class ImageProducer
      * Adds the label if one has been set.  The scale must be set before
      * calling this method.
      */
-    private BufferedImage createImage(List<List<Float>> data, String label)
+    private BufferedImage createImage(Components comps, String label)
     {
         // Create the pixel array for the frame
         byte[] pixels = new byte[this.picWidth * this.picHeight];
         // We get the magnitude of the input data (takes care of the case
         // in which the data are two components of a vector)
-        List<Float> magnitudes = data.size() == 1
-            ? data.get(0)
-            : WmsUtils.getMagnitudes(data.get(0), data.get(1));
+        List<Float> magnitudes = comps.getMagnitudes();
         for (int i = 0; i < pixels.length; i++)
         {
             // The image coordinate system has the vertical axis increasing
@@ -199,15 +218,13 @@ public final class ImageProducer
             g.setColor(Color.BLACK);
 
             logger.debug("Drawing vectors, length = {} pixels", this.arrowLength);
-            List<Float> east = data.get(0);
-            List<Float> north = data.get(1);
             for (int i = 0; i < this.picWidth; i += Math.ceil(this.arrowLength * 1.2))
             {
                 for (int j = 0; j < this.picHeight; j += Math.ceil(this.arrowLength * 1.2))
                 {
                     int dataIndex = this.getDataIndex(i, j);
-                    Float eastVal = east.get(dataIndex);
-                    Float northVal = north.get(dataIndex);
+                    Float eastVal = comps.x.get(dataIndex);
+                    Float northVal = comps.y.get(dataIndex);
                     if (eastVal != null && northVal != null)
                     {
                         double angle = Math.atan2(northVal.doubleValue(), eastVal.doubleValue());
@@ -306,7 +323,8 @@ public final class ImageProducer
             for (int i = 0; i < this.frameData.size(); i++)
             {
                 logger.debug("    ... rendering frame {}", i);
-                this.renderedFrames.add(this.createImage(this.frameData.get(i), this.labels.get(i)));
+                Components comps = this.frameData.get(i);
+                this.renderedFrames.add(this.createImage(comps, this.labels.get(i)));
             }
         }
         return this.renderedFrames;
@@ -325,10 +343,10 @@ public final class ImageProducer
             Float scaleMax = null;
             logger.debug("Setting the scale automatically");
             // We have a cache of image data, which we use to generate the colour scale
-            for (List<List<Float>> data : this.frameData)
+            for (Components comps : this.frameData)
             {
                 // We only use the first component if this is a vector quantity
-                Range<Float> range = Ranges.findMinMax(data.get(0));
+                Range<Float> range = Ranges.findMinMax(comps.x);
                 // TODO: could move this logic to the Range/Ranges class
                 if (!range.isEmpty())
                 {
@@ -353,10 +371,10 @@ public final class ImageProducer
 
     /**
      * Builds an ImageProducer
+     * @todo make error handling and validity-checking more consistent
      */
     public static final class Builder
     {
-        private Layer layer = null;
         private int picWidth = -1;
         private int picHeight = -1;
         private boolean transparent = false;
@@ -368,39 +386,22 @@ public final class ImageProducer
         private Style style = null;
         private ColorPalette colorPalette = null;
 
-        /** Sets the layer object (must be set: there is no default) */
-        public Builder layer(Layer layer) {
-            if (layer == null) throw new NullPointerException();
-            this.layer = layer;
+        /**
+         * Sets the style to be used.  If not set or if the parameter is null,
+         * {@link Style#BOXFILL} will be used
+         */
+        public Builder style(Style style)  {
+            this.style = style;
             return this;
         }
 
         /**
-         * Sets the style to be used.  If not set or if the parameter is null,
-         * the layer's default style and colour palette will be used.
-         * @param styleSpec String in the form "&lt;styletype&gt;/&lt;paletteName&gt;
-         * @throws StyleNotDefinedException if the string is not valid, or if
-         * the style type or palette name are not supported by this server
+         * Sets the colour palette.  If not set or if the parameter is null,
+         * the default colour palette will be used.
+         * {@see ColorPalette}
          */
-        public Builder style(String styleSpec) throws StyleNotDefinedException {
-            if (styleSpec == null) return this;
-            String[] styleStrEls = styleSpec.split("/");
-
-            // Get the style type
-            String styleType = styleStrEls[0];
-            if (styleType.equalsIgnoreCase("boxfill")) this.style = Style.BOXFILL;
-            else if (styleType.equalsIgnoreCase("vector")) this.style = Style.VECTOR;
-            else throw new StyleNotDefinedException("The style " + styleSpec +
-                " is not supported by this server");
-
-            // Now get the colour palette
-            String paletteName = null;
-            if (styleStrEls.length > 1) paletteName = styleStrEls[1];
-            this.colorPalette = ColorPalette.get(paletteName);
-            if (this.colorPalette == null) {
-                throw new StyleNotDefinedException("There is no palette with the name "
-                    + paletteName);
-            }
+        public Builder palette(ColorPalette palette) {
+            this.colorPalette = palette;
             return this;
         }
 
@@ -432,8 +433,10 @@ public final class ImageProducer
             return this;
         }
 
-        /** Sets the colour scale range.  If not set (or if set to null), the
-         * layer's approx value range will be used. */
+        /**
+         * Sets the colour scale range.  If not set (or if set to null), the min
+         * and max values of the data will be used.
+         */
         public Builder colourScaleRange(Range<Float> scaleRange) {
             this.scaleRange = scaleRange;
             return this;
@@ -451,7 +454,7 @@ public final class ImageProducer
 
         /**
          * Sets whether or not the colour scale is to be spaced logarithmically
-         * (null is the default and means "use the Layer's default).
+         * (default is false)
          */
         public Builder logarithmic(Boolean logarithmic) {
             this.logarithmic = logarithmic;
@@ -471,27 +474,18 @@ public final class ImageProducer
         /**
          * Checks the fields for internal consistency, then creates and returns
          * a new ImageProducer object.
-         * @throws IllegalStateException if the builder cannot create a vali
+         * @throws IllegalStateException if the builder cannot create a valid
          * ImageProducer object
          * @throws StyleNotDefinedException if the set style is not supported
          * by the set layer
          */
         public ImageProducer build() throws StyleNotDefinedException
         {
-            // Perform consistency checks
-            if (layer == null) {
-                throw new IllegalStateException("Must set the Layer object");
-            }
             if (this.picWidth < 0 || this.picHeight < 0) {
                 throw new IllegalStateException("picture width and height must be >= 0");
             }
-            if (this.style == Style.VECTOR && !(this.layer instanceof VectorLayer)) {
-                throw new StyleNotDefinedException("The style " + this.style +
-                    " is not supported by this layer");
-            }
 
             ImageProducer ip = new ImageProducer();
-            ip.layer = this.layer;
             ip.picWidth = this.picWidth;
             ip.picHeight = this.picHeight;
             ip.opacity = this.opacity;
@@ -499,16 +493,18 @@ public final class ImageProducer
             ip.bgColor = this.bgColor;
             ip.numColourBands = this.numColourBands;
             ip.style = this.style == null
-                ? (layer instanceof VectorLayer ? Style.VECTOR : Style.BOXFILL)
+                ? Style.BOXFILL
                 : this.style;
             ip.colorPalette = this.colorPalette == null
-                ? layer.getDefaultColorPalette()
+                ? ColorPalette.get(null)
                 : this.colorPalette;
             ip.logarithmic = this.logarithmic == null
-                ? layer.isLogScaling()
+                ? false
                 : this.logarithmic.booleanValue();
+            // Signifies auto-scaling
+            Range<Float> emptyRange = Ranges.emptyRange();
             ip.scaleRange = this.scaleRange == null
-                ? layer.getApproxValueRange()
+                ? emptyRange
                 : this.scaleRange;
 
             return ip;

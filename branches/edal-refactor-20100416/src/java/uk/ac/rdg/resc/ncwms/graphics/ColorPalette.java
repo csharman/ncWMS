@@ -46,7 +46,6 @@ import java.util.StringTokenizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.ac.rdg.resc.edal.util.Range;
-import uk.ac.rdg.resc.ncwms.wms.Layer;
 
 /**
  * A palette of colours that is used by an {@link ImageProducer} to render 
@@ -108,6 +107,11 @@ public class ColorPalette
     
     private final Color[] palette;
     private final String name;
+
+    static
+    {
+        palettes.put(DEFAULT_PALETTE_NAME, DEFAULT_PALETTE);
+    }
     
     private ColorPalette(String name, Color[] palette)
     {
@@ -159,11 +163,6 @@ public class ColorPalette
                     logger.error("Error reading from palette file {}", file.getName(), e);
                 }
             }
-        }
-        // If we don't already have a default palette, add one
-        if (!palettes.containsKey(DEFAULT_PALETTE_NAME))
-        {
-            palettes.put(DEFAULT_PALETTE_NAME, DEFAULT_PALETTE);
         }
     }
     
@@ -223,7 +222,8 @@ public class ColorPalette
      * Creates and returns a BufferedImage representing the legend for this 
      * palette
      * @param numColorBands The number of color bands to show in the legend
-     * @param layer Layer for which the legend is being created
+     * @param title Title for the legend
+     * @param units Units for the legend
      * @param logarithmic True if the scale is to be logarithmic: otherwise linear
      * @param colourScaleRange Data values corresponding with the min and max
      * values of the colour scale
@@ -232,7 +232,7 @@ public class ColorPalette
      * @throws IllegalArgumentException if the requested number of colour bands
      * is less than one or greater than 254.
      */
-    public BufferedImage createLegend(int numColorBands, Layer layer,
+    public BufferedImage createLegend(int numColorBands, String title, String units,
         boolean logarithmic, Range<Float> colorScaleRange)
     {
         float colourScaleMin = colorScaleRange.getMinimum();
@@ -262,10 +262,9 @@ public class ColorPalette
         gfx.drawString(format(colourScaleMin), 27, 264);
         
         // Add the title as rotated text
-        String title = layer.getTitle();
-        if (layer.getUnits() != null && !layer.getUnits().trim().equals(""))
+        if (units != null && !units.trim().equals(""))
         {
-            title += " (" + layer.getUnits() + ")";
+            title += " (" + units + ")";
         }
         AffineTransform trans = new AffineTransform();
         trans.setToTranslation(90, 0);

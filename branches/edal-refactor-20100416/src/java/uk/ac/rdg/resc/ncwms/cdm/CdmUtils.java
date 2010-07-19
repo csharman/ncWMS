@@ -122,7 +122,7 @@ public final class CdmUtils
      * passed-in coordinate system.  The grid's coordinate system will be a
      * WGS84 longitude-latitude system.
      * @todo May want to be careful about datum shifts - model data is often
-     * in spherical coordinates
+     * in spherical coordinates, not strict WGS84
      */
     public static HorizontalGrid createHorizontalGrid(GridCoordSystem coordSys)
     {
@@ -481,6 +481,51 @@ public final class CdmUtils
     {
         try
         {
+            return readHorizontalPoints(
+                grid,
+                new PixelMap(horizGrid, domain),
+                tIndex,
+                zIndex,
+                drStrategy,
+                scaleMissingDeferred
+            );
+        } 
+        catch(TransformException te)
+        {
+            // This would only happen if there were an internal error transforming
+            // between coordinate systems in making the PixelMap.  There is
+            // nothing a client could do to recover from this so we turn it into
+            // a runtime exception
+            // TODO: think of a better exception type
+            throw new RuntimeException(te);
+        }
+    }
+    
+    
+
+    /**
+     * Reads a set of points at a given time and elevation from the given
+     * GridDatatype.
+     * @param grid The GridDatatype from which we will read data
+     * @param pixelMap Map of pixels in the image to i,j indices in the source data
+     * @param tIndex The time index, or -1 if the grid has no time axis
+     * @param zIndex The elevation index, or -1 if the grid has no elevation axis
+     * @param drStrategy The strategy to use for reading data
+     * @param scaleMissingDeferred True if the {@link NetcdfDataset} that
+     * contained the GridDatatype was opened with the enhancement mode
+     * {@link Enhance#ScaleMissingDefer}.
+     * @return a List of floating point numbers, one for each point in the
+     * {@code domain}, in the same order.  Missing values (e.g. land pixels
+     * in oceanography data} are represented as nulls.
+     * @throws IOException if there was an error reading data from the data source
+     */
+    public static List<Float> readHorizontalPoints(GridDatatype grid,
+            PixelMap pixelMap, int tIndex, int zIndex,
+            DataReadingStrategy drStrategy, boolean scaleMissingDeferred)
+            throws IOException
+    {
+        try
+        {
             // Prevent InvalidRangeExceptions for ranges we're not going to use anyway
             if (tIndex < 0) tIndex = 0;
             if (zIndex < 0) zIndex = 0;
@@ -488,10 +533,9 @@ public final class CdmUtils
             Range zRange = new Range(zIndex, zIndex);
 
             // Create an list to hold the data, filled with nulls
-            List<Float> picData = nullArrayList(domain.getDomainObjects().size());
+            List<Float> picData = nullArrayList(pixelMap.getTargetDomainSize());
 
             long start = System.currentTimeMillis();
-            PixelMap pixelMap = new PixelMap(horizGrid, domain);
             if (pixelMap.isEmpty()) return picData;
 
             long readMetadata = System.currentTimeMillis();
@@ -510,15 +554,6 @@ public final class CdmUtils
         {
             // This is a programming error, and one from which we can't recover
             throw new IllegalStateException(ire);
-        }
-        catch(TransformException te)
-        {
-            // This would only happen if there were an internal error transforming
-            // between coordinate systems in making the PixelMap.  There is
-            // nothing a client could do to recover from this so we turn it into
-            // a runtime exception
-            // TODO: think of a better exception type
-            throw new RuntimeException(te);
         }
     }
 
