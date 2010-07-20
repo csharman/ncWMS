@@ -244,9 +244,18 @@ public final class GridEnvelopeImpl implements GridEnvelope {
      * @return true if this envelope contains the given coordinates.
      */
     public boolean contains(GridCoordinates coords) {
-        for (int i = 0; i < coords.getDimension(); i++) {
-            if (coords.getCoordinateValue(i) < this.low.getCoordinateValue(i) ||
-                coords.getCoordinateValue(i) > this.high.getCoordinateValue(i)) {
+        return this.contains(coords.getCoordinateValues());
+    }
+
+    public boolean contains(int... coords) {
+        if (coords == null) throw new NullPointerException();
+        if (coords.length != this.getDimension()) {
+            throw new IllegalArgumentException("coords.length should be " + this.getDimension());
+        }
+
+        for (int i = 0; i < coords.length; i++) {
+            if (coords[i] < this.low.getCoordinateValue(i) ||
+                coords[i] > this.high.getCoordinateValue(i)) {
                 return false;
             }
         }

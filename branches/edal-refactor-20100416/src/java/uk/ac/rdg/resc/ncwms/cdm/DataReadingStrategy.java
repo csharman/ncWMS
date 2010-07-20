@@ -31,6 +31,7 @@ import uk.ac.rdg.resc.ncwms.coords.PixelMap;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ucar.ma2.Array;
@@ -39,6 +40,7 @@ import ucar.ma2.InvalidRangeException;
 import ucar.ma2.Range;
 import ucar.nc2.dataset.VariableDS;
 import ucar.nc2.dt.GridDatatype;
+import uk.ac.rdg.resc.ncwms.config.datareader.DataReader;
 
 /**
  * <p>Defines different strategies for reading data from files. The grid below represents the source
@@ -122,18 +124,22 @@ public enum DataReadingStrategy {
                 // Read a chunk of data - values will not be unpacked or
                 // checked for missing values yet
                 logger.debug("tRange: {}, zRange: {}, yRange: {}, xRange: {}", new Object[]{tRange, zRange, yRange, xRange});
+                long start = System.nanoTime();
                 GridDatatype subset = grid.makeSubset(null, null, tRange, zRange, yRange, xRange);
                 logger.debug("Subset shape = {}", Arrays.toString(subset.getShape()));
                 // Read all of the x-y data in this subset
                 Array xySlice = subset.readDataSlice(0, 0, -1, -1);
                 logger.debug("Slice shape = {}", Arrays.toString(xySlice.getShape()));
+                long end = System.nanoTime();
+                double timeToReadDataMs = (end - start) / 1.e6;
                 // We now have a 2D array in y,x order.  We don't reduce this array
                 // because it will go to zero size if there is only one point in
                 // each direction.
                 Index index = xySlice.getIndex();
 
                 // Now copy the scanline's data to the picture array
-                for (int i : pixelMap.getIIndices(j)) {
+                Set<Integer> iIndices = pixelMap.getIIndices(j);
+                for (int i : iIndices) {
                     float val = xySlice.getFloat(index.set(0, i - imin));
                     if (scaleMissingDeferred) {
                         // The value we've read won't have had scale-offset-missing applied
@@ -147,6 +153,8 @@ public enum DataReadingStrategy {
                         }
                     }
                 }
+                System.out.printf("Row: %d, imin: %d, imax: %d, pointsRead: %d, usefulPointsRead: %d, timeMs: %f, msPerPoint: %f, msPerUsefulPoint: %f%n",
+                     j, imin, imax, (imax - imin + 1), iIndices.size(), timeToReadDataMs, (timeToReadDataMs / (imax - imin + 1)), (timeToReadDataMs / iIndices.size()));
             }
         }
     },

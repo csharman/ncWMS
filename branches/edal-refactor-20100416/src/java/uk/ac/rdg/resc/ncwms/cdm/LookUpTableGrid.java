@@ -166,14 +166,8 @@ final class LookUpTableGrid extends AbstractHorizontalGrid
      * the given grid coordinates [i,j] are outside the extent of the grid
      */
     @Override
-    public HorizontalPosition transformCoordinates(GridCoordinates coords)
+    protected HorizontalPosition transformCoordinatesNoBoundsCheck(int i, int j)
     {
-        if (coords.getDimension() != 2) 
-        {
-            throw new IllegalArgumentException("Coords.length must be 2");
-        }
-        int i = coords.getCoordinateValue(0);
-        int j = coords.getCoordinateValue(1);
         if (i >= 0 && i < this.curvGrid.getNi() &&
             j >= 0 && j < this.curvGrid.getNj())
         {

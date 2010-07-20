@@ -41,6 +41,9 @@ public final class RegularAxisImpl extends AbstractReferenceableAxis
 {
 
     private double firstValue; // The first value on the axis
+    private double lastValue;  // The last value on the axis
+    private double minValue;
+    private double maxValue;
     private double spacing; // The axis spacing
     private int size; // The number of points on the axis
 
@@ -69,6 +72,12 @@ public final class RegularAxisImpl extends AbstractReferenceableAxis
         this.firstValue = firstValue;
         this.spacing = spacing;
         this.size = size;
+
+        // We can precalculate all the following values since this object is
+        // immutable
+        this.lastValue = super.getLastValue();
+        this.minValue = super.getMinimumValue();
+        this.maxValue = super.getMaximumValue();
     }
 
     @Override
@@ -137,5 +146,13 @@ public final class RegularAxisImpl extends AbstractReferenceableAxis
     public int getSize() {
         return this.size;
     }
+
+    // The following methods are overridden for efficiency reasons.  This object
+    // is immutable, so all of these quantities can be precalculated
+
+    @Override protected double getFirstValue() { return this.firstValue; }
+    @Override protected double getLastValue() { return this.lastValue; }
+    @Override protected double getMinimumValue() { return this.minValue; }
+    @Override protected double getMaximumValue() { return this.maxValue; }
 
 }

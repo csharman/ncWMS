@@ -47,15 +47,25 @@ public abstract class AbstractHorizontalGrid extends AbstractGrid implements Hor
 {
     private final CoordinateReferenceSystem crs;
 
-    private final List<HorizontalPosition> domainObjectList = new AbstractList<HorizontalPosition>()
+    private final class DomainObjectList extends AbstractList<HorizontalPosition>
     {
+        private final int iAxisSize = AbstractHorizontalGrid.this.getGridExtent().getSpan(0);
+        private final int jAxisSize = AbstractHorizontalGrid.this.getGridExtent().getSpan(1);
+        private final int size = AbstractHorizontalGrid.this.getSize();
+        
         @Override
         public HorizontalPosition get(int index) {
-            int iAxisSize = AbstractHorizontalGrid.this.getGridExtent().getSpan(0);
-            int xi = index % iAxisSize;
-            int yi = index / iAxisSize;
-            GridCoordinates coords = new GridCoordinatesImpl(xi, yi);
-            HorizontalPosition pos = AbstractHorizontalGrid.this.transformCoordinates(coords);
+            if (index < 0) {
+                throw new IndexOutOfBoundsException(index + " is out of bounds");
+            }
+            int xi = index % this.iAxisSize;
+            int yi = index / this.iAxisSize;
+            if (yi >= this.jAxisSize) {
+                throw new IndexOutOfBoundsException(index + " is out of bounds");
+            }
+            // We know that the coordinates are valid within the grid so there's
+            // no need to check the bounds again
+            HorizontalPosition pos = AbstractHorizontalGrid.this.transformCoordinatesNoBoundsCheck(xi, yi);
             if (pos == null) {
                 throw new IndexOutOfBoundsException("Index " + index + " is out of bounds");
             }
@@ -64,7 +74,7 @@ public abstract class AbstractHorizontalGrid extends AbstractGrid implements Hor
 
         @Override
         public int size() {
-            return AbstractHorizontalGrid.this.getSize();
+            return this.size;
         }
     };
 
@@ -79,13 +89,32 @@ public abstract class AbstractHorizontalGrid extends AbstractGrid implements Hor
     }
 
     /**
-     * This is implemented on top of
-     * {@link #transformCoordinates(uk.ac.rdg.resc.edal.coverage.grid.GridCoordinates)}.
+     * This is implemented on top of {@link #transformCoordinates(int, int)}.
+     */
+    @Override
+    public HorizontalPosition transformCoordinates(GridCoordinates coords) {
+        if (coords.getDimension() != 2) {
+            throw new IllegalArgumentException("GridCoordinates must be 2D");
+        }
+        GridEnvelopeImpl gridEnv = GridEnvelopeImpl.convert(this.getGridExtent());
+        if (!gridEnv.contains(coords)) return null;
+        return this.transformCoordinatesNoBoundsCheck(coords.getCoordinateValue(0), coords.getCoordinateValue(1));
+    }
+
+    /**
+     * This is implemented on top of {@link #transformCoordinates(int, int)}.
      */
     @Override
     public HorizontalPosition transformCoordinates(int i, int j) {
-        return this.transformCoordinates(new GridCoordinatesImpl(i, j));
+        GridEnvelopeImpl gridEnv = GridEnvelopeImpl.convert(this.getGridExtent());
+        if (!gridEnv.contains(i, j)) return null;
+        return this.transformCoordinatesNoBoundsCheck(i, j);
     }
+
+    /** Transforms grid coordinates into a HorizontalPosition without first
+     * checking that the grid coordinates are valid for this grid.  Use only
+     * when you know in advance that the coordinates are valid. */
+    protected abstract HorizontalPosition transformCoordinatesNoBoundsCheck(int i, int j);
 
     /**
      * {@inheritDoc}
@@ -108,11 +137,13 @@ public abstract class AbstractHorizontalGrid extends AbstractGrid implements Hor
      * Returns an unmodifiable List of horizontal positions derived from the two axes.
      * The x axis is considered to vary fastest, so the first point in the list
      * represents the grid point [x0,y0], the second point is [x1,y0] and so on.
+     * Returns a new List on each invocation.  Changing this HorizontalGrid while
+     * the returned list is in use may have undefined results.
      * @return
      */
     @Override
     public final List<HorizontalPosition> getDomainObjects() {
-        return this.domainObjectList;
+        return new DomainObjectList();
     }
 
 }

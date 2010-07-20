@@ -50,7 +50,6 @@ import uk.ac.rdg.resc.edal.util.Utils;
  */
 public abstract class AbstractRectilinearGrid extends AbstractHorizontalGrid implements RectilinearGrid
 {
-    private GridEnvelopeImpl gridExtent = null;
 
     protected AbstractRectilinearGrid(CoordinateReferenceSystem crs)
     {
@@ -74,28 +73,17 @@ public abstract class AbstractRectilinearGrid extends AbstractHorizontalGrid imp
     }
 
     @Override
-    public final GridEnvelopeImpl getGridExtent() {
-        // We cache the GridEnvelopeImpl object because we will use it multiple
-        // times in transformCoordinates().  We cannot generate this object
-        // on construction because the axis objects may not have been created
-        // at this time.
-        if (this.gridExtent == null) {
-            this.gridExtent = new GridEnvelopeImpl(
-                this.getXAxis().getSize() - 1,
-                this.getYAxis().getSize() - 1
-            );
-        }
-        return this.gridExtent;
+    public GridEnvelopeImpl getGridExtent() {
+        return new GridEnvelopeImpl(
+            this.getXAxis().getSize() - 1,
+            this.getYAxis().getSize() - 1
+        );
     }
 
     @Override
-    public final HorizontalPosition transformCoordinates(GridCoordinates coords) {
-        if (coords.getDimension() != 2) {
-            throw new IllegalArgumentException("GridCoordinates must be 2D");
-        }
-        if (!this.getGridExtent().contains(coords)) return null;
-        double x = this.getXAxis().getCoordinateValue(coords.getCoordinateValue(0));
-        double y = this.getYAxis().getCoordinateValue(coords.getCoordinateValue(1));
+    protected final HorizontalPosition transformCoordinatesNoBoundsCheck(int i, int j) {
+        double x = this.getXAxis().getCoordinateValue(i);
+        double y = this.getYAxis().getCoordinateValue(j);
         return new HorizontalPositionImpl(x, y, this.getCoordinateReferenceSystem());
     }
 

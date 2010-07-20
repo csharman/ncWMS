@@ -28,8 +28,9 @@
 
 package uk.ac.rdg.resc.ncwms.coords;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -70,7 +71,12 @@ import uk.ac.rdg.resc.ncwms.cdm.DataReadingStrategy;
  * @author Jon Blower
  * @todo Perhaps we can think of a more appropriate name for this class?
  * @todo equals() and hashCode(), particularly if we're going to cache instances
- * of this class
+ * of this class.
+ * @todo It may be possible to create an alternative version of this class for
+ * cases where both source and target grids are lat-lon.  In this case, the
+ * pixelmap should also be a RectilinearGrid, meaning that there would be no need
+ * to store mapping information in HashMaps etc.  (Profiling shows that getting
+ * and putting data from/to the HashMaps is a bottleneck.)
  * @see DataReadingStrategy
  */
 public final class PixelMap
@@ -229,7 +235,7 @@ public final class PixelMap
         if (j < this.minJIndex) this.minJIndex = j;
         if (j > this.maxJIndex) this.maxJIndex = j;
 
-        // Get the information for this row (i.e. this y index),
+        // Get the information for this row (i.e. this j index),
         // creating a new row if necessary
         Row row = this.pixelMap.get(j);
         if (row == null)
@@ -274,24 +280,25 @@ public final class PixelMap
     }
 
     /**
-     * Gets the set of all pixel indices, representing individual elements in the
+     * Gets the collection of all pixel indices, representing individual elements in the
      * final data array, that correspond with the given grid point in the source data.  A single
      * value from the source data might map to several elements in the final data array,
      * especially if we are "zoomed in".
-     * @return a Set of all data array indices that correspond with the given i and
-     * j index
+     * @return a {@link Collection} of all data array indices that correspond
+     * with the given i and j indices
      * @throws IllegalArgumentException if there is no row with the given j index
      * or if the given i index is not found in the row
      */
-    public Set<Integer> getPixelIndices(int i, int j)
+    public Collection<Integer> getPixelIndices(int i, int j)
     {
-        Map<Integer, Set<Integer>> row = this.getRow(j).getIIndices();
-        if (!row.containsKey(i))
+        Map<Integer, Collection<Integer>> row = this.getRow(j).getIIndices();
+        Collection<Integer> pixelIndices = row.get(i);
+        if (pixelIndices == null)
         {
             throw new IllegalArgumentException("The i index " + i +
                 " was not found in the row with j index " + j);
         }
-        return row.get(i);
+        return pixelIndices;
     }
 
     /**
@@ -370,32 +377,36 @@ public final class PixelMap
     {
         // Maps i Indices to a set of pixel indices
         //             i        pixels
-        private Map<Integer, Set<Integer>> iIndices = new HashMap<Integer, Set<Integer>>();
+        private Map<Integer, Collection<Integer>> iIndices = new HashMap<Integer, Collection<Integer>>();
         // Min and max x Indices in this row
         private int minIIndex = Integer.MAX_VALUE;
         private int maxIIndex = -1;
 
         /**
          * Adds a mapping of an i index to a pixel index
+         * NOTE: Profiling shows that this method is the bottleneck in the creation
+         * of the PixelMap.  The use of an ArrayList to hold pixel indices speeds
+         * up the creation of the by 10-30% over a HashSet.  (A LinkedList appears
+         * only fractionally slower than an ArrayList for this purpose.)
          */
         public void put(int i, int pixel)
         {
             if (i < this.minIIndex) this.minIIndex = i;
             if (i > this.maxIIndex) this.maxIIndex = i;
 
-            Set<Integer> pixelIndices = this.iIndices.get(i);
+            Collection<Integer> pixelIndices = this.iIndices.get(i);
             if (pixelIndices == null)
             {
-                pixelIndices = new HashSet<Integer>();
+                pixelIndices = new ArrayList<Integer>();
                 this.iIndices.put(i, pixelIndices);
-                // We have a new unique x-y pair
+                // We have a new unique i-j pair
                 PixelMap.this.numUniqueIJPairs++;
             }
             // Add the pixel index to the set
             pixelIndices.add(pixel);
         }
 
-        public Map<Integer, Set<Integer>> getIIndices()
+        public Map<Integer, Collection<Integer>> getIIndices()
         {
             return this.iIndices;
         }

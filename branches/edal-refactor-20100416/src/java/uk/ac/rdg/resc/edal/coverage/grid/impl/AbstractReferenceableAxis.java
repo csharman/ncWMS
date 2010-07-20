@@ -91,6 +91,9 @@ public abstract class AbstractReferenceableAxis implements ReferenceableAxis {
         this.isLongitude = isLongitude;
     }
 
+    @Override
+    public final String getName() { return this.name; }
+
     /**
      * {@inheritDoc}
      * <p>If this is a longitude axis, this implementation will ensure that the
@@ -106,9 +109,6 @@ public abstract class AbstractReferenceableAxis implements ReferenceableAxis {
         return this.doGetCoordinateIndex(value);
     }
 
-    @Override
-    public final String getName() { return this.name; }
-
     /**
      * <p>Gets the index of the given coordinate value, ignoring the possibility
      * of longitude axis wrapping.  Returns -1 if the value is not a coordinate
@@ -119,13 +119,15 @@ public abstract class AbstractReferenceableAxis implements ReferenceableAxis {
      */
     protected abstract int doGetCoordinateIndex(double value);
 
-    /** Returns the first coordinate value in this axis */
-    protected final double getFirstValue() {
+    /** Returns the first coordinate value in this axis.  This implementation
+     delegates to {@link #getCoordinateValue(int) getCoordinateValue(0)}. */
+    protected double getFirstValue() {
         return this.getCoordinateValue(0);
     }
 
-    /** Returns the first coordinate value in this axis */
-    protected final double getLastValue() {
+    /** Returns the last coordinate value in this axis.  This implementation
+     delegates to {@link #getCoordinateValue(int) getCoordinateValue(size - 1)}. */
+    protected double getLastValue() {
         return this.getCoordinateValue(this.getSize() - 1);
     }
 
@@ -136,7 +138,7 @@ public abstract class AbstractReferenceableAxis implements ReferenceableAxis {
      * returns the first coordinate value.
      * @return the minimum valid value of this axis
      */
-    protected final double getMinimumValue() {
+    protected double getMinimumValue() {
         return this.getFirstValue() -
                 0.5 * (this.getCoordinateValue(1) - this.getFirstValue());
     }
@@ -148,7 +150,7 @@ public abstract class AbstractReferenceableAxis implements ReferenceableAxis {
      * returns the first coordinate value.
      * @return the minimum valid value of this axis
      */
-    protected final double getMaximumValue() {
+    protected double getMaximumValue() {
         return this.getLastValue() +
                 0.5 * (this.getLastValue() - this.getCoordinateValue(this.getSize() - 2));
     }
@@ -164,10 +166,11 @@ public abstract class AbstractReferenceableAxis implements ReferenceableAxis {
      */
     @Override
     public final int getNearestCoordinateIndex(double value) {
+        double minValue = this.getMinimumValue();
         if (this.isLongitude) {
-            value = Utils.getNextEquivalentLongitude(this.getMinimumValue(), value);
+            value = Utils.getNextEquivalentLongitude(minValue, value);
         }
-        if (value < this.getMinimumValue() || value > this.getMaximumValue()) {
+        if (value < minValue || value > this.getMaximumValue()) {
             return -1;
         }
         return this.doGetNearestCoordinateIndex(value);

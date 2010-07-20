@@ -83,12 +83,9 @@ class ProjectedGrid extends AbstractHorizontalGrid
     }
 
     @Override
-    public LonLatPosition transformCoordinates(GridCoordinates coords) {
-        if (coords.getDimension() != 2) {
-            throw new IllegalArgumentException("coords.length must be 2");
-        }
-        double x = this.xAxis.getCoordinateValue(coords.getCoordinateValue(0));
-        double y = this.yAxis.getCoordinateValue(coords.getCoordinateValue(1));
+    protected LonLatPosition transformCoordinatesNoBoundsCheck(int i, int j) {
+        double x = this.xAxis.getCoordinateValue(i);
+        double y = this.yAxis.getCoordinateValue(j);
         // Translate this point to lon-lat coordinates
         LatLonPoint latLon;
         synchronized(this.proj) {
