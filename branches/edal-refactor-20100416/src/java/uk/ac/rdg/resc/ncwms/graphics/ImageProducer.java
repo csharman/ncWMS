@@ -42,7 +42,6 @@ import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import uk.ac.rdg.resc.ncwms.exceptions.StyleNotDefinedException;
 import uk.ac.rdg.resc.edal.util.Range;
 import uk.ac.rdg.resc.edal.util.Ranges;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
@@ -476,10 +475,8 @@ public final class ImageProducer
          * a new ImageProducer object.
          * @throws IllegalStateException if the builder cannot create a valid
          * ImageProducer object
-         * @throws StyleNotDefinedException if the set style is not supported
-         * by the set layer
          */
-        public ImageProducer build() throws StyleNotDefinedException
+        public ImageProducer build()
         {
             if (this.picWidth < 0 || this.picHeight < 0) {
                 throw new IllegalStateException("picture width and height must be >= 0");
