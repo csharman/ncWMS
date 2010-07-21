@@ -41,7 +41,6 @@ import org.joda.time.DateTimeZone;
 import org.opengis.coverage.grid.GridCoordinates;
 import org.opengis.metadata.extent.GeographicBoundingBox;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ucar.ma2.Array;
@@ -76,7 +75,6 @@ import uk.ac.rdg.resc.edal.coverage.grid.impl.ReferenceableAxisImpl;
 import uk.ac.rdg.resc.edal.coverage.grid.impl.RegularAxisImpl;
 import uk.ac.rdg.resc.edal.coverage.grid.impl.RegularGridImpl;
 import uk.ac.rdg.resc.edal.position.HorizontalPosition;
-import uk.ac.rdg.resc.ncwms.coords.PixelMap;
 import uk.ac.rdg.resc.ncwms.coords.chrono.ThreeSixtyDayChronology;
 import uk.ac.rdg.resc.ncwms.util.TimeUtils;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
@@ -291,9 +289,8 @@ public final class CdmUtils
      * NetcdfDataset.  Essentially, if the data are remote (e.g. OPeNDAP) or
      * compressed, this will return {@link DataReadingStrategy#BOUNDING_BOX},
      * which makes a single i/o call, minimizing the overhead.  If the data
-     * are local and uncompressed this will return {@link DataReadingStrategy#SCANLINE},
-     * which makes a tradeoff between the number of individual i/o calls and the
-     * memory footprint.
+     * are local and uncompressed this will return {@link DataReadingStrategy#PIXEL_BY_PIXEL},
+     * which minimize the amount of data read
      * @param nc The NetcdfDataset from which data will be read.
      * @return an optimum DataReadingStrategy for reading from the dataset
      */
@@ -301,7 +298,7 @@ public final class CdmUtils
     {
         String fileType = nc.getFileTypeId();
         return fileType.equals("netCDF") || fileType.equals("HDF4")
-            ? DataReadingStrategy.SCANLINE
+            ? DataReadingStrategy.PIXEL_BY_PIXEL
             : DataReadingStrategy.BOUNDING_BOX;
     }
 
@@ -459,102 +456,23 @@ public final class CdmUtils
      * Reads a set of points at a given time and elevation from the given
      * GridDatatype.
      * @param grid The GridDatatype from which we will read data
-     * @param horizGrid object that maps between real-world and grid coordinates
+     * @param sourceGrid object that maps between real-world and grid coordinates
      * in the source data grid
      * @param tIndex The time index, or -1 if the grid has no time axis
      * @param zIndex The elevation index, or -1 if the grid has no elevation axis
-     * @param domain The list of horizontal points for which we need data
+     * @param targetDomain The list of horizontal points for which we need data
      * @param drStrategy The strategy to use for reading data
-     * @param scaleMissingDeferred True if the {@link NetcdfDataset} that
-     * contained the GridDatatype was opened with the enhancement mode
-     * {@link Enhance#ScaleMissingDefer}.
      * @return a List of floating point numbers, one for each point in the
      * {@code domain}, in the same order.  Missing values (e.g. land pixels
      * in oceanography data} are represented as nulls.
      * @throws IOException if there was an error reading data from the data source
      */
     public static List<Float> readHorizontalPoints(GridDatatype grid,
-            HorizontalGrid horizGrid, int tIndex, int zIndex,
-            Domain<HorizontalPosition> domain, DataReadingStrategy drStrategy,
-            boolean scaleMissingDeferred)
+            HorizontalGrid sourceGrid, int tIndex, int zIndex,
+            Domain<HorizontalPosition> targetDomain, DataReadingStrategy drStrategy)
             throws IOException
     {
-        try
-        {
-            return readHorizontalPoints(
-                grid,
-                new PixelMap(horizGrid, domain),
-                tIndex,
-                zIndex,
-                drStrategy,
-                scaleMissingDeferred
-            );
-        } 
-        catch(TransformException te)
-        {
-            // This would only happen if there were an internal error transforming
-            // between coordinate systems in making the PixelMap.  There is
-            // nothing a client could do to recover from this so we turn it into
-            // a runtime exception
-            // TODO: think of a better exception type
-            throw new RuntimeException(te);
-        }
-    }
-    
-    
-
-    /**
-     * Reads a set of points at a given time and elevation from the given
-     * GridDatatype.
-     * @param grid The GridDatatype from which we will read data
-     * @param pixelMap Map of pixels in the image to i,j indices in the source data
-     * @param tIndex The time index, or -1 if the grid has no time axis
-     * @param zIndex The elevation index, or -1 if the grid has no elevation axis
-     * @param drStrategy The strategy to use for reading data
-     * @param scaleMissingDeferred True if the {@link NetcdfDataset} that
-     * contained the GridDatatype was opened with the enhancement mode
-     * {@link Enhance#ScaleMissingDefer}.
-     * @return a List of floating point numbers, one for each point in the
-     * {@code domain}, in the same order.  Missing values (e.g. land pixels
-     * in oceanography data} are represented as nulls.
-     * @throws IOException if there was an error reading data from the data source
-     */
-    public static List<Float> readHorizontalPoints(GridDatatype grid,
-            PixelMap pixelMap, int tIndex, int zIndex,
-            DataReadingStrategy drStrategy, boolean scaleMissingDeferred)
-            throws IOException
-    {
-        try
-        {
-            // Prevent InvalidRangeExceptions for ranges we're not going to use anyway
-            if (tIndex < 0) tIndex = 0;
-            if (zIndex < 0) zIndex = 0;
-            Range tRange = new Range(tIndex, tIndex);
-            Range zRange = new Range(zIndex, zIndex);
-
-            // Create an list to hold the data, filled with nulls
-            List<Float> picData = nullArrayList(pixelMap.getTargetDomainSize());
-
-            long start = System.currentTimeMillis();
-            if (pixelMap.isEmpty()) return picData;
-
-            long readMetadata = System.currentTimeMillis();
-            logger.debug("Created PixelMap in {} milliseconds", (readMetadata - start));
-
-            // Read the data from the dataset
-            drStrategy.populatePixelArray(picData, tRange, zRange, pixelMap, grid, scaleMissingDeferred);
-
-            long builtPic = System.currentTimeMillis();
-            logger.debug("Built picture array in {} milliseconds", (builtPic - readMetadata));
-            logger.debug("Whole read() operation took {} milliseconds", (builtPic - start));
-
-            return picData;
-        }
-        catch(InvalidRangeException ire)
-        {
-            // This is a programming error, and one from which we can't recover
-            throw new IllegalStateException(ire);
-        }
+        return drStrategy.readData(tIndex, zIndex, sourceGrid, targetDomain, grid);
     }
 
     /**
@@ -572,6 +490,7 @@ public final class CdmUtils
      * @return a list of floating-point numbers, one for each of the time indices.
      * Missing values (e.g. land pixels in oceanography data} are represented as nulls.
      * @throws IOException if there was an error reading data from the data source
+     * @todo Convert to new mechanism of reading from low-level variable
      */
     public static List<Float> readTimeseries(GridDatatype grid,
             HorizontalGrid horizGrid, List<Integer> tIndices,
@@ -651,19 +570,6 @@ public final class CdmUtils
     public static boolean isScaleMissingDeferred(NetcdfDataset nc)
     {
         return nc.getEnhanceMode().contains(Enhance.ScaleMissingDefer);
-    }
-
-    /**
-     * Returns an ArrayList of null values of the given length
-     */
-    private static ArrayList<Float> nullArrayList(int n)
-    {
-        ArrayList<Float> list = new ArrayList<Float>(n);
-        for (int i = 0; i < n; i++)
-        {
-            list.add((Float)null);
-        }
-        return list;
     }
 
 }

@@ -36,6 +36,7 @@ import uk.ac.rdg.resc.edal.coverage.RecordType;
  * A {@link Grid} that contains values.
  * @todo What exception should be thrown if data are requested for a grid point
  * that is outside the grid envelope?
+ * @todo should extend Collection%lt;Record&gt;?
  * @author Jon
  */
 public interface GridValuesMatrix extends Grid {

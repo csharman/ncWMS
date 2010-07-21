@@ -30,12 +30,12 @@ package uk.ac.rdg.resc.edal.util;
 
 import java.util.AbstractList;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.TreeMap;
 
 /**
  * Contains some useful utility methods for working with Collections.
@@ -79,11 +79,19 @@ public final class CollectionUtils {
     }
 
     /**
-     * Returns a new empty HashMap for objects of a certain type
+     * Returns a new empty LinkedHashMap for objects of a certain type
      */
     public static <K, V> LinkedHashMap<K, V> newLinkedHashMap()
     {
         return new LinkedHashMap<K, V>();
+    }
+
+    /**
+     * Returns a new empty TreeMap for objects of a certain type
+     */
+    public static <K, V> TreeMap<K, V> newTreeMap()
+    {
+        return new TreeMap<K, V>();
     }
 
     /**

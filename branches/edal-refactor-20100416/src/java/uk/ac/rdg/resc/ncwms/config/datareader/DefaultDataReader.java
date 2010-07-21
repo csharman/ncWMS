@@ -29,15 +29,12 @@
 package uk.ac.rdg.resc.ncwms.config.datareader;
 
 import java.io.IOException;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ucar.nc2.dataset.NetcdfDataset;
-import ucar.nc2.dataset.NetcdfDataset.Enhance;
 import ucar.nc2.dt.GridDataset;
 import ucar.nc2.dt.GridDatatype;
 import uk.ac.rdg.resc.edal.coverage.domain.Domain;
@@ -61,22 +58,11 @@ public class DefaultDataReader extends DataReader
     private static final Logger benchmarkLogger = LoggerFactory.getLogger("ncwms.benchmark");
 
     /**
-     * Enumeration of enhancements we want to perform when opening NetcdfDatasets
-     * Read the coordinate systems but don't automatically process
-     * scale/missing/offset when reading data, for efficiency reasons.
-     */
-    private static final Set<Enhance> DATASET_ENHANCEMENTS =
-        EnumSet.of(Enhance.ScaleMissingDefer, Enhance.CoordSystems);
-
-    /**
      * Reads data from a NetCDF file.  Reads data for a single timestep only.
      * This method knows
      * nothing about aggregation: it simply reads data from the given file.
      * Missing values (e.g. land pixels in oceanography data) will be represented
      * by null.
-     *
-     * <p>The actual reading of data is performed in {@link #populatePixelArray
-     * populatePixelArray()}</p>
      *
      * @param filename Location of the file, NcML aggregation or OPeNDAP URL
      * @param layer {@link Layer} object representing the variable
@@ -115,8 +101,7 @@ public class DefaultDataReader extends DataReader
                 tIndex,
                 zIndex,
                 domain,
-                CdmUtils.getOptimumDataReadingStrategy(nc),
-                CdmUtils.isScaleMissingDeferred(nc)
+                CdmUtils.getOptimumDataReadingStrategy(nc)
             );
 
             // Write to the benchmark logger (if enabled in log4j.properties)
@@ -315,14 +300,7 @@ public class DefaultDataReader extends DataReader
             // as they can be time-consuming to put together.  If the underlying
             // data can change we rely on the server admin setting the
             // "recheckEvery" parameter in the aggregation file.
-            return NetcdfDataset.acquireDataset(
-                null, // Use the default factory
-                location,
-                DATASET_ENHANCEMENTS,
-                -1, // use default buffer size
-                null, // no CancelTask
-                null // no iospMessage
-            );
+            return NetcdfDataset.acquireDataset(location, null);
         }
         else
         {
@@ -332,13 +310,7 @@ public class DefaultDataReader extends DataReader
             // have swallowed up all available file handles, in which case
             // the server admin will need to increase the number of available
             // handles on the server.
-            return NetcdfDataset.openDataset(
-                location,
-                DATASET_ENHANCEMENTS,
-                -1, // use default buffer size
-                null, // no CancelTask
-                null // no iospMessage
-            );
+            return NetcdfDataset.openDataset(location);
         }
     }
     

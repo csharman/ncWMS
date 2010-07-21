@@ -40,10 +40,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import javax.imageio.ImageIO;
@@ -83,7 +85,6 @@ import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.edal.position.LonLatPosition;
 import uk.ac.rdg.resc.edal.util.Utils;
 import uk.ac.rdg.resc.ncwms.coords.LineString;
-import uk.ac.rdg.resc.ncwms.coords.PixelMap;
 import uk.ac.rdg.resc.edal.coverage.domain.impl.HorizontalDomain;
 import uk.ac.rdg.resc.ncwms.exceptions.CurrentUpdateSequence;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
@@ -1162,7 +1163,7 @@ public class WmsController extends AbstractController {
         // this by creating transects at progressively higher resolution, and
         // working out how many grid points will be sampled.
         int numTransectPoints = 500; // a bit more than the final image width
-        int lastNumGridPointsSampled = -1;
+        int lastNumUniqueGridPointsSampled = -1;
         HorizontalDomain pointList = null;
         while (true) {
             // Create a transect with the required number of points, interpolating
@@ -1170,16 +1171,22 @@ public class WmsController extends AbstractController {
             List<HorizontalPosition> points = transect.getPointsOnPath(numTransectPoints);
             // Create a HorizontalDomain from the interpolated points
             HorizontalDomain testPointList = new HorizontalDomain(points, transect.getCoordinateReferenceSystem());
+
             // Work out how many grid points will be sampled by this transect
-            int numGridPointsSampled =
-                new PixelMap(layer.getHorizontalGrid(), testPointList).getNumUniqueIJPairs();
+            // Relies on equals() being implemented correctly for the GridCoordinates
+            Set<GridCoordinates> gridCoords = new HashSet<GridCoordinates>();
+            for (GridCoordinates coords : layer.getHorizontalGrid().findNearestGridPoints(testPointList)) {
+                gridCoords.add(coords);
+            }
+            int numUniqueGridPointsSampled = gridCoords.size();
             log.debug("With {} transect points, we'll sample {} grid points",
-                    numTransectPoints, numGridPointsSampled);
+                    numTransectPoints, numUniqueGridPointsSampled);
+
             // If this increase in resolution results in at least 10% more points
             // being sampled we'll go around the loop again
-            if (numGridPointsSampled > lastNumGridPointsSampled * 1.1) {
+            if (numUniqueGridPointsSampled > lastNumUniqueGridPointsSampled * 1.1) {
                 // We need to increase the transect resolution and try again
-                lastNumGridPointsSampled = numGridPointsSampled;
+                lastNumUniqueGridPointsSampled = numUniqueGridPointsSampled;
                 numTransectPoints += 500;
                 pointList = testPointList;
             } else {

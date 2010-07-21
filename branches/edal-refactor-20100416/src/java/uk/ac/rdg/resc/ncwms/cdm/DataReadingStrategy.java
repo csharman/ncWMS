@@ -27,19 +27,24 @@
  */
 package uk.ac.rdg.resc.ncwms.cdm;
 
-import uk.ac.rdg.resc.ncwms.coords.PixelMap;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ucar.ma2.Array;
 import ucar.ma2.Index;
 import ucar.ma2.InvalidRangeException;
 import ucar.ma2.Range;
+import ucar.nc2.Variable;
 import ucar.nc2.dataset.VariableDS;
 import ucar.nc2.dt.GridDatatype;
+import uk.ac.rdg.resc.edal.coverage.domain.Domain;
+import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
+import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.config.datareader.DataReader;
 
 /**
@@ -105,46 +110,49 @@ public enum DataReadingStrategy {
      */
     SCANLINE {
         @Override
-        protected void doPopulatePixelArray(List<Float> picData, Range tRange, Range zRange,
-            PixelMap pixelMap, GridDatatype grid, boolean scaleMissingDeferred)
+        protected void populatePixelArray(List<Float> picData,
+            PixelMap pixelMap, VariableDS var, RangesList ranges)
             throws IOException, InvalidRangeException
         {
             logger.debug("Reading data using a scanline algorithm");
             // Cycle through the y indices, extracting a scanline of
             // data each time from minX to maxX
-            logger.debug("Shape of grid: {}", Arrays.toString(grid.getShape()));
+            logger.debug("Shape of grid: {}", Arrays.toString(var.getShape()));
             // Get a VariableDS for unpacking and checking for missing data
-            VariableDS var = grid.getVariable();
-            for (int j : pixelMap.getJIndices()) {
+            Variable origVar = var.getOriginalVariable();
+
+            for (int j : pixelMap.getJIndices())
+            {
                 Range yRange = new Range(j, j);
+                ranges.setYRange(yRange);
                 // Read a row of data from the source
                 int imin = pixelMap.getMinIIndexInRow(j);
                 int imax = pixelMap.getMaxIIndexInRow(j);
                 Range xRange = new Range(imin, imax);
+                ranges.setXRange(xRange);
+
+                logger.debug(ranges.toString());
+
                 // Read a chunk of data - values will not be unpacked or
                 // checked for missing values yet
-                logger.debug("tRange: {}, zRange: {}, yRange: {}, xRange: {}", new Object[]{tRange, zRange, yRange, xRange});
                 long start = System.nanoTime();
-                GridDatatype subset = grid.makeSubset(null, null, tRange, zRange, yRange, xRange);
-                logger.debug("Subset shape = {}", Arrays.toString(subset.getShape()));
-                // Read all of the x-y data in this subset
-                Array xySlice = subset.readDataSlice(0, 0, -1, -1);
-                logger.debug("Slice shape = {}", Arrays.toString(xySlice.getShape()));
+                Array arr = origVar.read(ranges.getRanges());
+                logger.debug("Array shape = {}", Arrays.toString(arr.getShape()));
                 long end = System.nanoTime();
                 double timeToReadDataMs = (end - start) / 1.e6;
-                // We now have a 2D array in y,x order.  We don't reduce this array
-                // because it will go to zero size if there is only one point in
-                // each direction.
-                Index index = xySlice.getIndex();
+
+                // Get an index for the array and set it to zero
+                Index index = arr.getIndex();
+                index.set(new int[index.getRank()]);
 
                 // Now copy the scanline's data to the picture array
                 Set<Integer> iIndices = pixelMap.getIIndices(j);
                 for (int i : iIndices) {
-                    float val = xySlice.getFloat(index.set(0, i - imin));
-                    if (scaleMissingDeferred) {
-                        // The value we've read won't have had scale-offset-missing applied
-                        val = (float) var.convertScaleOffsetMissing(val);
-                    }
+                    index.setDim(ranges.xi, i - imin);
+                    float val = arr.getFloat(index);
+                    // The value we've read won't have had scale-offset-missing applied
+                    val = (float) var.convertScaleOffsetMissing(val);
+
                     // Now we set the value of all the image pixels associated with
                     // this data point.
                     if (!Float.isNaN(val)) {
@@ -153,10 +161,13 @@ public enum DataReadingStrategy {
                         }
                     }
                 }
-                System.out.printf("Row: %d, imin: %d, imax: %d, pointsRead: %d, usefulPointsRead: %d, timeMs: %f, msPerPoint: %f, msPerUsefulPoint: %f%n",
-                     j, imin, imax, (imax - imin + 1), iIndices.size(), timeToReadDataMs, (timeToReadDataMs / (imax - imin + 1)), (timeToReadDataMs / iIndices.size()));
+//                System.out.printf("Row: %d, imin: %d, imax: %d, pointsRead: %d, usefulPointsRead: %d, timeMs: %f, msPerPoint: %f, msPerUsefulPoint: %f%n",
+//                     j, imin, imax, (imax - imin + 1), iIndices.size(), timeToReadDataMs, (timeToReadDataMs / (imax - imin + 1)), (timeToReadDataMs / iIndices.size()));
             }
         }
+
+        @Override
+        protected boolean isPixelMapSorted() { return false; }
     },
 
     /**
@@ -166,58 +177,51 @@ public enum DataReadingStrategy {
      */
     BOUNDING_BOX {
         @Override
-        protected void doPopulatePixelArray(List<Float> picData, Range tRange, Range zRange,
-            PixelMap pixelMap, GridDatatype grid, boolean scaleMissingDeferred)
+        protected void populatePixelArray(List<Float> picData,
+            PixelMap pixelMap, VariableDS var, RangesList ranges)
             throws IOException, InvalidRangeException
         {
             logger.debug("Reading data using a bounding-box algorithm");
             // Read the whole chunk of x-y data
             Range xRange = new Range(pixelMap.getMinIIndex(), pixelMap.getMaxIIndex());
             Range yRange = new Range(pixelMap.getMinJIndex(), pixelMap.getMaxJIndex());
-            logger.debug("Shape of grid: {}", Arrays.toString(grid.getShape()));
-            logger.debug("tRange: {}, zRange: {}, yRange: {}, xRange: {}", new
-                Object[] {tRange, zRange, yRange, xRange});
+            ranges.setXRange(xRange);
+            ranges.setYRange(yRange);
+            logger.debug("Shape of grid: {}", Arrays.toString(var.getShape()));
+            logger.debug(ranges.toString());
+
+            Variable origVar = var.getOriginalVariable();
+
             long start = System.currentTimeMillis();
-            GridDatatype subset = grid.makeSubset(null, null, tRange, zRange, yRange, xRange);
-            // Read all of the x-y data in this subset
-            Array xySlice = subset.readDataSlice(0, 0, -1, -1);
-            logger.debug("Shape of xySlice = {}", Arrays.toString(xySlice.getShape()));
+            Array arr = origVar.read(ranges.getRanges());
             long readData = System.currentTimeMillis();
             logger.debug("Read data using bounding box algorithm in {} milliseconds", (readData - start));
 
-            // Now create the picture from the data array
-            // Get a VariableDS for unpacking and checking for missing data
-            VariableDS var = grid.getVariable();
-            Index index = xySlice.getIndex(); // 2D index in y,x order
+            // Now extract the information we need from the data array
+            Index index = arr.getIndex();
+            index.set(new int[index.getRank()]);
             for (int j : pixelMap.getJIndices())
             {
+                index.setDim(ranges.yi, j - yRange.first());
                 for (int i : pixelMap.getIIndices(j))
                 {
-                    try
+                    index.setDim(ranges.xi, i - xRange.first());
+                    float val = arr.getFloat(index);
+                    // The value we've read won't have had scale-offset-missing applied
+                    val = (float)var.convertScaleOffsetMissing(val);
+                    if (!Float.isNaN(val))
                     {
-                        float val = xySlice.getFloat(index.set(j - pixelMap.getMinJIndex(),
-                            i - pixelMap.getMinIIndex()));
-                        if (scaleMissingDeferred) {
-                            // The value we've read won't have had scale-offset-missing applied
-                            val = (float)var.convertScaleOffsetMissing(val);
-                        }
-                        if (!Float.isNaN(val))
+                        for (int pixelIndex : pixelMap.getPixelIndices(i, j))
                         {
-                            for (int pixelIndex : pixelMap.getPixelIndices(i, j))
-                            {
-                                picData.set(pixelIndex, val);
-                            }
+                            picData.set(pixelIndex, val);
                         }
-                    }
-                    catch(ArrayIndexOutOfBoundsException aioobe)
-                    {
-                        logger.error("Array index ({},{}) out of bounds",
-                            j - pixelMap.getMinJIndex(), i - pixelMap.getMinIIndex());
-                        throw aioobe;
                     }
                 }
             }
         }
+
+        @Override
+        protected boolean isPixelMapSorted() { return false; }
     },
 
     /**
@@ -226,31 +230,29 @@ public enum DataReadingStrategy {
      */
     PIXEL_BY_PIXEL {
         @Override
-        protected void doPopulatePixelArray(List<Float> picData, Range tRange, Range zRange,
-            PixelMap pixelMap, GridDatatype grid, boolean scaleMissingDeferred)
+        protected void populatePixelArray(List<Float> picData,
+            PixelMap pixelMap, VariableDS var, RangesList ranges)
             throws IOException, InvalidRangeException
         {
             logger.debug("Reading data using a pixel-by-pixel algorithm");
             long start = System.currentTimeMillis();
-            // Get a VariableDS for unpacking and checking for missing data
-            VariableDS var = grid.getVariable();
+
+            Variable origVar = var.getOriginalVariable();
 
             // Now create the picture from the data array
             for (int j : pixelMap.getJIndices())
             {
-                Range yRange = new Range(j, j);
+                ranges.setYRange(new Range(j, j));
                 for (int i : pixelMap.getIIndices(j))
                 {
-                    Range xRange = new Range(i, i);
-                    GridDatatype subset = grid.makeSubset(null, null, tRange, zRange, yRange, xRange);
-                    // Read all of the x-y data in this subset
-                    Array xySlice = subset.readDataSlice(0, 0, -1, -1);
-                    Index index = xySlice.getIndex();
-                    float val = xySlice.getFloat(index.set(0, 0));
-                    if (scaleMissingDeferred) {
-                        // The value we've read won't have had scale-offset-missing applied
-                        val = (float)var.convertScaleOffsetMissing(val);
-                    }
+                    ranges.setXRange(new Range(i, i));
+                    Array arr = origVar.read(ranges.getRanges());
+                    // Get an index and set all elements to zero
+                    Index index = arr.getIndex();
+                    index.set(new int[index.getRank()]);
+                    float val = arr.getFloat(index); // TODO: can we just use "0" instead of the index?
+                    // The value we've read won't have had scale-offset-missing applied
+                    val = (float)var.convertScaleOffsetMissing(val);
                     if (!Float.isNaN(val))
                     {
                         for (int pixelIndex : pixelMap.getPixelIndices(i, j))
@@ -263,26 +265,135 @@ public enum DataReadingStrategy {
             logger.debug("Read data pixel-by-pixel in {} ms",
                 (System.currentTimeMillis() - start));
         }
+
+        /** Data reading is faster if the pixel map is sorted */
+        @Override
+        protected boolean isPixelMapSorted() { return true; }
     };
+    
+    /** Wraps a List of Ranges, providing methods to safely set ranges for
+     * x, y, z and t */
+    protected static final class RangesList
+    {
+        private static final Range ZERO_RANGE;
+
+        private final List<Range> ranges;
+        private final int xi;
+        private final int yi;
+        private final int zi;
+        private final int ti;
+
+        static
+        {
+            try { ZERO_RANGE = new Range(0, 0); }
+            catch (InvalidRangeException ire) { throw new ExceptionInInitializerError(ire); }
+        }
+        
+        public RangesList(GridDatatype grid, int tIndex, int zIndex)
+                throws InvalidRangeException
+        {
+            int rank = grid.getRank();
+            this.ranges = new ArrayList<Range>(rank);
+            for (int i = 0; i < rank; i++) { ranges.add(ZERO_RANGE); }
+
+            this.xi = grid.getXDimensionIndex();
+            this.yi = grid.getYDimensionIndex();
+            this.zi = grid.getZDimensionIndex();
+            this.ti = grid.getTimeDimensionIndex();
+
+            // Set the time and z ranges, avoiding InvalidRangeExceptions for
+            // ranges we won't use
+            if (tIndex < 0) tIndex = 0;
+            if (zIndex < 0) zIndex = 0;
+            this.setRange(this.ti, new Range(tIndex, tIndex));
+            this.setRange(this.zi, new Range(zIndex, zIndex));
+        }
+
+        public void setXRange(Range xRange)
+        {
+            this.setRange(this.xi, xRange);
+        }
+
+        public void setYRange(Range yRange)
+        {
+            this.setRange(this.yi, yRange);
+        }
+
+        private void setRange(int index, Range range)
+        {
+            if (index >= 0) this.ranges.set(index, range);
+        }
+
+        private Range getRange(int index)
+        {
+            if (index >= 0) return this.ranges.get(index);
+            return null;
+        }
+        
+        public List<Range> getRanges() { return this.ranges; }
+
+        @Override
+        public String toString()
+        {
+            Range tRange = this.getRange(this.ti);
+            Range zRange = this.getRange(this.zi);
+            Range yRange = this.getRange(this.yi);
+            Range xRange = this.getRange(this.xi);
+            return String.format("tRange: %s, zRange: %s, yRange: %s, xRange: %s",
+                tRange, zRange, yRange, xRange);
+        }
+    }
 
     /**
      * Reads data from the given GridDatatype and populates the given pixel array.
      * @param picData A List of the correct size, full of nulls.
      * @see PixelMap
      */
-    public final void populatePixelArray(List<Float> picData, Range tRange, Range zRange,
-        PixelMap pixelMap, GridDatatype grid, boolean scaleMissingDeferred) throws IOException
+    public final List<Float> readData(int tIndex, int zIndex,
+        HorizontalGrid sourceGrid, Domain<HorizontalPosition> targetDomain,
+        GridDatatype grid) throws IOException
     {
-        try {
-            this.doPopulatePixelArray(picData, tRange, zRange, pixelMap, grid, scaleMissingDeferred);
-        } catch (InvalidRangeException ire) {
+        List<Float> picData = nullArrayList(targetDomain.getDomainObjects().size());
+        PixelMap pixelMap;
+        try
+        {
+            pixelMap = new PixelMap(sourceGrid, targetDomain, this.isPixelMapSorted());
+        }
+        catch (TransformException te)
+        {
+            throw new RuntimeException(te);
+        }
+        if (pixelMap.isEmpty()) return picData;
+        try
+        {
+            RangesList rangesList = new RangesList(grid, tIndex, zIndex);
+            this.populatePixelArray(picData, pixelMap, grid.getVariable(), rangesList);
+        }
+        catch (InvalidRangeException ire)
+        {
             // This is a programming error from which we can't recover
             throw new IllegalStateException(ire);
         }
+        return picData;
     }
 
-    protected abstract void doPopulatePixelArray(List<Float> picData, Range tRange, Range zRange,
-        PixelMap pixelMap, GridDatatype grid, boolean scaleMissingDeferred)
+    /**
+     * Returns an ArrayList of null values of the given length
+     */
+    private static ArrayList<Float> nullArrayList(int n)
+    {
+        ArrayList<Float> list = new ArrayList<Float>(n);
+        for (int i = 0; i < n; i++)
+        {
+            list.add((Float)null);
+        }
+        return list;
+    }
+
+    protected abstract boolean isPixelMapSorted();
+
+    protected abstract void populatePixelArray(List<Float> picData,
+            PixelMap pixelMap, VariableDS var, RangesList ranges)
         throws IOException, InvalidRangeException;
 
     private static final Logger logger = LoggerFactory.getLogger(DataReadingStrategy.class);
