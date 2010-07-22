@@ -2,7 +2,7 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package uk.ac.rdg.resc.edal.position.impl;
+package uk.ac.rdg.resc.edal.geometry.impl;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -12,7 +12,6 @@ import java.util.Arrays;
 import org.geotoolkit.referencing.crs.DefaultGeographicCRS;
 import org.junit.Test;
 import uk.ac.rdg.resc.edal.geometry.LonLatPosition;
-import uk.ac.rdg.resc.edal.geometry.impl.LonLatPositionImpl;
 
 /**
  * Test case for {@link LonLatPositionImpl}.

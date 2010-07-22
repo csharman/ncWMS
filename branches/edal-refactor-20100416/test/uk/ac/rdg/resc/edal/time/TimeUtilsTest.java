@@ -26,7 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.util;
+package uk.ac.rdg.resc.edal.time;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
