@@ -46,7 +46,6 @@ import org.slf4j.LoggerFactory;
 import ucar.ma2.Array;
 import ucar.ma2.Index;
 import ucar.ma2.InvalidRangeException;
-import ucar.ma2.Range;
 import ucar.nc2.Attribute;
 import ucar.nc2.Variable;
 import ucar.nc2.constants.AxisType;
@@ -509,7 +508,6 @@ public final class CdmUtils
      * @return a list of floating-point numbers, one for each of the time indices.
      * Missing values (e.g. land pixels in oceanography data} are represented as nulls.
      * @throws IOException if there was an error reading data from the data source
-     * @todo Convert to new mechanism of reading from low-level variable
      */
     public static List<Float> readTimeseries(NetcdfDataset nc, String varId,
             HorizontalGrid horizGrid, List<Integer> tIndices,
@@ -525,67 +523,66 @@ public final class CdmUtils
             return Collections.nCopies(tIndices.size(), null);
         }
 
+        int i = gridCoords.getCoordinateValue(0);
+        int j = gridCoords.getCoordinateValue(1);
         int firstTIndex = tIndices.get(0);
         int lastTIndex = tIndices.get(tIndices.size() - 1);
-        
-        // Prevent InvalidRangeExceptions if z or t axes are missing
-        if (firstTIndex < 0 || lastTIndex < 0)
-        {
-            firstTIndex = 0;
-            lastTIndex = 0;
-        }
-        if (zIndex < 0) zIndex = 0;
 
+        RangesList rangesList = new RangesList(grid);
+        rangesList.setTRange(firstTIndex, lastTIndex);
+        rangesList.setZRange(zIndex, zIndex);
+        rangesList.setYRange(j, j);
+        rangesList.setXRange(i, i);
+
+        VariableDS enhancedVar = grid.getVariable();
+        Variable origVar = enhancedVar.getOriginalVariable();
+        // We read data for the whole time range.  This may mean grabbing
+        // data we don't need.
+        // TODO: use a datareadingstrategy here to read point-by-point for
+        // local files?
+        Array arr = readVariable(origVar, rangesList);
+
+        // Copy the data to the required array, discarding the points we
+        // don't need
+        List<Float> tsData = new ArrayList<Float>();
+        Index index = arr.getIndex();
+        index.set(new int[index.getRank()]);
+        for (int tIndex : tIndices)
+        {
+            int tIndexOffset = tIndex - firstTIndex;
+            if (tIndexOffset < 0) tIndexOffset = 0; // This will happen if the layer has no t axis
+            index.setDim(rangesList.getTAxisIndex(), tIndexOffset);
+            float val = arr.getFloat(index);
+            // Apply any scale-offset-missing conversions
+            val = (float)enhancedVar.convertScaleOffsetMissing(val);
+            // Replace missing values with nulls
+            tsData.add(Float.isNaN(val) ? null : val);
+        }
+
+        return tsData;
+    }
+
+    /**
+     * Reads a chunk of data from the given variable.  This method avoids the
+     * need for catching InvalidRangeExceptions.  Such an exception will not be
+     * thrown by this method unless the given RangesList was constructed for a
+     * different variable shape.
+     * @param var The variable from which to read data
+     * @param ranges The list of ranges describing the data chunk
+     * @return array of data
+     * @throws IOException if there was an io error reading from the variable
+     * @throws IllegalArgumentException if {@code ranges} is not valid for the
+     * variable.
+     */
+    static Array readVariable(Variable var, RangesList ranges) throws IOException
+    {
         try
         {
-            int i = gridCoords.getCoordinateValue(0);
-            int j = gridCoords.getCoordinateValue(1);
-            Range tRange = new Range(firstTIndex, lastTIndex);
-            Range zRange = new Range(zIndex, zIndex);
-            Range yRange = new Range(j, j);
-            Range xRange = new Range(i, i);
-
-            RangesList rangesList = new RangesList(grid);
-            rangesList.setTRange(tRange);
-            rangesList.setZRange(zRange);
-            rangesList.setYRange(yRange);
-            rangesList.setXRange(xRange);
-
-            // Now read the data
-            VariableDS enhancedVar = grid.getVariable();
-            Variable origVar = enhancedVar.getOriginalVariable();
-            Array arr = origVar.read(rangesList.getRanges());
-
-            // Check for consistency
-            if (arr.getSize() != lastTIndex - firstTIndex + 1)
-            {
-                // This is an internal error
-                throw new IllegalStateException("Unexpected array size (got " + arr.getSize()
-                    + ", expected " + (lastTIndex - firstTIndex + 1) + ")");
-            }
-
-            // Copy the data (which may include many points we don't need) to
-            // the required array
-            List<Float> tsData = new ArrayList<Float>();
-            Index index = arr.getIndex();
-            index.set(new int[index.getRank()]);
-            for (int tIndex : tIndices)
-            {
-                int tIndexOffset = tIndex - firstTIndex;
-                if (tIndexOffset < 0) tIndexOffset = 0; // This will happen if the layer has no t axis
-                index.setDim(rangesList.getTAxisIndex(), tIndexOffset);
-                float val = arr.getFloat(index);
-                // Apply any scale-offset-missing conversions
-                val = (float)enhancedVar.convertScaleOffsetMissing(val);
-                // Replace missing values with nulls
-                tsData.add(Float.isNaN(val) ? null : val);
-            }
-            return tsData;
+            return var.read(ranges.getRanges());
         }
         catch(InvalidRangeException ire)
         {
-            // This is a programming error, and one from which we can't recover
-            throw new IllegalStateException(ire);
+            throw new IllegalArgumentException(ire);
         }
     }
 

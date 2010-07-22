@@ -35,9 +35,12 @@ import ucar.nc2.Variable;
 import ucar.nc2.dt.GridDatatype;
 
 /**
- * Wraps a List of Ranges, providing methods to safely set ranges for
+ * <p>Wraps a List of Ranges, providing methods to safely set ranges for
  * x, y, z and t.  Call {@link #getRanges()} to get a List of Range objects
- * that can be passed directly to {@link Variable#read(java.util.List)}.
+ * that can be passed directly to {@link Variable#read(java.util.List)}.</p>
+ * <p>The setXRange() methods and its cousins do nothing if there is no
+ * corresponding axis, hence there is no need to worry about InvalidRangeExceptions
+ * for axes that do not exist.</p>
  * @author Jon Blower
  */
 final class RangesList
@@ -69,35 +72,46 @@ final class RangesList
         this.tAxisIndex = grid.getTimeDimensionIndex();
     }
 
-    public void setXRange(Range xRange)
+    public void setXRange(int xmin, int xmax)
     {
-        this.setRange(this.xAxisIndex, xRange);
+        this.setRange(this.xAxisIndex, xmin, xmax);
     }
 
-    public void setYRange(Range yRange)
+    public void setYRange(int ymin, int ymax)
     {
-        this.setRange(this.yAxisIndex, yRange);
+        this.setRange(this.yAxisIndex, ymin, ymax);
     }
 
-    public void setZRange(Range zRange)
+    public void setZRange(int zmin, int zmax)
     {
-        this.setRange(this.zAxisIndex, zRange);
+        this.setRange(this.zAxisIndex, zmin, zmax);
     }
 
-    public void setTRange(Range tRange)
+    public void setTRange(int tmin, int tmax)
     {
-        this.setRange(this.tAxisIndex, tRange);
+        this.setRange(this.tAxisIndex, tmin, tmax);
     }
 
-    private void setRange(int index, Range range)
+    private void setRange(int index, int min, int max)
     {
-        if (index >= 0) this.ranges.set(index, range);
+        if (index >= 0)
+        {
+            try
+            {
+                this.ranges.set(index, new Range(min, max));
+            }
+            catch(InvalidRangeException ire)
+            {
+                // This is a programming error, so is wrapped as a runtime exception
+                throw new IllegalArgumentException(ire);
+            }
+        }
     }
 
     private Range getRange(int index)
     {
         if (index >= 0) return this.ranges.get(index);
-        return null;
+        else return null;
     }
 
     /** Gets the index of the x axis within the {@link #getRanges() list of ranges}.*/

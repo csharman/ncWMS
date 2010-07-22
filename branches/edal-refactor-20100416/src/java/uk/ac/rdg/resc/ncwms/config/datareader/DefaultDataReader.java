@@ -79,11 +79,9 @@ public class DefaultDataReader extends DataReader
         NetcdfDataset nc = null;
         try
         {
-            long start = System.currentTimeMillis();
             // Open the dataset, using the cache for NcML aggregations
             nc = openDataset(filename);
-            long openedDS = System.currentTimeMillis();
-            logger.debug("Opened NetcdfDataset in {} milliseconds", (openedDS - start));
+            // Read and return the data
             return CdmUtils.readHorizontalPoints(
                 nc,
                 layer.getId(),           // The grid of data to read from
@@ -95,17 +93,7 @@ public class DefaultDataReader extends DataReader
         }
         finally
         {
-            if (nc != null)
-            {
-                try
-                {
-                    nc.close();
-                }
-                catch (IOException ex)
-                {
-                    logger.error("IOException closing " + nc.getLocation(), ex);
-                }
-            }
+            closeDataset(nc);
         }
     }
 
@@ -145,7 +133,6 @@ public class DefaultDataReader extends DataReader
         {
             // Open the dataset, using the cache for NcML aggregations
             nc = openDataset(filename);
-            
             // Read and return the data
             return CdmUtils.readTimeseries(
                 nc,
@@ -158,17 +145,7 @@ public class DefaultDataReader extends DataReader
         }
         finally
         {
-            if (nc != null)
-            {
-                try
-                {
-                    nc.close();
-                }
-                catch (IOException ex)
-                {
-                    logger.error("IOException closing " + nc.getLocation(), ex);
-                }
-            }
+            closeDataset(nc);
         }
     }
     
@@ -201,18 +178,22 @@ public class DefaultDataReader extends DataReader
         finally
         {
             logger.debug("In finally clause");
-            if (nc != null)
-            {
-                try
-                {
-                    nc.close();
-                    logger.debug("NetCDF file closed");
-                }
-                catch (IOException ex)
-                {
-                    logger.error("IOException closing " + nc.getLocation(), ex);
-                }
-            }
+            closeDataset(nc);
+        }
+    }
+
+    /** Closes the given dataset, logging any exceptions at debug level */
+    private static void closeDataset(NetcdfDataset nc)
+    {
+        if (nc == null) return;
+        try
+        {
+            nc.close();
+            logger.debug("NetCDF file closed");
+        }
+        catch (IOException ex)
+        {
+            logger.error("IOException closing " + nc.getLocation(), ex);
         }
     }
 
@@ -261,13 +242,17 @@ public class DefaultDataReader extends DataReader
      */
     private static NetcdfDataset openDataset(String location) throws IOException
     {
+        boolean usedCache = false;
+        NetcdfDataset nc;
+        long start = System.nanoTime();
         if (WmsUtils.isNcmlAggregation(location))
         {
             // We use the cache of NetcdfDatasets to read NcML aggregations
             // as they can be time-consuming to put together.  If the underlying
             // data can change we rely on the server admin setting the
             // "recheckEvery" parameter in the aggregation file.
-            return NetcdfDataset.acquireDataset(location, null);
+            nc = NetcdfDataset.acquireDataset(location, null);
+            usedCache = true;
         }
         else
         {
@@ -277,8 +262,12 @@ public class DefaultDataReader extends DataReader
             // have swallowed up all available file handles, in which case
             // the server admin will need to increase the number of available
             // handles on the server.
-            return NetcdfDataset.openDataset(location);
+            nc = NetcdfDataset.openDataset(location);
         }
+        long openedDS = System.nanoTime();
+        String verb = usedCache ? "Acquired" : "Opened";
+        logger.debug(verb + " NetcdfDataset in {} milliseconds", (openedDS - start) / 1.e6);
+        return nc;
     }
     
 }

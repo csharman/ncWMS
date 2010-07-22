@@ -37,8 +37,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ucar.ma2.Array;
 import ucar.ma2.Index;
-import ucar.ma2.InvalidRangeException;
-import ucar.ma2.Range;
 import ucar.nc2.Variable;
 import ucar.nc2.dataset.VariableDS;
 import ucar.nc2.dt.GridDatatype;
@@ -112,7 +110,7 @@ enum DataReadingStrategy {
         @Override
         protected void populatePixelArray(List<Float> picData,
             PixelMap pixelMap, VariableDS var, RangesList ranges)
-            throws IOException, InvalidRangeException
+            throws IOException
         {
             logger.debug("Reading data using a scanline algorithm");
             // Cycle through the y indices, extracting a scanline of
@@ -123,20 +121,18 @@ enum DataReadingStrategy {
 
             for (int j : pixelMap.getJIndices())
             {
-                Range yRange = new Range(j, j);
-                ranges.setYRange(yRange);
+                ranges.setYRange(j, j);
                 // Read a row of data from the source
                 int imin = pixelMap.getMinIIndexInRow(j);
                 int imax = pixelMap.getMaxIIndexInRow(j);
-                Range xRange = new Range(imin, imax);
-                ranges.setXRange(xRange);
+                ranges.setXRange(imin, imax);
 
                 logger.debug(ranges.toString());
 
                 // Read a chunk of data - values will not be unpacked or
                 // checked for missing values yet
                 long start = System.nanoTime();
-                Array arr = origVar.read(ranges.getRanges());
+                Array arr = CdmUtils.readVariable(origVar, ranges);
                 logger.debug("Array shape = {}", Arrays.toString(arr.getShape()));
                 long end = System.nanoTime();
                 double timeToReadDataMs = (end - start) / 1.e6;
@@ -179,21 +175,23 @@ enum DataReadingStrategy {
         @Override
         protected void populatePixelArray(List<Float> picData,
             PixelMap pixelMap, VariableDS var, RangesList ranges)
-            throws IOException, InvalidRangeException
+            throws IOException
         {
             logger.debug("Reading data using a bounding-box algorithm");
             // Read the whole chunk of x-y data
-            Range xRange = new Range(pixelMap.getMinIIndex(), pixelMap.getMaxIIndex());
-            Range yRange = new Range(pixelMap.getMinJIndex(), pixelMap.getMaxJIndex());
-            ranges.setXRange(xRange);
-            ranges.setYRange(yRange);
+            int imin = pixelMap.getMinIIndex();
+            int imax = pixelMap.getMaxIIndex();
+            int jmin = pixelMap.getMinJIndex();
+            int jmax = pixelMap.getMaxJIndex();
+            ranges.setXRange(imin, imax);
+            ranges.setYRange(jmin, jmax);
             logger.debug("Shape of grid: {}", Arrays.toString(var.getShape()));
             logger.debug(ranges.toString());
 
             Variable origVar = var.getOriginalVariable();
 
             long start = System.currentTimeMillis();
-            Array arr = origVar.read(ranges.getRanges());
+            Array arr = CdmUtils.readVariable(origVar, ranges);
             long readData = System.currentTimeMillis();
             logger.debug("Read data using bounding box algorithm in {} milliseconds", (readData - start));
 
@@ -202,10 +200,10 @@ enum DataReadingStrategy {
             index.set(new int[index.getRank()]);
             for (int j : pixelMap.getJIndices())
             {
-                index.setDim(ranges.getYAxisIndex(), j - yRange.first());
+                index.setDim(ranges.getYAxisIndex(), j - jmin);
                 for (int i : pixelMap.getIIndices(j))
                 {
-                    index.setDim(ranges.getXAxisIndex(), i - xRange.first());
+                    index.setDim(ranges.getXAxisIndex(), i - jmax);
                     float val = arr.getFloat(index);
                     // The value we've read won't have had scale-offset-missing applied
                     val = (float)var.convertScaleOffsetMissing(val);
@@ -232,7 +230,7 @@ enum DataReadingStrategy {
         @Override
         protected void populatePixelArray(List<Float> picData,
             PixelMap pixelMap, VariableDS var, RangesList ranges)
-            throws IOException, InvalidRangeException
+            throws IOException
         {
             logger.debug("Reading data using a pixel-by-pixel algorithm");
             long start = System.currentTimeMillis();
@@ -242,11 +240,11 @@ enum DataReadingStrategy {
             // Now create the picture from the data array
             for (int j : pixelMap.getJIndices())
             {
-                ranges.setYRange(new Range(j, j));
+                ranges.setYRange(j, j);
                 for (int i : pixelMap.getIIndices(j))
                 {
-                    ranges.setXRange(new Range(i, i));
-                    Array arr = origVar.read(ranges.getRanges());
+                    ranges.setXRange(i, i);
+                    Array arr = CdmUtils.readVariable(origVar, ranges);
                     // Get an index and set all elements to zero
                     Index index = arr.getIndex();
                     index.set(new int[index.getRank()]);
@@ -297,18 +295,12 @@ enum DataReadingStrategy {
         if (tIndex < 0) tIndex = 0;
         if (zIndex < 0) zIndex = 0;
         RangesList rangesList = new RangesList(grid);
-        try
-        {
-            rangesList.setZRange(new Range(zIndex, zIndex));
-            rangesList.setTRange(new Range(tIndex, tIndex));
-            // Now read the actual data from the source GridDatatype
-            this.populatePixelArray(picData, pixelMap, grid.getVariable(), rangesList);
-        }
-        catch (InvalidRangeException ire)
-        {
-            // This is a programming error from which we can't recover
-            throw new IllegalStateException(ire);
-        }
+        rangesList.setZRange(zIndex, zIndex);
+        rangesList.setTRange(tIndex, tIndex);
+        
+        // Now read the actual data from the source GridDatatype
+        this.populatePixelArray(picData, pixelMap, grid.getVariable(), rangesList);
+
         return picData;
     }
 
@@ -329,7 +321,7 @@ enum DataReadingStrategy {
 
     protected abstract void populatePixelArray(List<Float> picData,
             PixelMap pixelMap, VariableDS var, RangesList ranges)
-        throws IOException, InvalidRangeException;
+        throws IOException;
 
     private static final Logger logger = LoggerFactory.getLogger(DataReadingStrategy.class);
 }
