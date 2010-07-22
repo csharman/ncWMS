@@ -44,11 +44,12 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
  * and seem to lack a method for finding coordinates along the path.
  * @author Jon
  */
-public final class LineString {
+public final class LineString
+{
 
     private final List<HorizontalPosition> controlPoints;
-    private final transient double[] controlPointDistances;
-    private final double pathLength;
+    private final double[] controlPointDistances;
+    private double pathLength;
     private final CoordinateReferenceSystem crs;
 
     /**
@@ -93,17 +94,16 @@ public final class LineString {
         // While we're doing this we'll calculate the total length of the path
         // up to each waypoint
         this.controlPointDistances = new double[this.controlPoints.size()];
-        double pathLengthTmp = 0.0;
+        this.pathLength = 0.0;
         this.controlPointDistances[0] = this.pathLength;
         for (int i = 1; i < this.controlPoints.size(); i++) {
             HorizontalPosition p1 = this.controlPoints.get(i - 1);
             HorizontalPosition p2 = this.controlPoints.get(i);
             double dx = p2.getX() - p1.getX();
             double dy = p2.getY() - p1.getY();
-            pathLengthTmp += Math.sqrt(dx * dx + dy * dy);
+            this.pathLength += Math.sqrt(dx * dx + dy * dy);
             this.controlPointDistances[i] = this.pathLength;
         }
-        this.pathLength = pathLengthTmp;
     }
 
     /**
@@ -213,4 +213,3 @@ public final class LineString {
     }
 
 }
-
