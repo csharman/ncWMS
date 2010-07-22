@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 The University of Reading
+ * Copyright (c) 2009 The University of Reading
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,33 +26,49 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.edal.position;
+package uk.ac.rdg.resc.edal.geometry;
 
 import org.opengis.geometry.DirectPosition;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 /**
- * A direct position within a one-dimensional coordinate reference system
+ * Defines the position of a point in the horizontal plane.
+ * @todo May cause confusion for lat-lon coordinate systems (i.e. those with
+ * latitude first).  In this case getX() would return latitude, which is
+ * counterintuitive.  Do we actually need this interface at all?
  * @author Jon
  */
-public interface OneDimensionalPosition extends DirectPosition {
-    
-    /** Returns a one-dimensional coordinate reference system */
+public interface HorizontalPosition extends DirectPosition {
+
+    /** Returns the x coordinate of this position, equivalent to getOrdinate(0) */
+    public double getX();
+
+    /** Returns the y coordinate of this position, equivalent to getOrdinate(1) */
+    public double getY();
+
+    /**
+     * Returns a two-dimensional coordinate reference system.
+     * The first coordinate in the CRS is the {@link #getX() x coordinate};
+     * the second is the {@link #getY() y coordinate}.
+     * @return a two-dimensional coordinate reference system
+     */
     @Override public CoordinateReferenceSystem getCoordinateReferenceSystem();
 
-    /** Returns 1 */
+    /** Returns 2 */
     @Override public int getDimension();
 
     /**
-     * Returns an array with a single element containing the coordinate value
+     * Returns an array of two coordinates [x,y]
      */
     @Override public double[] getCoordinate();
 
     /**
      * Returns the ordinate at the specified dimension.
-     * @param dimension - The dimension: must be 0
-     * @return The coordinate at the specified dimension
-     * @throws IndexOutOfBoundsException if {@code index != 0}
+     * @param dimension - The dimension in the range 0 to 1 (inclusive)
+     * @return The coordinate at the specified dimension (index = 0 gives the
+     * x coordinate; index = 1 gives the y coordinate)
+     * @throws IndexOutOfBoundsException if {@code index < 0 || index > 1}
      */
     @Override public double getOrdinate(int index);
+
 }

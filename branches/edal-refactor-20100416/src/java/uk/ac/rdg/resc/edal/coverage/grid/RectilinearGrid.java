@@ -31,7 +31,7 @@ package uk.ac.rdg.resc.edal.coverage.grid;
 import org.opengis.geometry.Envelope;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.cs.CoordinateSystemAxis;
-import uk.ac.rdg.resc.edal.position.BoundingBox;
+import uk.ac.rdg.resc.edal.geometry.BoundingBox;
 
 /**
  * <p>A {@link HorizontalGrid} whose axes in the {@link #getCoordinateReferenceSystem() 

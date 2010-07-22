@@ -26,15 +26,23 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.coords;
+package uk.ac.rdg.resc.edal.geometry;
+
+import org.opengis.referencing.crs.VerticalCRS;
 
 /**
- * Exception that is thrown when a {@link LineString} is constructed with an
- * invalid line string specification
+ * Defines the position of a point in time
  * @author Jon
  */
-public class InvalidLineStringException extends Exception {
-    public InvalidLineStringException(String message) {
-        super(message);
-    }
+public interface VerticalPosition extends OneDimensionalPosition {
+
+    /** Returns the vertical coordinate of this position, equivalent to getOrdinate(0) */
+    public double getZ();
+
+    /**
+     * Returns a temporal coordinate reference system.
+     * @return a temporal coordinate reference system.
+     */
+    @Override public VerticalCRS getCoordinateReferenceSystem();
+
 }

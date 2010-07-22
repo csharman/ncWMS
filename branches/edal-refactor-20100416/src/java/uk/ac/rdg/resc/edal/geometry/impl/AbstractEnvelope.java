@@ -26,49 +26,36 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.cdm;
+package uk.ac.rdg.resc.edal.geometry.impl;
 
-import java.util.List;
-import org.opengis.metadata.extent.GeographicBoundingBox;
-import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
-import uk.ac.rdg.resc.ncwms.wms.AbstractScalarLayer;
+import org.opengis.geometry.Envelope;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 /**
- * A {@link LayerBuilder} that builds subclasses of {@link AbstractScalarLayer}.
+ * Partial implementation of the {@link Envelope} interface
  * @author Jon
  */
-public abstract class AbstractScalarLayerBuilder<L extends AbstractScalarLayer> implements LayerBuilder<L> {
-
-    @Override
-    public void setTitle(L layer, String title) {
-        layer.setTitle(title);
+public abstract class AbstractEnvelope implements Envelope
+{
+    private final CoordinateReferenceSystem crs;
+    
+    public AbstractEnvelope(CoordinateReferenceSystem crs) {
+        this.crs = crs;
     }
 
     @Override
-    public void setAbstract(L layer, String abstr) {
-        layer.setAbstract(abstr);
+    public final double getMedian(int i) {
+        return (this.getMinimum(i) + this.getMaximum(i)) / 2.0;
     }
 
     @Override
-    public void setGeographicBoundingBox(L layer, GeographicBoundingBox bbox) {
-        layer.setGeographicBoundingBox(bbox);
+    public final double getSpan(int i) {
+        return this.getMaximum(i) - this.getMinimum(i);
     }
 
     @Override
-    public void setUnits(L layer, String units) {
-        layer.setUnits(units);
-    }
-
-    @Override
-    public void setHorizontalGrid(L layer, HorizontalGrid horizGrid) {
-        layer.setHorizontalGrid(horizGrid);
-    }
-
-    @Override
-    public void setElevationAxis(L layer, List<Double> zValues, boolean zPositive, String zUnits) {
-        layer.setElevationValues(zValues);
-        layer.setElevationPositive(zPositive);
-        layer.setElevationUnits(zUnits);
+    public final CoordinateReferenceSystem getCoordinateReferenceSystem() {
+        return this.crs;
     }
 
 }

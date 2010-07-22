@@ -36,10 +36,10 @@ import uk.ac.rdg.resc.edal.coverage.domain.Domain;
 import uk.ac.rdg.resc.edal.coverage.grid.GridCoordinates;
 import uk.ac.rdg.resc.edal.coverage.grid.RectilinearGrid;
 import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableAxis;
-import uk.ac.rdg.resc.edal.position.BoundingBox;
-import uk.ac.rdg.resc.edal.position.HorizontalPosition;
-import uk.ac.rdg.resc.edal.position.impl.BoundingBoxImpl;
-import uk.ac.rdg.resc.edal.position.impl.HorizontalPositionImpl;
+import uk.ac.rdg.resc.edal.geometry.BoundingBox;
+import uk.ac.rdg.resc.edal.geometry.HorizontalPosition;
+import uk.ac.rdg.resc.edal.geometry.impl.BoundingBoxImpl;
+import uk.ac.rdg.resc.edal.geometry.impl.HorizontalPositionImpl;
 import uk.ac.rdg.resc.edal.util.CollectionUtils;
 import uk.ac.rdg.resc.edal.util.Utils;
 

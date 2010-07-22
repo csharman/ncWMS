@@ -30,7 +30,7 @@ package uk.ac.rdg.resc.edal.coverage.domain;
 
 import java.util.List;
 import org.opengis.geometry.DirectPosition;
-import uk.ac.rdg.resc.edal.position.HorizontalPosition;
+import uk.ac.rdg.resc.edal.geometry.HorizontalPosition;
 
 /**
  * A trajectory is simply a list of direct positions.

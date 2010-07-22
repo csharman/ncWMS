@@ -25,7 +25,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package uk.ac.rdg.resc.ncwms.cdm;
+package uk.ac.rdg.resc.edal.cdm;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -42,7 +42,7 @@ import ucar.nc2.dataset.VariableDS;
 import ucar.nc2.dt.GridDatatype;
 import uk.ac.rdg.resc.edal.coverage.domain.Domain;
 import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
-import uk.ac.rdg.resc.edal.position.HorizontalPosition;
+import uk.ac.rdg.resc.edal.geometry.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.config.datareader.DataReader;
 
 /**
@@ -290,10 +290,7 @@ enum DataReadingStrategy {
         }
         if (pixelMap.isEmpty()) return picData;
 
-        // Set the time and z ranges, avoiding InvalidRangeExceptions for
-        // ranges we won't use
-        if (tIndex < 0) tIndex = 0;
-        if (zIndex < 0) zIndex = 0;
+        // Set the time and z ranges
         RangesList rangesList = new RangesList(grid);
         rangesList.setZRange(zIndex, zIndex);
         rangesList.setTRange(tIndex, tIndex);

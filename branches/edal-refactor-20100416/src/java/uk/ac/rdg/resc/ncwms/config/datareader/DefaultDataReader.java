@@ -29,20 +29,27 @@
 package uk.ac.rdg.resc.ncwms.config.datareader;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.joda.time.DateTime;
+import org.opengis.metadata.extent.GeographicBoundingBox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ucar.nc2.Attribute;
+import ucar.nc2.Variable;
+import ucar.nc2.dataset.CoordinateAxis1D;
 import ucar.nc2.dataset.NetcdfDataset;
+import ucar.nc2.dt.GridCoordSystem;
 import ucar.nc2.dt.GridDataset;
+import ucar.nc2.dt.GridDataset.Gridset;
 import ucar.nc2.dt.GridDatatype;
 import uk.ac.rdg.resc.edal.coverage.domain.Domain;
 import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
-import uk.ac.rdg.resc.ncwms.cdm.AbstractScalarLayerBuilder;
-import uk.ac.rdg.resc.ncwms.cdm.CdmUtils;
+import uk.ac.rdg.resc.edal.cdm.CdmUtils;
 import uk.ac.rdg.resc.ncwms.config.LayerImpl;
-import uk.ac.rdg.resc.edal.position.HorizontalPosition;
+import uk.ac.rdg.resc.edal.geometry.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 
@@ -160,8 +167,8 @@ public class DefaultDataReader extends DataReader
      * @throws IOException if there was an error reading from the data source
      */
     @Override
-    protected void findAndUpdateLayers(String location,
-        Map<String, LayerImpl> layers) throws IOException
+    protected void findAndUpdateLayers(String location, Map<String, LayerImpl> layers)
+            throws IOException
     {
         logger.debug("Finding layers in {}", location);
         
@@ -172,14 +179,138 @@ public class DefaultDataReader extends DataReader
             nc = openDataset(location);
             GridDataset gd = CdmUtils.getGridDataset(nc);
 
-            LayerImplBuilder layerBuilder = new LayerImplBuilder(location);
-            CdmUtils.findAndUpdateLayers(gd, layerBuilder, layers);
+            if (gd == null)           throw new NullPointerException("GridDataset can't be null");
+            if (layers == null)       throw new NullPointerException("layers can't be null");
+
+            // Search through all coordinate systems, creating appropriate metadata
+            // for each.  This allows metadata objects to be shared among Layer objects,
+            // saving memory.
+            for (Gridset gridset : gd.getGridsets())
+            {
+                GridCoordSystem coordSys = gridset.getGeoCoordSystem();
+
+                // Look for new variables in this coordinate system.
+                List<GridDatatype> grids = gridset.getGrids();
+                List<GridDatatype> newGrids = new ArrayList<GridDatatype>();
+                for (GridDatatype grid : grids)
+                {
+                    if (layers.containsKey(grid.getName()))
+                    {
+                        logger.debug("We already have data for {}", grid.getName());
+                    }
+                    else
+                    {
+                        // We haven't seen this variable before so we must create
+                        // a Layer object later
+                        logger.debug("{} is a new grid", grid.getName());
+                        newGrids.add(grid);
+                    }
+                }
+
+                // We only create all the coordsys-related objects if we have
+                // new Layers to create
+                if (!newGrids.isEmpty())
+                {
+                    logger.debug("Creating coordinate system objects");
+                    // Create an object that will map lat-lon points to nearest grid points
+                    HorizontalGrid horizGrid = CdmUtils.createHorizontalGrid(coordSys);
+
+                    boolean zPositive = coordSys.isZPositive();
+                    CoordinateAxis1D zAxis = coordSys.getVerticalAxis();
+                    List<Double> zValues = getZValues(zAxis, zPositive);
+
+                    // Get the bounding box
+                    GeographicBoundingBox bbox = CdmUtils.getBbox(coordSys.getLatLonBoundingBox());
+
+                    // Now add every variable that has this coordinate system
+                    for (GridDatatype grid : newGrids)
+                    {
+                        logger.debug("Creating new Layer object for {}", grid.getName());
+                        LayerImpl layer = new LayerImpl(grid.getName());
+                        layer.setTitle(getLayerTitle(grid.getVariable()));
+                        layer.setAbstract(grid.getDescription());
+                        layer.setUnits(grid.getUnitsString());
+                        layer.setHorizontalGrid(horizGrid);
+                        layer.setGeographicBoundingBox(bbox);
+
+                        if (zAxis != null)
+                        {
+                            layer.setElevationValues(zValues);
+                            layer.setElevationPositive(zPositive);
+                            layer.setElevationUnits(zAxis.getUnitsString());
+                        }
+
+                        // Add this layer to the Map
+                        layers.put(layer.getId(), layer);
+                    }
+                }
+
+                // Now we add the new timestep information for *all* grids
+                // in this Gridset
+                List<DateTime> timesteps;
+                if (coordSys.hasTimeAxis1D()) {
+                    timesteps = CdmUtils.getTimesteps(coordSys.getTimeAxis1D());
+                } else {
+                    timesteps = Collections.emptyList();
+                }
+                for (GridDatatype grid : grids)
+                {
+                    LayerImpl layer = layers.get(grid.getName());
+                    for (int i = 0, len = timesteps.size(); i < len; i++)
+                    {
+                        layer.addTimestepInfo(timesteps.get(i), location, i);
+                    }
+                }
+            }
         }
         finally
         {
             logger.debug("In finally clause");
             closeDataset(nc);
         }
+    }
+
+    /**
+     * @return the value of the standard_name attribute of the variable,
+     * or the long_name if it does not exist, or the unique id if neither of
+     * these attributes exist.
+     */
+    private static String getLayerTitle(Variable var)
+    {
+        Attribute stdNameAtt = var.findAttributeIgnoreCase("standard_name");
+        if (stdNameAtt == null || stdNameAtt.getStringValue().trim().equals(""))
+        {
+            Attribute longNameAtt = var.findAttributeIgnoreCase("long_name");
+            if (longNameAtt == null || longNameAtt.getStringValue().trim().equals(""))
+            {
+                return var.getName();
+            }
+            else
+            {
+                return longNameAtt.getStringValue();
+            }
+        }
+        else
+        {
+            return stdNameAtt.getStringValue();
+        }
+    }
+
+    /**
+     * @return the values on the z axis, with sign reversed if zPositive == false.
+     * Returns an empty list if zAxis is null.
+     */
+    private static List<Double> getZValues(CoordinateAxis1D zAxis, boolean zPositive)
+    {
+        List<Double> zValues = new ArrayList<Double>();
+        if (zAxis != null)
+        {
+            for (double zVal : zAxis.getCoordValues())
+            {
+                zValues.add(zPositive ? zVal : 0.0 - zVal);
+            }
+        }
+        return zValues;
     }
 
     /** Closes the given dataset, logging any exceptions at debug level */
@@ -194,32 +325,6 @@ public class DefaultDataReader extends DataReader
         catch (IOException ex)
         {
             logger.error("IOException closing " + nc.getLocation(), ex);
-        }
-    }
-
-    private static final class LayerImplBuilder extends AbstractScalarLayerBuilder<LayerImpl>
-    {
-        private final String location;
-
-        public LayerImplBuilder(String location) {
-            this.location = location;
-        }
-
-        @Override
-        public LayerImpl newLayer(String id) {
-            return new LayerImpl(id);
-        }
-
-        @Override
-        public void setTimeValues(LayerImpl layer, List<DateTime> times) {
-            for (int i = 0; i < times.size(); i++) {
-                layer.addTimestepInfo(times.get(i), this.location, i);
-            }
-        }
-
-        @Override
-        public void setGridDatatype(LayerImpl layer, GridDatatype gd) {
-            // Do nothing: we don't hold on to the GridDatatype object
         }
     }
 

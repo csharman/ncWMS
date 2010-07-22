@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Map;
 import org.joda.time.DateTime;
 import uk.ac.rdg.resc.edal.coverage.domain.Domain;
-import uk.ac.rdg.resc.edal.position.HorizontalPosition;
+import uk.ac.rdg.resc.edal.geometry.HorizontalPosition;
 import uk.ac.rdg.resc.ncwms.config.datareader.DataReader;
 import uk.ac.rdg.resc.edal.coverage.domain.impl.HorizontalDomain;
 import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;

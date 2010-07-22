@@ -26,43 +26,27 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.cdm;
+package uk.ac.rdg.resc.edal.geometry;
 
-import java.util.List;
-import org.joda.time.DateTime;
-import org.opengis.metadata.extent.GeographicBoundingBox;
-import ucar.nc2.dt.GridDatatype;
-import uk.ac.rdg.resc.edal.coverage.grid.HorizontalGrid;
-import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
+import org.opengis.geometry.Envelope;
 
 /**
- * Interface describing a callback object that is passed to
- * {@link CdmUtils#findAndUpdateLayers(ucar.nc2.dataset.NetcdfDataset,
- * uk.ac.rdg.resc.ncwms.cdm.LayerBuilder, java.util.Map) CdmUtils.findAndUpdateLayers()}.
- * This object help the findAndUpdateLayers() method to create new
- * {@link ScalarLayer} objects and set their properties.
- * @param <L> The type of ScalarLayer that is created by this Builder.
+ * A bounding box in the horizontal plane.  Extends {@link Envelope} by providing
+ * convenience methods for accessing minimum and maximum x and y values
  * @author Jon
  */
-public interface LayerBuilder<L extends ScalarLayer> {
+public interface BoundingBox extends Envelope {
 
-    public L newLayer(String id);
+    /** Gets the minimum ordinate along the first axis */
+    public double getMinX();
 
-    public void setTitle(L layer, String title);
+    /** Gets the maximum ordinate along the first axis */
+    public double getMaxX();
 
-    public void setAbstract(L layer, String abstr);
+    /** Gets the minimum ordinate along the second axis */
+    public double getMinY();
 
-    public void setGeographicBoundingBox(L layer, GeographicBoundingBox bbox);
-
-    public void setUnits(L layer, String units);
-
-    public void setHorizontalGrid(L layer, HorizontalGrid horizGrid);
-
-    public void setElevationAxis(L layer, List<Double> zValues, boolean zPositive, String zUnits);
-
-    public void setTimeValues(L layer, List<DateTime> times);
-
-    /** Sets the GridDatatype object that was used to create this layer */
-    public void setGridDatatype(L layer, GridDatatype gd);
+    /** Gets the maximum ordinate along the second axis */
+    public double getMaxY();
 
 }

@@ -39,7 +39,7 @@ import org.geotoolkit.referencing.crs.DefaultGeographicCRS;
 import org.geotoolkit.referencing.crs.DefaultVerticalCRS;
 import org.junit.Test;
 import org.opengis.geometry.DirectPosition;
-import uk.ac.rdg.resc.edal.position.impl.DirectPositionImpl;
+import uk.ac.rdg.resc.edal.geometry.impl.DirectPositionImpl;
 
 /**
  * Test for the {@link DirectPositionImpl} class.

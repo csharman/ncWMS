@@ -25,7 +25,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package uk.ac.rdg.resc.edal.position.impl;
+package uk.ac.rdg.resc.edal.geometry.impl;
 
 import java.util.Arrays;
 import org.opengis.geometry.DirectPosition;
@@ -37,6 +37,7 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
  * <p>Although instances of this class are immutable, instances of subclasses may
  * not be.</p>
  * @author Jon
+ * @todo replace with Geotoolkit's GeneralDirectPosition?
  */
 public class DirectPositionImpl implements DirectPosition {
 

@@ -26,7 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.coords.chrono;
+package uk.ac.rdg.resc.edal.time;
 
 import org.joda.time.Chronology;
 import org.joda.time.DateTimeConstants;

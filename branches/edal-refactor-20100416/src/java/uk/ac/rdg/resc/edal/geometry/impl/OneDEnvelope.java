@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 The University of Reading
+ * Copyright (c) 2010 The University of Reading
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,23 +26,58 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.edal.position;
+package uk.ac.rdg.resc.edal.geometry.impl;
 
-import org.opengis.referencing.crs.VerticalCRS;
+import org.opengis.geometry.DirectPosition;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 /**
- * Defines the position of a point in time
+ * An immutable one-dimensional envelope
  * @author Jon
  */
-public interface VerticalPosition extends OneDimensionalPosition {
+public final class OneDEnvelope extends AbstractEnvelope
+{
+    private final double min;
+    private final double max;
 
-    /** Returns the vertical coordinate of this position, equivalent to getOrdinate(0) */
-    public double getZ();
+    public OneDEnvelope(double min, double max, CoordinateReferenceSystem crs) {
+        super(crs);
+        if (crs != null && crs.getCoordinateSystem().getDimension() != 1) {
+            throw new IllegalArgumentException("CRS must be one-dimensional");
+        }
+        this.min = min;
+        this.max = max;
+    }
 
-    /**
-     * Returns a temporal coordinate reference system.
-     * @return a temporal coordinate reference system.
-     */
-    @Override public VerticalCRS getCoordinateReferenceSystem();
+    /** Creates a one-dimensional envelope with a null coordinate reference system */
+    public OneDEnvelope(double min, double max) {
+        this(min, max, null);
+    }
+
+    /** returns 1 */
+    @Override
+    public int getDimension() { return 1; }
+
+    @Override
+    public final double getMinimum(int i) {
+        if (i == 0) return this.min;
+        throw new IndexOutOfBoundsException();
+    }
+
+    @Override
+    public final double getMaximum(int i) {
+        if (i == 0) return this.max;
+        throw new IndexOutOfBoundsException();
+    }
+
+    @Override
+    public DirectPosition getLowerCorner() {
+        return new DirectPositionImpl(this.getCoordinateReferenceSystem(), this.min);
+    }
+
+    @Override
+    public DirectPosition getUpperCorner() {
+        return new DirectPositionImpl(this.getCoordinateReferenceSystem(), this.max);
+    }
 
 }

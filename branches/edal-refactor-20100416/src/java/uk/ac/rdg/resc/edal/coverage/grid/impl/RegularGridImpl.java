@@ -34,7 +34,7 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.cs.CoordinateSystem;
 import uk.ac.rdg.resc.edal.coverage.grid.RegularAxis;
 import uk.ac.rdg.resc.edal.coverage.grid.RegularGrid;
-import uk.ac.rdg.resc.edal.position.BoundingBox;
+import uk.ac.rdg.resc.edal.geometry.BoundingBox;
 
 /**
  * Immutable implementation of a {@link RegularGrid}.

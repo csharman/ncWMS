@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 The University of Reading
+ * Copyright (c) 2009 The University of Reading
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,27 +26,39 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.edal.position;
+package uk.ac.rdg.resc.edal.geometry.impl;
 
-import org.opengis.geometry.Envelope;
+import uk.ac.rdg.resc.edal.geometry.LonLatPosition;
+import org.geotoolkit.referencing.crs.DefaultGeographicCRS;
+import uk.ac.rdg.resc.edal.util.Utils;
 
 /**
- * A bounding box in the horizontal plane.  Extends {@link Envelope} by providing
- * convenience methods for accessing minimum and maximum x and y values
+ * Immutable implementation of {@link LonLatPosition}.
  * @author Jon
  */
-public interface BoundingBox extends Envelope {
+public final class LonLatPositionImpl extends HorizontalPositionImpl implements LonLatPosition {
 
-    /** Gets the minimum ordinate along the first axis */
-    public double getMinX();
+    /**
+     * Returns the longitude, in the range [-180:180] degrees.
+     * @return the longitude, in the range [-180:180] degrees.
+     */
+    @Override public double getLongitude() { return this.getX(); }
 
-    /** Gets the maximum ordinate along the first axis */
-    public double getMaxX();
+    /**
+     * Returns the geodetic latitude in degrees.
+     * @return the geodetic latitude in degrees.
+     */
+    @Override public double getLatitude() { return this.getY(); }
 
-    /** Gets the minimum ordinate along the second axis */
-    public double getMinY();
-
-    /** Gets the maximum ordinate along the second axis */
-    public double getMaxY();
+    /**
+     * Creates a new LonLatPositionImpl with the given coordinates.
+     * @param longitude The longitude.  Will be converted internally to a
+     * longitude in the range [-180:180], so all getter methods will return
+     * values in this range.
+     * @param latitude The geodetic latitude
+     */
+    public LonLatPositionImpl(double longitude, double latitude) {
+        super(Utils.constrainLongitude180(longitude), latitude, DefaultGeographicCRS.WGS84);
+    }
 
 }

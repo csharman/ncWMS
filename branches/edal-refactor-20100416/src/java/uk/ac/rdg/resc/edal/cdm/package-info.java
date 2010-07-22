@@ -31,4 +31,4 @@
  * NetCDF files and OPeNDAP servers (and other data sources) using the Unidata
  * Common Data Model.
  */
-package uk.ac.rdg.resc.ncwms.cdm;
+package uk.ac.rdg.resc.edal.cdm;

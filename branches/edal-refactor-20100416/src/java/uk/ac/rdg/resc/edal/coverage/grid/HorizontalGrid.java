@@ -32,8 +32,8 @@ import java.util.List;
 import org.opengis.geometry.DirectPosition;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import uk.ac.rdg.resc.edal.coverage.domain.Domain;
-import uk.ac.rdg.resc.edal.position.BoundingBox;
-import uk.ac.rdg.resc.edal.position.HorizontalPosition;
+import uk.ac.rdg.resc.edal.geometry.BoundingBox;
+import uk.ac.rdg.resc.edal.geometry.HorizontalPosition;
 
 /**
  * A two-dimensional {@link ReferenceableGrid} in the horizontal plane.

@@ -26,7 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.cdm;
+package uk.ac.rdg.resc.edal.cdm;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -45,10 +45,10 @@ import uk.ac.rdg.resc.edal.coverage.grid.ReferenceableAxis;
 import uk.ac.rdg.resc.edal.coverage.grid.impl.AbstractHorizontalGrid;
 import uk.ac.rdg.resc.edal.coverage.grid.impl.GridCoordinatesImpl;
 import uk.ac.rdg.resc.edal.coverage.grid.impl.GridEnvelopeImpl;
-import uk.ac.rdg.resc.edal.position.BoundingBox;
-import uk.ac.rdg.resc.edal.position.HorizontalPosition;
-import uk.ac.rdg.resc.edal.position.LonLatPosition;
-import uk.ac.rdg.resc.edal.position.impl.LonLatPositionImpl;
+import uk.ac.rdg.resc.edal.geometry.BoundingBox;
+import uk.ac.rdg.resc.edal.geometry.HorizontalPosition;
+import uk.ac.rdg.resc.edal.geometry.LonLatPosition;
+import uk.ac.rdg.resc.edal.geometry.impl.LonLatPositionImpl;
 import uk.ac.rdg.resc.edal.util.Utils;
 
 /**
@@ -79,7 +79,7 @@ class ProjectedGrid extends AbstractHorizontalGrid
         this.axisNames = Collections.unmodifiableList(Arrays.asList(
             this.xAxis.getName(), this.yAxis.getName()));
         this.gridEnvelope = new GridEnvelopeImpl(this.xAxis.getSize() - 1, this.yAxis.getSize() - 1);
-        this.extent = Utils.getBoundingBox(CdmUtils.getBbox(coordSys));
+        this.extent = Utils.getBoundingBox(CdmUtils.getBbox(coordSys.getLatLonBoundingBox()));
     }
 
     @Override

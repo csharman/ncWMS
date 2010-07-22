@@ -26,7 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.cdm;
+package uk.ac.rdg.resc.edal.cdm;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
@@ -41,7 +41,7 @@ import java.awt.image.WritableRaster;
 import org.opengis.metadata.extent.GeographicBoundingBox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import uk.ac.rdg.resc.ncwms.cdm.CurvilinearGrid.Cell;
+import uk.ac.rdg.resc.edal.cdm.CurvilinearGrid.Cell;
 
 /**
  * An object that provides an approximate means for mapping from longitude-latitude

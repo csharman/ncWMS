@@ -11,8 +11,8 @@ import static org.junit.Assert.assertTrue;
 import java.util.Arrays;
 import org.geotoolkit.referencing.crs.DefaultGeographicCRS;
 import org.junit.Test;
-import uk.ac.rdg.resc.edal.position.LonLatPosition;
-import uk.ac.rdg.resc.edal.position.impl.LonLatPositionImpl;
+import uk.ac.rdg.resc.edal.geometry.LonLatPosition;
+import uk.ac.rdg.resc.edal.geometry.impl.LonLatPositionImpl;
 
 /**
  * Test case for {@link LonLatPositionImpl}.

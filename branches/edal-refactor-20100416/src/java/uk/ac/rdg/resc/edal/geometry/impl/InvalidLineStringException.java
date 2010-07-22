@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 The University of Reading
+ * Copyright (c) 2009 The University of Reading
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,23 +26,15 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.edal.position;
-
-import org.opengis.referencing.crs.TemporalCRS;
+package uk.ac.rdg.resc.edal.geometry.impl;
 
 /**
- * Defines the position of a point in time
+ * Exception that is thrown when a {@link LineString} is constructed with an
+ * invalid line string specification
  * @author Jon
  */
-public interface TemporalPosition extends OneDimensionalPosition {
-
-    /** Returns the time coordinate of this position, equivalent to getOrdinate(0) */
-    public double getT();
-
-    /**
-     * Returns a temporal coordinate reference system.
-     * @return a temporal coordinate reference system.
-     */
-    @Override public TemporalCRS getCoordinateReferenceSystem();
-
+public class InvalidLineStringException extends Exception {
+    public InvalidLineStringException(String message) {
+        super(message);
+    }
 }

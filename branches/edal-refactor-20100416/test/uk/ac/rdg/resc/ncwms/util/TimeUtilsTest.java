@@ -31,9 +31,9 @@ package uk.ac.rdg.resc.ncwms.util;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.junit.Test;
-import uk.ac.rdg.resc.ncwms.coords.chrono.ThreeSixtyDayChronology;
+import uk.ac.rdg.resc.edal.time.ThreeSixtyDayChronology;
 import static org.junit.Assert.*;
-import static uk.ac.rdg.resc.ncwms.util.TimeUtils.*;
+import static uk.ac.rdg.resc.edal.time.TimeUtils.*;
 
 /**
  * Tests of the methods in {@link TimeUtils}.

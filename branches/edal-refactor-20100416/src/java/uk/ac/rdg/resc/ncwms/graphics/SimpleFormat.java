@@ -32,7 +32,7 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
-import uk.ac.rdg.resc.edal.position.BoundingBox;
+import uk.ac.rdg.resc.edal.geometry.BoundingBox;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 
 /**

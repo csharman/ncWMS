@@ -26,12 +26,12 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.edal.position.impl;
+package uk.ac.rdg.resc.edal.geometry.impl;
 
 import org.opengis.geometry.DirectPosition;
 import org.opengis.geometry.Envelope;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import uk.ac.rdg.resc.edal.position.BoundingBox;
+import uk.ac.rdg.resc.edal.geometry.BoundingBox;
 
 /**
  * <p>Immutable implementation of a {@link BoundingBox}.</p>

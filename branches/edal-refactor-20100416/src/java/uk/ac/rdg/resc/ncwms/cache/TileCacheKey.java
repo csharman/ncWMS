@@ -33,7 +33,7 @@ import java.io.Serializable;
 import java.util.Arrays;
 import org.geotoolkit.referencing.CRS;
 import uk.ac.rdg.resc.edal.coverage.grid.RegularGrid;
-import uk.ac.rdg.resc.edal.position.BoundingBox;
+import uk.ac.rdg.resc.edal.geometry.BoundingBox;
 import uk.ac.rdg.resc.edal.util.Utils;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;

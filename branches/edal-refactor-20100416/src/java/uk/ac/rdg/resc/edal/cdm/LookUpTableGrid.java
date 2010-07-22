@@ -26,16 +26,16 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.cdm;
+package uk.ac.rdg.resc.edal.cdm;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import org.opengis.coverage.grid.GridEnvelope;
 import uk.ac.rdg.resc.edal.coverage.grid.GridCoordinates;
-import uk.ac.rdg.resc.edal.position.BoundingBox;
-import uk.ac.rdg.resc.edal.position.HorizontalPosition;
-import uk.ac.rdg.resc.edal.position.LonLatPosition;
+import uk.ac.rdg.resc.edal.geometry.BoundingBox;
+import uk.ac.rdg.resc.edal.geometry.HorizontalPosition;
+import uk.ac.rdg.resc.edal.geometry.LonLatPosition;
 import java.util.Map;
 import org.geotoolkit.referencing.crs.DefaultGeographicCRS;
 import org.slf4j.Logger;
@@ -46,7 +46,7 @@ import uk.ac.rdg.resc.edal.coverage.grid.impl.GridCoordinatesImpl;
 import uk.ac.rdg.resc.edal.coverage.grid.impl.GridEnvelopeImpl;
 import uk.ac.rdg.resc.edal.util.CollectionUtils;
 import uk.ac.rdg.resc.edal.util.Utils;
-import uk.ac.rdg.resc.ncwms.cdm.CurvilinearGrid.Cell;
+import uk.ac.rdg.resc.edal.cdm.CurvilinearGrid.Cell;
 
 /**
  * A HorizontalCoordSys that is created from a "curvilinear" coordinate system,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 The University of Reading
+ * Copyright (c) 2010 The University of Reading
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,39 +26,33 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.edal.position.impl;
+package uk.ac.rdg.resc.edal.geometry;
 
-import uk.ac.rdg.resc.edal.position.LonLatPosition;
-import org.geotoolkit.referencing.crs.DefaultGeographicCRS;
-import uk.ac.rdg.resc.edal.util.Utils;
+import org.opengis.geometry.DirectPosition;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 /**
- * Immutable implementation of {@link LonLatPosition}.
+ * A direct position within a one-dimensional coordinate reference system
  * @author Jon
  */
-public final class LonLatPositionImpl extends HorizontalPositionImpl implements LonLatPosition {
+public interface OneDimensionalPosition extends DirectPosition {
+    
+    /** Returns a one-dimensional coordinate reference system */
+    @Override public CoordinateReferenceSystem getCoordinateReferenceSystem();
+
+    /** Returns 1 */
+    @Override public int getDimension();
 
     /**
-     * Returns the longitude, in the range [-180:180] degrees.
-     * @return the longitude, in the range [-180:180] degrees.
+     * Returns an array with a single element containing the coordinate value
      */
-    @Override public double getLongitude() { return this.getX(); }
+    @Override public double[] getCoordinate();
 
     /**
-     * Returns the geodetic latitude in degrees.
-     * @return the geodetic latitude in degrees.
+     * Returns the ordinate at the specified dimension.
+     * @param dimension - The dimension: must be 0
+     * @return The coordinate at the specified dimension
+     * @throws IndexOutOfBoundsException if {@code index != 0}
      */
-    @Override public double getLatitude() { return this.getY(); }
-
-    /**
-     * Creates a new LonLatPositionImpl with the given coordinates.
-     * @param longitude The longitude.  Will be converted internally to a
-     * longitude in the range [-180:180], so all getter methods will return
-     * values in this range.
-     * @param latitude The geodetic latitude
-     */
-    public LonLatPositionImpl(double longitude, double latitude) {
-        super(Utils.constrainLongitude180(longitude), latitude, DefaultGeographicCRS.WGS84);
-    }
-
+    @Override public double getOrdinate(int index);
 }

@@ -26,14 +26,13 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.coords;
+package uk.ac.rdg.resc.edal.geometry.impl;
 
-import uk.ac.rdg.resc.edal.position.impl.HorizontalPositionImpl;
-import uk.ac.rdg.resc.edal.position.HorizontalPosition;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import uk.ac.rdg.resc.edal.geometry.HorizontalPosition;
 
 /**
  * Represents a path through a coordinate system.  The path consists of a set

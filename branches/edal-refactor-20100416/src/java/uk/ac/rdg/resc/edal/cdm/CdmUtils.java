@@ -26,16 +26,16 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package uk.ac.rdg.resc.ncwms.cdm;
+package uk.ac.rdg.resc.edal.cdm;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 import org.geotoolkit.metadata.iso.extent.DefaultGeographicBoundingBox;
 import org.geotoolkit.referencing.crs.DefaultGeographicCRS;
+import org.joda.time.Chronology;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.opengis.coverage.grid.GridCoordinates;
@@ -56,10 +56,8 @@ import ucar.nc2.dataset.CoordinateAxis1DTime;
 import ucar.nc2.dataset.CoordinateAxis2D;
 import ucar.nc2.dataset.NetcdfDataset;
 import ucar.nc2.dataset.VariableDS;
-import ucar.nc2.dataset.VariableEnhanced;
 import ucar.nc2.dt.GridCoordSystem;
 import ucar.nc2.dt.GridDataset;
-import ucar.nc2.dt.GridDataset.Gridset;
 import ucar.nc2.dt.GridDatatype;
 import ucar.nc2.dt.TypedDatasetFactory;
 import ucar.unidata.geoloc.LatLonPoint;
@@ -74,11 +72,9 @@ import uk.ac.rdg.resc.edal.coverage.grid.impl.RectilinearGridImpl;
 import uk.ac.rdg.resc.edal.coverage.grid.impl.ReferenceableAxisImpl;
 import uk.ac.rdg.resc.edal.coverage.grid.impl.RegularAxisImpl;
 import uk.ac.rdg.resc.edal.coverage.grid.impl.RegularGridImpl;
-import uk.ac.rdg.resc.edal.position.HorizontalPosition;
-import uk.ac.rdg.resc.ncwms.coords.chrono.ThreeSixtyDayChronology;
-import uk.ac.rdg.resc.ncwms.util.TimeUtils;
-import uk.ac.rdg.resc.ncwms.wms.Layer;
-import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
+import uk.ac.rdg.resc.edal.geometry.HorizontalPosition;
+import uk.ac.rdg.resc.edal.time.ThreeSixtyDayChronology;
+import uk.ac.rdg.resc.edal.time.TimeUtils;
 
 /**
  * Contains static helper methods for reading data and metadata from NetCDF files,
@@ -177,106 +173,6 @@ public final class CdmUtils
         }
     }
 
-    /**
-     * Searches through the given GridDataset for GridDatatypes, which are
-     * returned as {@link ScalarLayer}s in the passed-in Map.  If this method
-     * encounters a GridDatatype that is already represented in the Map of layers,
-     * this method only updates the list of the layer's timesteps (through
-     * {@link LayerBuilder#setTimeValues(uk.ac.rdg.resc.ncwms.wms.Layer, java.util.List)}).
-     * (In this way, time-aggregated layers can be created without creating
-     * multiple unnecessary objects.)
-     * If the GridDatatype is not represented in the Map of layers, this method
-     * creates a new Layer using {@link LayerBuilder#newLayer(java.lang.String)}
-     * and populates all its fields using LayerBuilder's various setter methods.
-     * @param <L> The type of {@link ScalarLayer} that can be handled by the
-     * {@code layerBuilder}, and that will be returned in the Map.
-     * @param gd the GridDataset to search
-     * @param layerBuilder The {@link LayerBuilder} that creates ScalarLayers
-     * of the given type and updates their properties.
-     * @param layers Map of {@link Layer#getId() layer id}s to ScalarLayer objects;
-     * the Map may be empty but cannot be null.
-     * @throws NullPointerException if any of the parameters is null
-     */
-    public static <L extends ScalarLayer> void findAndUpdateLayers(GridDataset gd,
-            LayerBuilder<L> layerBuilder, Map<String, L> layers)
-    {
-        if (gd == null)           throw new NullPointerException("GridDataset can't be null");
-        if (layerBuilder == null) throw new NullPointerException("LayerBuilder can't be null");
-        if (layers == null)       throw new NullPointerException("layers can't be null");
-
-        // Search through all coordinate systems, creating appropriate metadata
-        // for each.  This allows metadata objects to be shared among Layer objects,
-        // saving memory.
-        for (Gridset gridset : gd.getGridsets())
-        {
-            GridCoordSystem coordSys = gridset.getGeoCoordSystem();
-
-            // Look for new variables in this coordinate system.
-            List<GridDatatype> grids = gridset.getGrids();
-            List<GridDatatype> newGrids = new ArrayList<GridDatatype>();
-            for (GridDatatype grid : grids)
-            {
-                if (layers.containsKey(grid.getName()))
-                {
-                    logger.debug("We already have data for {}", grid.getName());
-                }
-                else
-                {
-                    // We haven't seen this variable before so we must create
-                    // a Layer object later
-                    logger.debug("{} is a new grid", grid.getName());
-                    newGrids.add(grid);
-                }
-            }
-
-            // We only create all the coordsys-related objects if we have
-            // new Layers to create
-            if (!newGrids.isEmpty())
-            {
-                logger.debug("Creating coordinate system objects");
-                // Create an object that will map lat-lon points to nearest grid points
-                HorizontalGrid horizGrid = createHorizontalGrid(coordSys);
-
-                boolean zPositive = coordSys.isZPositive();
-                CoordinateAxis1D zAxis = coordSys.getVerticalAxis();
-                List<Double> zValues = getZValues(zAxis, zPositive);
-
-                // Get the bounding box
-                GeographicBoundingBox bbox = getBbox(coordSys);
-
-                // Now add every variable that has this coordinate system
-                for (GridDatatype grid : newGrids)
-                {
-                    logger.debug("Creating new Layer object for {}", grid.getName());
-                    L layer = layerBuilder.newLayer(grid.getName());
-                    layerBuilder.setTitle(layer, getLayerTitle(grid.getVariable()));
-                    layerBuilder.setAbstract(layer, grid.getDescription());
-                    layerBuilder.setUnits(layer, grid.getUnitsString());
-                    layerBuilder.setHorizontalGrid(layer, horizGrid);
-                    layerBuilder.setGeographicBoundingBox(layer, bbox);
-                    layerBuilder.setGridDatatype(layer, grid);
-
-                    if (zAxis != null)
-                    {
-                        layerBuilder.setElevationAxis(layer, zValues, zPositive, zAxis.getUnitsString());
-                    }
-
-                    // Add this layer to the Map
-                    layers.put(layer.getId(), layer);
-                }
-            }
-
-            // Now we add the new timestep information for *all* grids
-            // in this Gridset
-            List<DateTime> timesteps = getTimesteps(coordSys);
-            for (GridDatatype grid : grids)
-            {
-                L layer = layers.get(grid.getName());
-                layerBuilder.setTimeValues(layer, timesteps);
-            }
-        }
-    }
-
     /** Gets a GridDataset from the given NetcdfDataset */
     public static GridDataset getGridDataset(NetcdfDataset nc) throws IOException
     {
@@ -297,21 +193,21 @@ public final class CdmUtils
     private static DataReadingStrategy getOptimumDataReadingStrategy(NetcdfDataset nc)
     {
         String fileType = nc.getFileTypeId();
-        return fileType.equals("netCDF") || fileType.equals("HDF4")
+        return "netCDF".equals(fileType) || "HDF4".equals(fileType)
             ? DataReadingStrategy.PIXEL_BY_PIXEL
             : DataReadingStrategy.BOUNDING_BOX;
     }
 
     /**
-     * Gets the latitude-longitude bounding box of the given coordinate system.
+     * Converts the given LatLonRect to a GeographicBoundingBox.
      * @todo Should probably be an Extent or a BoundingBox (I think Extent
      * is more accurate - see the GeoAPI spec document.  Extents do not cross
-     * the anti-meridian).
+     * the anti-meridian).  Also do we need to return a more precise CRS?
+     * GeographicBoundingBox is deliberately approximate so doesn't use a CRS.
      */
-    public static GeographicBoundingBox getBbox(GridCoordSystem coordSys)
+    public static GeographicBoundingBox getBbox(LatLonRect latLonRect)
     {
         // TODO: should take into account the cell bounds
-        LatLonRect latLonRect = coordSys.getLatLonBoundingBox();
         LatLonPoint lowerLeft = latLonRect.getLowerLeftPoint();
         LatLonPoint upperRight = latLonRect.getUpperRightPoint();
         double minLon = lowerLeft.getLongitude();
@@ -340,85 +236,38 @@ public final class CdmUtils
     }
 
     /**
-     * @return the value of the standard_name attribute of the variable,
-     * or the long_name if it does not exist, or the unique id if neither of
-     * these attributes exist.
-     */
-    private static String getLayerTitle(VariableEnhanced var)
-    {
-        Attribute stdNameAtt = var.findAttributeIgnoreCase("standard_name");
-        if (stdNameAtt == null || stdNameAtt.getStringValue().trim().equals(""))
-        {
-            Attribute longNameAtt = var.findAttributeIgnoreCase("long_name");
-            if (longNameAtt == null || longNameAtt.getStringValue().trim().equals(""))
-            {
-                return var.getName();
-            }
-            else
-            {
-                return longNameAtt.getStringValue();
-            }
-        }
-        else
-        {
-            return stdNameAtt.getStringValue();
-        }
-    }
-
-    /**
-     * @return the values on the z axis, with sign reversed if zPositive == false.
-     * Returns an empty list if zAxis is null.
-     */
-    private static List<Double> getZValues(CoordinateAxis1D zAxis, boolean zPositive)
-    {
-        List<Double> zValues = new ArrayList<Double>();
-        if (zAxis != null)
-        {
-            for (double zVal : zAxis.getCoordValues())
-            {
-                zValues.add(zPositive ? zVal : 0.0 - zVal);
-            }
-        }
-        return zValues;
-    }
-
-    /**
-     * Gets List of DateTimes representing the timesteps of the given coordinate system.
+     * Gets List of DateTimes representing the timesteps of the given coordinate system,
+     * in an appropriate {@link Chronology}.  (Chronologies represent the
+     * calendar system.)
      * @param coordSys The coordinate system containing the time information
      * @return List of TimestepInfo objects, or an empty list if the coordinate
      * system has no time axis
      * @throws IllegalArgumentException if the calendar system of the time axis
      * cannot be handled.
      */
-    private static List<DateTime> getTimesteps(GridCoordSystem coordSys)
+    public static List<DateTime> getTimesteps(CoordinateAxis1DTime timeAxis)
     {
-        if (coordSys.hasTimeAxis1D())
+        Attribute cal = timeAxis.findAttribute("calendar");
+        String calString = cal == null ? null : cal.getStringValue().toLowerCase();
+        if (calString == null || calString.equals("gregorian") || calString.equals("standard"))
         {
-            CoordinateAxis1DTime timeAxis = coordSys.getTimeAxis1D();
-            Attribute cal = timeAxis.findAttribute("calendar");
-            String calString = cal == null ? null : cal.getStringValue().toLowerCase();
-            if (calString == null || calString.equals("gregorian") || calString.equals("standard"))
+            List<DateTime> timesteps = new ArrayList<DateTime>();
+            // Use the Java NetCDF library's built-in date parsing code
+            for (Date date : timeAxis.getTimeDates())
             {
-                List<DateTime> timesteps = new ArrayList<DateTime>();
-                // Use the Java NetCDF library's built-in date parsing code
-                for (Date date : timeAxis.getTimeDates())
-                {
-                    timesteps.add(new DateTime(date, DateTimeZone.UTC));
-                }
-                return timesteps;
+                timesteps.add(new DateTime(date, DateTimeZone.UTC));
             }
-            else if (calString.equals("360_day"))
-            {
-                return getTimesteps360Day(timeAxis);
-            }
-            else
-            {
-                throw new IllegalArgumentException("The calendar system "
-                    + cal.getStringValue() + " cannot be handled");
-            }
+            return timesteps;
         }
-        // There is no time axis
-        return Collections.emptyList();
+        else if (calString.equals("360_day"))
+        {
+            return getTimesteps360Day(timeAxis);
+        }
+        else
+        {
+            throw new IllegalArgumentException("The calendar system "
+                + cal.getStringValue() + " cannot be handled");
+        }
     }
 
     /**

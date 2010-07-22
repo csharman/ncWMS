@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 The University of Reading
+ * Copyright (c) 2010 The University of Reading
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,10 +26,23 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+package uk.ac.rdg.resc.edal.geometry;
+
+import org.opengis.referencing.crs.TemporalCRS;
+
 /**
- * Coordinate system handling, primarily dealing with the conversion between
- * real-world points and indices within arrays of data.  Also includes classes
- * that hold groupings of coordinates, e.g. as {@link LineString}s and
- * {@link HorizontalGrid}s.
+ * Defines the position of a point in time
+ * @author Jon
  */
-package uk.ac.rdg.resc.ncwms.coords;
+public interface TemporalPosition extends OneDimensionalPosition {
+
+    /** Returns the time coordinate of this position, equivalent to getOrdinate(0) */
+    public double getT();
+
+    /**
+     * Returns a temporal coordinate reference system.
+     * @return a temporal coordinate reference system.
+     */
+    @Override public TemporalCRS getCoordinateReferenceSystem();
+
+}

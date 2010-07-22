@@ -31,7 +31,7 @@ package uk.ac.rdg.resc.edal.coverage.domain;
 import java.util.List;
 import org.opengis.referencing.crs.VerticalCRS;
 import uk.ac.rdg.resc.edal.coverage.ProfileCoverage;
-import uk.ac.rdg.resc.edal.position.VerticalPosition;
+import uk.ac.rdg.resc.edal.geometry.VerticalPosition;
 
 /**
  * The domain of a {@link ProfileCoverage}: a set of vertical positions
