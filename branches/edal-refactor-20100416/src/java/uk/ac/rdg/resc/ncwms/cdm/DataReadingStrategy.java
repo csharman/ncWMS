@@ -60,7 +60,7 @@ import uk.ac.rdg.resc.ncwms.config.datareader.DataReader;
  *    amount of data is read from disk.  However, in general this method is inefficient
  *    as it maximizes the overhead of the low-level data extraction code by making
  *    a large number of small data extractions.  This is the {@link #PIXEL_BY_PIXEL
- *    pixel-by-pixel} strategy and is not recommended for general use.</p>
+ *    pixel-by-pixel} strategy.</p>
  *
  * <h3>Strategy 2: read all data points in one operation</h3>
  * <p>Read all data in one operation (potentially including lots of data points
@@ -71,7 +71,7 @@ import uk.ac.rdg.resc.ncwms.config.datareader.DataReader;
  *       footprint.  The {@link DataReader} would then subset this data array in-memory.
  *       This is the {@link #BOUNDING_BOX bounding-box} strategy.  This approach is
  *       recommended for remote datasets (e.g. on an OPeNDAP server) and compressed
- *       dataasets as it minimizes the overhead associated with the individual
+ *       datasets as it minimizes the overhead associated with the individual
  *       data-reading operations.</p>
  * <p>This approach is illustrated in the diagram below.  Grey squares represent
  * data points that are read into memory but are discarded because they do not
@@ -100,7 +100,7 @@ import uk.ac.rdg.resc.ncwms.config.datareader.DataReader;
  * <img src="doc-files/pixelmap_scanline.png">
  * @author Jon
  */
-public enum DataReadingStrategy {
+enum DataReadingStrategy {
 
     /**
      * Reads "scanlines" of data, leading to a smaller memory footprint than
@@ -148,7 +148,7 @@ public enum DataReadingStrategy {
                 // Now copy the scanline's data to the picture array
                 Set<Integer> iIndices = pixelMap.getIIndices(j);
                 for (int i : iIndices) {
-                    index.setDim(ranges.xi, i - imin);
+                    index.setDim(ranges.getXAxisIndex(), i - imin);
                     float val = arr.getFloat(index);
                     // The value we've read won't have had scale-offset-missing applied
                     val = (float) var.convertScaleOffsetMissing(val);
@@ -167,7 +167,7 @@ public enum DataReadingStrategy {
         }
 
         @Override
-        protected boolean isPixelMapSorted() { return false; }
+        protected boolean sortPixelMap() { return false; }
     },
 
     /**
@@ -202,10 +202,10 @@ public enum DataReadingStrategy {
             index.set(new int[index.getRank()]);
             for (int j : pixelMap.getJIndices())
             {
-                index.setDim(ranges.yi, j - yRange.first());
+                index.setDim(ranges.getYAxisIndex(), j - yRange.first());
                 for (int i : pixelMap.getIIndices(j))
                 {
-                    index.setDim(ranges.xi, i - xRange.first());
+                    index.setDim(ranges.getXAxisIndex(), i - xRange.first());
                     float val = arr.getFloat(index);
                     // The value we've read won't have had scale-offset-missing applied
                     val = (float)var.convertScaleOffsetMissing(val);
@@ -221,12 +221,12 @@ public enum DataReadingStrategy {
         }
 
         @Override
-        protected boolean isPixelMapSorted() { return false; }
+        protected boolean sortPixelMap() { return false; }
     },
 
     /**
-     * Reads each data point individually.  Generally very inefficient and
-     * recommended only for debugging and testing purposes.
+     * Reads each data point individually.  Only efficient if the overhead of
+     * reading a single point is not large.
      */
     PIXEL_BY_PIXEL {
         @Override
@@ -268,81 +268,8 @@ public enum DataReadingStrategy {
 
         /** Data reading is faster if the pixel map is sorted */
         @Override
-        protected boolean isPixelMapSorted() { return true; }
+        protected boolean sortPixelMap() { return true; }
     };
-    
-    /** Wraps a List of Ranges, providing methods to safely set ranges for
-     * x, y, z and t */
-    protected static final class RangesList
-    {
-        private static final Range ZERO_RANGE;
-
-        private final List<Range> ranges;
-        private final int xi;
-        private final int yi;
-        private final int zi;
-        private final int ti;
-
-        static
-        {
-            try { ZERO_RANGE = new Range(0, 0); }
-            catch (InvalidRangeException ire) { throw new ExceptionInInitializerError(ire); }
-        }
-        
-        public RangesList(GridDatatype grid, int tIndex, int zIndex)
-                throws InvalidRangeException
-        {
-            int rank = grid.getRank();
-            this.ranges = new ArrayList<Range>(rank);
-            for (int i = 0; i < rank; i++) { ranges.add(ZERO_RANGE); }
-
-            this.xi = grid.getXDimensionIndex();
-            this.yi = grid.getYDimensionIndex();
-            this.zi = grid.getZDimensionIndex();
-            this.ti = grid.getTimeDimensionIndex();
-
-            // Set the time and z ranges, avoiding InvalidRangeExceptions for
-            // ranges we won't use
-            if (tIndex < 0) tIndex = 0;
-            if (zIndex < 0) zIndex = 0;
-            this.setRange(this.ti, new Range(tIndex, tIndex));
-            this.setRange(this.zi, new Range(zIndex, zIndex));
-        }
-
-        public void setXRange(Range xRange)
-        {
-            this.setRange(this.xi, xRange);
-        }
-
-        public void setYRange(Range yRange)
-        {
-            this.setRange(this.yi, yRange);
-        }
-
-        private void setRange(int index, Range range)
-        {
-            if (index >= 0) this.ranges.set(index, range);
-        }
-
-        private Range getRange(int index)
-        {
-            if (index >= 0) return this.ranges.get(index);
-            return null;
-        }
-        
-        public List<Range> getRanges() { return this.ranges; }
-
-        @Override
-        public String toString()
-        {
-            Range tRange = this.getRange(this.ti);
-            Range zRange = this.getRange(this.zi);
-            Range yRange = this.getRange(this.yi);
-            Range xRange = this.getRange(this.xi);
-            return String.format("tRange: %s, zRange: %s, yRange: %s, xRange: %s",
-                tRange, zRange, yRange, xRange);
-        }
-    }
 
     /**
      * Reads data from the given GridDatatype and populates the given pixel array.
@@ -357,16 +284,24 @@ public enum DataReadingStrategy {
         PixelMap pixelMap;
         try
         {
-            pixelMap = new PixelMap(sourceGrid, targetDomain, this.isPixelMapSorted());
+            pixelMap = new PixelMap(sourceGrid, targetDomain, this.sortPixelMap());
         }
         catch (TransformException te)
         {
             throw new RuntimeException(te);
         }
         if (pixelMap.isEmpty()) return picData;
+
+        // Set the time and z ranges, avoiding InvalidRangeExceptions for
+        // ranges we won't use
+        if (tIndex < 0) tIndex = 0;
+        if (zIndex < 0) zIndex = 0;
+        RangesList rangesList = new RangesList(grid);
         try
         {
-            RangesList rangesList = new RangesList(grid, tIndex, zIndex);
+            rangesList.setZRange(new Range(zIndex, zIndex));
+            rangesList.setTRange(new Range(tIndex, tIndex));
+            // Now read the actual data from the source GridDatatype
             this.populatePixelArray(picData, pixelMap, grid.getVariable(), rangesList);
         }
         catch (InvalidRangeException ire)
@@ -390,7 +325,7 @@ public enum DataReadingStrategy {
         return list;
     }
 
-    protected abstract boolean isPixelMapSorted();
+    protected abstract boolean sortPixelMap();
 
     protected abstract void populatePixelArray(List<Float> picData,
             PixelMap pixelMap, VariableDS var, RangesList ranges)

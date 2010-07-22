@@ -162,11 +162,9 @@ final class PixelMap
     /**
      * Generates a PixelMap for reading data from the given source grid and
      * projecting onto the target grid.
-     * @param sourceGrid The horizontal coordinate system of the layer
-     * (i.e. the source grid)
-     * @param targetGrid the horizontal grid representing the image that is to be
-     * generated (i.e. the target grid).
-     * @throws Exception if the necessary transformations could not be performed
+     * @param sourceGrid The source grid in WGS84 lat-lon coordinates
+     * @param targetGrid The target grid in WGS84 lat-lon coordinates
+     * @throws TransformException if the necessary transformations could not be performed
      */
     private void initFromGrid(RectilinearGrid sourceGrid, RectilinearGrid targetGrid)
             throws TransformException
@@ -210,11 +208,11 @@ final class PixelMap
     }
 
     /**
-     * Adds a new pixel index to this map.  Does nothing if either x or y is
+     * Adds a new pixel index to this map.  Does nothing if either i or j is
      * negative.
      * @param i The i index of the point in the source data
      * @param j The j index of the point in the source data
-     * @param pixel The index of the corresponding point in the picture
+     * @param pixel The index of the corresponding point in the target domain
      */
     private void put(int i, int j, int pixel)
     {

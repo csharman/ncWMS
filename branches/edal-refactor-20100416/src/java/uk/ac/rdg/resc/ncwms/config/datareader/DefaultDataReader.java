@@ -54,8 +54,6 @@ import uk.ac.rdg.resc.ncwms.wms.Layer;
 public class DefaultDataReader extends DataReader
 {
     private static final Logger logger = LoggerFactory.getLogger(DefaultDataReader.class);
-    // We'll use this logger to output performance information
-    private static final Logger benchmarkLogger = LoggerFactory.getLogger("ncwms.benchmark");
 
     /**
      * Reads data from a NetCDF file.  Reads data for a single timestep only.
@@ -82,45 +80,18 @@ public class DefaultDataReader extends DataReader
         try
         {
             long start = System.currentTimeMillis();
-            
             // Open the dataset, using the cache for NcML aggregations
             nc = openDataset(filename);
             long openedDS = System.currentTimeMillis();
             logger.debug("Opened NetcdfDataset in {} milliseconds", (openedDS - start));
-
-            // Get a GridDataset object, since we know this is a grid
-            GridDataset gd = CdmUtils.getGridDataset(nc);
-            
-            logger.debug("Getting GridDatatype with id {}", layer.getId());
-            GridDatatype gridData = gd.findGridDatatype(layer.getId());
-            logger.debug("filename = {}, gg = {}", filename, gridData.toString());
-
             return CdmUtils.readHorizontalPoints(
-                gridData,           // The grid of data to read from
+                nc,
+                layer.getId(),           // The grid of data to read from
                 layer.getHorizontalGrid(),
                 tIndex,
                 zIndex,
-                domain,
-                CdmUtils.getOptimumDataReadingStrategy(nc)
+                domain
             );
-
-            // Write to the benchmark logger (if enabled in log4j.properties)
-            // Headings are written in NcwmsContext.init()
-            /*if (pixelMap.getNumUniqueIJPairs() > 1)
-            {
-                // Don't log single-pixel (GetFeatureInfo) requests
-                benchmarkLogger.info
-                (
-                    layer.getDataset().getId() + "," +
-                    layer.getId() + "," +
-                    this.getClass().getSimpleName() + "," +
-                    pointList.size() + "," +
-                    pixelMap.getNumUniqueIJPairs() + "," +
-                    pixelMap.getSumRowLengths() + "," +
-                    pixelMap.getBoundingBoxSize() + "," +
-                    (after - before)
-                );
-            }*/
         }
         finally
         {
@@ -174,17 +145,15 @@ public class DefaultDataReader extends DataReader
         {
             // Open the dataset, using the cache for NcML aggregations
             nc = openDataset(filename);
-            GridDataset gd = CdmUtils.getGridDataset(nc);
-            GridDatatype grid = gd.findGridDatatype(layer.getId());
             
             // Read and return the data
             return CdmUtils.readTimeseries(
-                grid,
+                nc,
+                layer.getId(),
                 layer.getHorizontalGrid(),
                 tIndices,
                 zIndex,
-                xy,
-                CdmUtils.isScaleMissingDeferred(nc)
+                xy
             );
         }
         finally
@@ -200,7 +169,6 @@ public class DefaultDataReader extends DataReader
                     logger.error("IOException closing " + nc.getLocation(), ex);
                 }
             }
-
         }
     }
     
@@ -288,8 +256,7 @@ public class DefaultDataReader extends DataReader
      * aggregation file or an OPeNDAP location, {@literal i.e.} anything that can be
      * passed to NetcdfDataset.openDataset(location).
      * @return a {@link NetcdfDataset} object for accessing the data at the
-     * given location.  The coordinate systems will have been read, but
-     * the application of scale-offset-missing is deferred.
+     * given location.
      * @throws IOException if there was an error reading from the data source.
      */
     private static NetcdfDataset openDataset(String location) throws IOException

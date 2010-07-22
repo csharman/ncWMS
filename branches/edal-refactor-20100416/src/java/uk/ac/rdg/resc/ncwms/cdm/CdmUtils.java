@@ -44,9 +44,11 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ucar.ma2.Array;
+import ucar.ma2.Index;
 import ucar.ma2.InvalidRangeException;
 import ucar.ma2.Range;
 import ucar.nc2.Attribute;
+import ucar.nc2.Variable;
 import ucar.nc2.constants.AxisType;
 import ucar.nc2.constants.FeatureType;
 import ucar.nc2.dataset.CoordinateAxis;
@@ -54,7 +56,6 @@ import ucar.nc2.dataset.CoordinateAxis1D;
 import ucar.nc2.dataset.CoordinateAxis1DTime;
 import ucar.nc2.dataset.CoordinateAxis2D;
 import ucar.nc2.dataset.NetcdfDataset;
-import ucar.nc2.dataset.NetcdfDataset.Enhance;
 import ucar.nc2.dataset.VariableDS;
 import ucar.nc2.dataset.VariableEnhanced;
 import ucar.nc2.dt.GridCoordSystem;
@@ -294,7 +295,7 @@ public final class CdmUtils
      * @param nc The NetcdfDataset from which data will be read.
      * @return an optimum DataReadingStrategy for reading from the dataset
      */
-    public static DataReadingStrategy getOptimumDataReadingStrategy(NetcdfDataset nc)
+    private static DataReadingStrategy getOptimumDataReadingStrategy(NetcdfDataset nc)
     {
         String fileType = nc.getFileTypeId();
         return fileType.equals("netCDF") || fileType.equals("HDF4")
@@ -455,48 +456,67 @@ public final class CdmUtils
     /**
      * Reads a set of points at a given time and elevation from the given
      * GridDatatype.
-     * @param grid The GridDatatype from which we will read data
+     * @param nc The (already-opened) NetcdfDataset from which we'll read data
+     * @param varId The ID of the variable from which we will read data
      * @param sourceGrid object that maps between real-world and grid coordinates
      * in the source data grid
      * @param tIndex The time index, or -1 if the grid has no time axis
      * @param zIndex The elevation index, or -1 if the grid has no elevation axis
      * @param targetDomain The list of horizontal points for which we need data
-     * @param drStrategy The strategy to use for reading data
      * @return a List of floating point numbers, one for each point in the
      * {@code domain}, in the same order.  Missing values (e.g. land pixels
      * in oceanography data} are represented as nulls.
+     * @throws IllegalArgumentException if there is no variable in the dataset
+     * with the id {@code varId}.
      * @throws IOException if there was an error reading data from the data source
      */
-    public static List<Float> readHorizontalPoints(GridDatatype grid,
+    public static List<Float> readHorizontalPoints(NetcdfDataset nc, String varId,
             HorizontalGrid sourceGrid, int tIndex, int zIndex,
-            Domain<HorizontalPosition> targetDomain, DataReadingStrategy drStrategy)
+            Domain<HorizontalPosition> targetDomain)
             throws IOException
     {
-        return drStrategy.readData(tIndex, zIndex, sourceGrid, targetDomain, grid);
+        GridDatatype grid = getGridDatatype(nc, varId);
+        DataReadingStrategy strategy = getOptimumDataReadingStrategy(nc);
+        return strategy.readData(tIndex, zIndex, sourceGrid, targetDomain, grid);
+    }
+
+    private static GridDatatype getGridDatatype(NetcdfDataset nc, String varId)
+            throws IOException
+    {
+        GridDataset gd = getGridDataset(nc);
+        if (gd == null)
+        {
+            throw new IllegalArgumentException("Dataset does not contain gridded data");
+        }
+        GridDatatype grid = gd.findGridDatatype(varId);
+        if (grid == null)
+        {
+            throw new IllegalArgumentException("No variable with name " + varId);
+        }
+        return grid;
     }
 
     /**
      * Reads a timeseries of points from the given GridDatatype at a given
      * elevation and xy location
-     * @param grid The GridDatatype from which we will read data
+     * @param nc The (already-opened) NetcdfDataset from which we'll read data
+     * @param varId The ID of the variable from which we will read data
      * @param horizGrid object that maps between real-world and grid coordinates
      * in the source data grid
      * @param tIndices The list of indices along the time axis
      * @param zIndex The elevation index, or -1 if the grid has no elevation axis
      * @param xy The horizontal location of the required timeseries
-     * @param scaleMissingDeferred True if the {@link NetcdfDataset} that
-     * contained the GridDatatype was opened with the enhancement mode
-     * {@link Enhance#ScaleMissingDefer}.
      * @return a list of floating-point numbers, one for each of the time indices.
      * Missing values (e.g. land pixels in oceanography data} are represented as nulls.
      * @throws IOException if there was an error reading data from the data source
      * @todo Convert to new mechanism of reading from low-level variable
      */
-    public static List<Float> readTimeseries(GridDatatype grid,
+    public static List<Float> readTimeseries(NetcdfDataset nc, String varId,
             HorizontalGrid horizGrid, List<Integer> tIndices,
-            int zIndex, HorizontalPosition xy, boolean scaleMissingDeferred)
+            int zIndex, HorizontalPosition xy)
             throws IOException
     {
+        GridDatatype grid = getGridDatatype(nc, varId);
         GridCoordinates gridCoords = horizGrid.findNearestGridPoint(xy);
         if (gridCoords == null)
         {
@@ -525,9 +545,16 @@ public final class CdmUtils
             Range yRange = new Range(j, j);
             Range xRange = new Range(i, i);
 
+            RangesList rangesList = new RangesList(grid);
+            rangesList.setTRange(tRange);
+            rangesList.setZRange(zRange);
+            rangesList.setYRange(yRange);
+            rangesList.setXRange(xRange);
+
             // Now read the data
-            GridDatatype subset = grid.makeSubset(null, null, tRange, zRange, yRange, xRange);
-            Array arr = subset.readDataSlice(-1, 0, 0, 0);
+            VariableDS enhancedVar = grid.getVariable();
+            Variable origVar = enhancedVar.getOriginalVariable();
+            Array arr = origVar.read(rangesList.getRanges());
 
             // Check for consistency
             if (arr.getSize() != lastTIndex - firstTIndex + 1)
@@ -539,18 +566,17 @@ public final class CdmUtils
 
             // Copy the data (which may include many points we don't need) to
             // the required array
-            VariableDS var = grid.getVariable();
             List<Float> tsData = new ArrayList<Float>();
+            Index index = arr.getIndex();
+            index.set(new int[index.getRank()]);
             for (int tIndex : tIndices)
             {
                 int tIndexOffset = tIndex - firstTIndex;
                 if (tIndexOffset < 0) tIndexOffset = 0; // This will happen if the layer has no t axis
-                float val = arr.getFloat(tIndexOffset);
-                if (scaleMissingDeferred)
-                {
-                    // Convert scale-offset-missing
-                    val = (float)var.convertScaleOffsetMissing(val);
-                }
+                index.setDim(rangesList.getTAxisIndex(), tIndexOffset);
+                float val = arr.getFloat(index);
+                // Apply any scale-offset-missing conversions
+                val = (float)enhancedVar.convertScaleOffsetMissing(val);
                 // Replace missing values with nulls
                 tsData.add(Float.isNaN(val) ? null : val);
             }
@@ -561,15 +587,6 @@ public final class CdmUtils
             // This is a programming error, and one from which we can't recover
             throw new IllegalStateException(ire);
         }
-    }
-
-    /**
-     * Returns true if the given NetcdfDataset uses the {@link Enhance#ScaleMissingDefer}
-     * mode.
-     */
-    public static boolean isScaleMissingDeferred(NetcdfDataset nc)
-    {
-        return nc.getEnhanceMode().contains(Enhance.ScaleMissingDefer);
     }
 
 }
