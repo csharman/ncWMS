@@ -119,8 +119,7 @@
                     <path-in-war>WEB-INF/lib</path-in-war>
                 </library>
                 <library dirs="200">
-                    <file>${file.reference.geotk-bundle-referencing-3.10.jar}</file>
-                    <path-in-war>WEB-INF/lib</path-in-war>
+                    <file>${file.reference.geotk-bundle-referencing-3.12.jar}</file>
                 </library>
             </web-module-libraries>
             <web-module-additional-libraries/>
