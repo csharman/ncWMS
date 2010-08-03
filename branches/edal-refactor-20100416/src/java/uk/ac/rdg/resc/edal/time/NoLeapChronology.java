@@ -28,21 +28,14 @@
 
 package uk.ac.rdg.resc.edal.time;
 
-import org.joda.time.Chronology;
-import org.joda.time.DateTimeField;
-import org.joda.time.DateTimeFieldType;
 import org.joda.time.DateTimeZone;
-import org.joda.time.DurationField;
-import org.joda.time.DurationFieldType;
-import org.joda.time.field.PreciseDurationField;
 
 /**
- * <p>A Chronology in which each year has exactly 360 days of 12 equal months
- * ({@literal i.e.} each month has exactly 30 days).  This calendar system is
- * used in many climate simulations.  There are no leap years.</p>
+ * <p>A Chronology in which each year has exactly 365 days (February is always
+ * 28 days long).  This calendar system is used in some climate simulations.</p>
  * <p>In this Chronology, a millisecond instant of zero corresponds with
  * 1970-01-01T00:00:00.000Z and a year has a fixed number of milliseconds
- * (1000*60*60*24*360).</p>
+ * (1000*60*60*24*365).</p>
  * <p>There is no concept of an era in this calendar, so all durations and fields
  * relating to this concept are not supported.  Additionally, the concept of a
  * "weekyear" (the year that "owns" a given week) is not implemented.</p>
@@ -52,53 +45,25 @@ import org.joda.time.field.PreciseDurationField;
  * @author Jon Blower
  * @see http://cf-pcmdi.llnl.gov/documents/cf-conventions/1.4/cf-conventions.html#calendar
  */
-public final class ThreeSixtyDayChronology extends FixedYearLengthChronology {
+public final class NoLeapChronology extends FixedYearVariableMonthChronology {
 
-    ///// DURATIONS /////
+    private static final int[] MONTH_LENGTHS = new int[]{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
-    /** 30 days in every month */
-    private final DurationField monthDuration =
-        new PreciseDurationField(DurationFieldType.months(), 30 * this.days().getUnitMillis());
-    
-    private final DateTimeField dayOfMonth =
-        new OneBasedPreciseDateTimeField(DateTimeFieldType.dayOfMonth(), this.days(), this.monthDuration);
-
-    private final DateTimeField monthOfYear =
-        new OneBasedPreciseDateTimeField(DateTimeFieldType.monthOfYear(), this.monthDuration, this.years());
-    
-    
-    ///// CONSTRUCTORS AND FACTORIES /////
-
-    private static final ThreeSixtyDayChronology INSTANCE_UTC = new ThreeSixtyDayChronology();
+    private static final NoLeapChronology INSTANCE_UTC = new NoLeapChronology();
 
     /** Private constructor to prevent direct instantiation */
-    private ThreeSixtyDayChronology() {
-        super(360);
+    private NoLeapChronology() {
+        super(MONTH_LENGTHS);
     }
 
     /** Gets an instance of this Chronology in the UTC time zone */
-    public static ThreeSixtyDayChronology getInstanceUTC() {
+    public static NoLeapChronology getInstanceUTC() {
         return INSTANCE_UTC;
     }
-    
-    ///// DURATION ACCESSORS /////
-
-    /** Each month has exactly 30 days */
-    @Override
-    public DurationField months() { return this.monthDuration; }
-
-
-    ///// DATE-TIME FIELD ACCESSORS /////
-
-    @Override
-    public DateTimeField dayOfMonth() { return this.dayOfMonth; }
-
-    @Override
-    public DateTimeField monthOfYear() { return this.monthOfYear; }
 
     @Override
     public String toString() {
-        return "360-day Chronology in UTC";
+        return "No-leap Chronology in UTC";
     }
 
 }

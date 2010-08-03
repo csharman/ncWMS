@@ -58,7 +58,7 @@ import org.joda.time.field.ZeroIsMaxDateTimeField;
  * @author Jon Blower
  * @see http://cf-pcmdi.llnl.gov/documents/cf-conventions/1.4/cf-conventions.html#calendar
  */
-public abstract class FixedYearLengthChronology extends BaseChronology {
+abstract class FixedYearLengthChronology extends BaseChronology {
 
     ///// DURATIONS /////
 
@@ -126,36 +126,13 @@ public abstract class FixedYearLengthChronology extends BaseChronology {
     private static final DateTimeField dayOfWeek =
         new PreciseDateTimeField(DateTimeFieldType.dayOfWeek(), dayDuration, weekDuration);
 
-    /**
-     * A DateTimeField whose values start at 1 instead of 0
-     * @todo should we use composition instead of inheritance?
-     */
-    protected static final class OneBasedPreciseDateTimeField extends PreciseDateTimeField {
-
-        public OneBasedPreciseDateTimeField(DateTimeFieldType fieldType, DurationField unit, DurationField range) {
-            super(fieldType, unit, range);
-        }
-
-        @Override public int getMinimumValue() { return super.getMinimumValue() + 1; }
-        @Override public int getMaximumValue() { return super.getMaximumValue() + 1; }
-
-        @Override public int get(long instant) {
-            return super.get(instant) + 1;
-        }
-
-        // We don't need to override set() because set() calls get() to figure
-        // out the offset from the current value of this field.  E.g. if we
-        // want to set the month to 2 (February), we first figure out what the
-        // instant's current month is: this month number will be one-based, so
-        // we will automatically calculate the correct offset in ms from this
-        // month.
-    }
-
     // We don't know the length of the year or century until we know how many
     // days there are in a year
     private final DateTimeField dayOfYear;
     private final DateTimeField yearOfCentury;
     private final DateTimeField year;
+
+    private final int daysInYear;
     
     private static final class YearField extends PreciseDurationDateTimeField {
 
@@ -189,6 +166,8 @@ public abstract class FixedYearLengthChronology extends BaseChronology {
      * @param daysInYear The number of days in each year
      */
     protected FixedYearLengthChronology(int daysInYear) {
+        this.daysInYear = daysInYear;
+
         this.yearDuration = new PreciseDurationField(DurationFieldType.years(),
                 daysInYear * dayDuration.getUnitMillis());
         this.centuryDuration = new PreciseDurationField(DurationFieldType.centuries(),
@@ -290,7 +269,8 @@ public abstract class FixedYearLengthChronology extends BaseChronology {
     @Override
     public final DateTimeField yearOfCentury() { return yearOfCentury; }
 
-
+    /** Returns the number of days in the year */
+    final int getDaysInYear() { return this.daysInYear; }
 
     /** Always returns UTC */
     @Override
@@ -302,5 +282,9 @@ public abstract class FixedYearLengthChronology extends BaseChronology {
         if (zone.equals(DateTimeZone.UTC)) return this.withUTC();
         throw new UnsupportedOperationException("Not supported yet.");
     }
+
+    /** Returns this object */
+    @Override
+    public final Chronology withUTC() { return this; }
 
 }
