@@ -67,7 +67,7 @@ public final class LineString
             throw new InvalidLineStringException("At least two points are required to generate a transect");
         }
         if (crs == null) {
-            throw new NullPointerException("CrsHelper cannot be null");
+            throw new NullPointerException("CRS cannot be null");
         }
         this.crs = crs;
 
