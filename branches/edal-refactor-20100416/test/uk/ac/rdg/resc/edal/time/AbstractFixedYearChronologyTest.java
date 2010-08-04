@@ -30,7 +30,9 @@ package uk.ac.rdg.resc.edal.time;
 
 import org.joda.time.Chronology;
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeField;
 import org.joda.time.DateTimeZone;
+import org.joda.time.IllegalFieldValueException;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 import org.junit.Test;
@@ -44,6 +46,7 @@ public abstract class AbstractFixedYearChronologyTest
 { 
     private final Chronology chron;
     private final DateTimeFormatter formatter;
+    protected final DateTime sample;
 
     /** Number of milliseconds in a second */
     protected static final long SECOND = 1000;
@@ -60,6 +63,7 @@ public abstract class AbstractFixedYearChronologyTest
         this.formatter = ISODateTimeFormat.dateTime()
             .withChronology(chron)
             .withZone(DateTimeZone.UTC);
+        this.sample = new DateTime(2000, 1, 2, 3, 4, 5, 6, chron);
     }
 
     /**
@@ -98,6 +102,166 @@ public abstract class AbstractFixedYearChronologyTest
         testDateTime(0, 1, 1, 0, 0, 0, 0);
     }
 
+    @Test
+    public void testNegativeYear() {
+        System.out.println("Jan 30, -1");
+        testDateTime(-1, 1, 30, 0, 0, 0, 0);
+    }
+
+    @Test
+    public void testVeryNegativeYear() {
+        System.out.println("Jan 30, -2000");
+        testDateTime(-2000, 1, 30, 0, 0, 0, 0);
+    }
+
+    @Test
+    public void testDateTime() {
+        System.out.println("Jan 30, 2000, 13:45:56.789");
+        testDateTime(2000, 1, 30, 13, 45, 56, 789);
+    }
+
+    @Test(expected=IllegalFieldValueException.class)
+    public void testMillisOverflow() {
+        sample.withMillisOfSecond(1000);
+    }
+
+    @Test(expected=IllegalFieldValueException.class)
+    public void testMillisUnderflow() {
+        sample.withMillisOfSecond(-1);
+    }
+
+    @Test(expected=IllegalFieldValueException.class)
+    public void testSecondsOverflow() {
+        sample.withSecondOfMinute(60);
+    }
+
+    @Test(expected=IllegalFieldValueException.class)
+    public void testSecondsUnderflow() {
+        sample.withSecondOfMinute(-1);
+    }
+
+    @Test(expected=IllegalFieldValueException.class)
+    public void testMinutesOverflow() {
+        sample.withMinuteOfHour(60);
+    }
+
+    @Test(expected=IllegalFieldValueException.class)
+    public void testMinutesUnderflow() {
+        sample.withMinuteOfHour(-1);
+    }
+
+    @Test(expected=IllegalFieldValueException.class)
+    public void testHoursOverflow() {
+        sample.withHourOfDay(24);
+    }
+
+    @Test(expected=IllegalFieldValueException.class)
+    public void testHoursUnderflow() {
+        sample.withHourOfDay(-1);
+    }
+
+    @Test(expected=IllegalFieldValueException.class)
+    public void testDayOfMonthUnderflow() {
+        sample.withDayOfMonth(0);
+    }
+
+    @Test(expected=IllegalFieldValueException.class)
+    public void testMonthOfYearOverflow() {
+        sample.withMonthOfYear(13);
+    }
+
+    @Test(expected=IllegalFieldValueException.class)
+    public void testMonthOfYearUnderflow() {
+        sample.withMonthOfYear(0);
+    }
+
+    /** Tests the monthOfYear DateTimeField */
+    @Test
+    public void testMonthOfYearField() {
+        DateTimeField monthField = this.chron.monthOfYear();
+        assertEquals(1, monthField.getMinimumValue());
+        assertEquals(this.getNumMonthsInYear(), monthField.getMaximumValue());
+    }
+
+    @Test
+    public void setFields() {
+        int year = 1;
+        int month = 12;
+        int day = 30;
+        int hour = 23;
+        int minute = 59;
+        int second = 58;
+        int millis = 999;
+        assertEquals(year, sample.withYear(year).getYear());
+        assertEquals(month, sample.withMonthOfYear(month).getMonthOfYear());
+        assertEquals(day, sample.withDayOfMonth(day).getDayOfMonth());
+        assertEquals(hour, sample.withHourOfDay(hour).getHourOfDay());
+        assertEquals(minute, sample.withMinuteOfHour(minute).getMinuteOfHour());
+        assertEquals(second, sample.withSecondOfMinute(second).getSecondOfMinute());
+        assertEquals(millis, sample.withMillisOfSecond(millis).getMillisOfSecond());
+        assertEquals(millis, sample.withMillisOfDay(millis).getMillisOfDay());
+    }
+
+    // Tests arithmetic on the day, hour, minute, second and millisecond fields
+    @Test
+    public void testArithmetic() {
+        long millis = sample.getMillis();
+        assertEquals(millis + 4 * DAY, sample.dayOfMonth().addToCopy(4).getMillis());
+        assertEquals(millis + 4 * HOUR, sample.hourOfDay().addToCopy(4).getMillis());
+        assertEquals(millis + 4 * MINUTE, sample.minuteOfHour().addToCopy(4).getMillis());
+        assertEquals(millis + 4 * SECOND, sample.secondOfMinute().addToCopy(4).getMillis());
+        assertEquals(millis + 4 , sample.millisOfSecond().addToCopy(4).getMillis());
+
+        assertEquals(millis - 4 * DAY, sample.dayOfMonth().addToCopy(-4).getMillis());
+        assertEquals(millis - 4 * HOUR, sample.hourOfDay().addToCopy(-4).getMillis());
+        assertEquals(millis - 4 * MINUTE, sample.minuteOfHour().addToCopy(-4).getMillis());
+        assertEquals(millis - 4 * SECOND, sample.secondOfMinute().addToCopy(-4).getMillis());
+        assertEquals(millis - 4 , sample.millisOfSecond().addToCopy(-4).getMillis());
+    }
+
+    @Test
+    public void testMonthArithmetic() {
+        DateTime dt = new DateTime(2000, 10, 1, 0, 0, 0, 0, this.chron);
+        dt = dt.plusMonths(4);
+        assertEquals(2001, dt.getYear());
+        assertEquals(2, dt.getMonthOfYear());
+        assertEquals(1, dt.getDayOfMonth());
+        long expected = new DateTime(2001, 2, 1, 0, 0, 0, 0, this.chron).getMillis();
+        assertEquals(expected, dt.getMillis());
+
+        dt = new DateTime(2000, 10, 1, 0, 0, 0, 0, this.chron);
+        dt = dt.plusMonths(-1);
+        System.out.println(dt);
+        assertEquals(2000, dt.getYear());
+        assertEquals(9, dt.getMonthOfYear());
+        assertEquals(1, dt.getDayOfMonth());
+        expected = new DateTime(2000, 9, 1, 0, 0, 0, 0, this.chron).getMillis();
+
+        dt = new DateTime(2000, 10, 1, 0, 0, 0, 0, this.chron);
+        dt = dt.plusMonths(-11);
+        assertEquals(1999, dt.getYear());
+        assertEquals(11, dt.getMonthOfYear());
+        assertEquals(1, dt.getDayOfMonth());
+        expected = new DateTime(1999, 11, 1, 0, 0, 0, 0, this.chron).getMillis();
+        assertEquals(expected, dt.getMillis());
+    }
+
+    // Tests overflow of all the possible months
+    @Test
+    public void testDayOfMonthOverflows() {
+        for (int i = 1; i <= this.getNumMonthsInYear(); i++) {
+            // First check a valid value
+            sample.withMonthOfYear(i).withDayOfMonth(this.getNumDaysInMonth(i));
+            boolean exThrown = false;
+            try {
+                sample.withMonthOfYear(i).withDayOfMonth(this.getNumDaysInMonth(i) + 1);
+            } catch(IllegalFieldValueException ifve) {
+                exThrown = true;
+            }
+            assertTrue(exThrown);
+        }
+    }
+
     /**
      * Creates a DateTime from the given fields and checks that the field values
      * are preserved.  Independently checks the calculation of the millisecond
@@ -112,7 +276,6 @@ public abstract class AbstractFixedYearChronologyTest
             minuteOfHour, secondOfMinute, millisOfSecond, this.chron);
         long millis = this.getMillis(year, monthOfYear, dayOfMonth, hourOfDay,
             minuteOfHour, secondOfMinute, millisOfSecond);
-        System.out.println("millis = " + millis);
         assertEquals(millis, dt.getMillis());
 
         // Check that all the fields are the same
@@ -164,5 +327,9 @@ public abstract class AbstractFixedYearChronologyTest
      * year and the day of the month (both one-based)
      */
     protected abstract int getDayOfYear(int monthOfYear, int dayOfMonth);
+
+    protected abstract int getNumDaysInMonth(int monthOfYear);
+
+    protected abstract int getNumMonthsInYear();
 
 }

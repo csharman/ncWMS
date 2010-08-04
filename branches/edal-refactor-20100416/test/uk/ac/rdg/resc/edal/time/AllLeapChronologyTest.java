@@ -29,67 +29,47 @@
 package uk.ac.rdg.resc.edal.time;
 
 import org.joda.time.Chronology;
-import org.joda.time.DateTime;
+import org.joda.time.DateTimeField;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
 /**
- * Test for the {@link ThreeSixtyDayChronology}.
+ * Test for the {@link AllLeapChronology}.
  * @author Jon
  */
-public final class ThreeSixtyDayChronologyTest extends AbstractFixedYearChronologyTest {
+public final class AllLeapChronologyTest extends AbstractFixedYearVariableMonthChronologyTest {
 
-    private static Chronology CHRON_360 = ThreeSixtyDayChronology.getInstanceUTC();
+    private static Chronology CHRON_ALLLEAP = AllLeapChronology.getInstanceUTC();
 
-    private static final long MONTH  = 30 * DAY;
-    private static final long YEAR   = 12 * MONTH;
+    private static final int[] DAYS_IN_MONTH
+        = new int[]{31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    
+    public AllLeapChronologyTest() {
+        super(CHRON_ALLLEAP);
+    }
 
-    public ThreeSixtyDayChronologyTest() {
-        super(CHRON_360);
+    /** Tests the dayOfMonth DateTimeField */
+    @Test
+    public void testDayOfMonthField() {
+        DateTimeField dayOfMonthField = CHRON_ALLLEAP.dayOfMonth();
+        assertEquals(1, dayOfMonthField.getMinimumValue());
+        assertEquals(31, dayOfMonthField.getMaximumValue());
     }
 
     @Test
-    public void testFeb30_2000() {
-        // Only legal in this calendar system
-        System.out.println("Feb 30, 2000");
-        testDateTime(2000, 2, 30, 0, 0, 0, 0);
-    }
-
-    @Test
-    public void testYearArithmetic() {
-        long millis = sample.getMillis();
-        assertEquals(millis + 4 * YEAR, sample.year().addToCopy(4).getMillis());
-        assertEquals(millis - 4 * YEAR, sample.year().addToCopy(-4).getMillis());
-
-        DateTime yearOne = sample.withYear(1);
-        millis = yearOne.getMillis();
-        assertEquals(millis - 4 * YEAR, yearOne.year().addToCopy(-4).getMillis());
-        System.out.println(yearOne);
-    }
-
-    @Test
-    public void testMonthArithmetic2() {
-        long millis = sample.getMillis();
-        assertEquals(millis + 4 * MONTH, sample.monthOfYear().addToCopy(4).getMillis());
-        assertEquals(millis - 4 * MONTH, sample.monthOfYear().addToCopy(-4).getMillis());
+    public void testFeb29_2000() {
+        // This would be an illegal date in the NoLeap or Gregorian calendars
+        this.testDateTime(2000, 2, 29, 0, 0, 0, 0);
     }
 
     @Override
-    protected int getNumDaysInYear() { return 360; }
-
-    @Override
-    protected int getDayOfYear(int monthOfYear, int dayOfMonth) {
-        return (monthOfYear - 1) * 30 + dayOfMonth;
+    protected int getNumDaysInYear() {
+        return 366;
     }
 
     @Override
-    protected int getNumDaysInMonth(int monthOfYear) {
-        return 30;
-    }
-
-    @Override
-    protected int getNumMonthsInYear() {
-        return 12;
+    protected int[] getDaysInMonth() {
+        return DAYS_IN_MONTH.clone();
     }
 
 }

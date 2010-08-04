@@ -31,6 +31,7 @@ package uk.ac.rdg.resc.edal.time;
 import org.joda.time.DateTimeField;
 import org.joda.time.DateTimeFieldType;
 import org.joda.time.DurationField;
+import org.joda.time.IllegalFieldValueException;
 import org.joda.time.field.ImpreciseDateTimeField;
 
 /**
@@ -68,7 +69,7 @@ final class MonthOfFixedYearDateTimeField extends ImpreciseDateTimeField {
     public long set(long instant, int value) {
         // Check for illegal values: this is not a lenient field
         if (value < 1 || value > this.numMonthsInYear) {
-            throw new IllegalArgumentException("Illegal month value " + value);
+            throw new IllegalFieldValueException(this.getType(), value, 1, this.numMonthsInYear);
         }
         // What is the current month?
         int monthOfYear = this.get(instant);
@@ -106,7 +107,7 @@ final class MonthOfFixedYearDateTimeField extends ImpreciseDateTimeField {
             // Subtract the month lengths, starting with the previous month
             for (int i = 0; i < Math.abs(numMonthsToAdd); i++) {
                 // The previous month is monthOfYear - 2 because monthOfYear is 1-based
-                int monthToSubtract = monthOfYear - 2 - 1;
+                int monthToSubtract = monthOfYear - 2 - i;
                 // we might wrap around the array
                 if (monthToSubtract < 0) monthToSubtract += this.numMonthsInYear;
                 long millisToSubtract = this.daysInMonth[monthToSubtract] * this.chron.days().getUnitMillis();

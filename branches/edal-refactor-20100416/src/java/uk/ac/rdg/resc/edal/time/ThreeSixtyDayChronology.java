@@ -28,7 +28,6 @@
 
 package uk.ac.rdg.resc.edal.time;
 
-import org.joda.time.Chronology;
 import org.joda.time.DateTimeField;
 import org.joda.time.DateTimeFieldType;
 import org.joda.time.DateTimeZone;

@@ -31,13 +31,12 @@ package uk.ac.rdg.resc.edal.time;
 import org.joda.time.Chronology;
 
 /**
- * Test for the {@link NoLeapChronology}.
+ * Test for the {@link FixedYearVariableMonthChronology}.
  * @author Jon
  */
 public abstract class AbstractFixedYearVariableMonthChronologyTest extends AbstractFixedYearChronologyTest {
     
-    public AbstractFixedYearVariableMonthChronologyTest(Chronology chron)
-    {
+    public AbstractFixedYearVariableMonthChronologyTest(Chronology chron) {
         super(chron);
     }
 
@@ -54,5 +53,15 @@ public abstract class AbstractFixedYearVariableMonthChronologyTest extends Abstr
 
     /** Array of the numbers of days in each month */
     protected abstract int[] getDaysInMonth();
+
+    @Override
+    protected int getNumDaysInMonth(int monthOfYear) {
+        return this.getDaysInMonth()[monthOfYear - 1];
+    }
+
+    @Override
+    protected int getNumMonthsInYear() {
+        return this.getDaysInMonth().length;
+    }
 
 }

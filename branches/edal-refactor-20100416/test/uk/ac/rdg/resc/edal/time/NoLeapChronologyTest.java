@@ -30,6 +30,7 @@ package uk.ac.rdg.resc.edal.time;
 
 import org.joda.time.Chronology;
 import org.joda.time.DateTimeField;
+import org.joda.time.IllegalFieldValueException;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -44,17 +45,8 @@ public final class NoLeapChronologyTest extends AbstractFixedYearVariableMonthCh
     private static final int[] DAYS_IN_MONTH
         = new int[]{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
     
-    public NoLeapChronologyTest()
-    {
+    public NoLeapChronologyTest() {
         super(CHRON_NOLEAP);
-    }
-
-    /** Tests the monthOfYear DateTimeField */
-    @Test
-    public void testMonthOfYearField() {
-        DateTimeField monthField = CHRON_NOLEAP.monthOfYear();
-        assertEquals(1, monthField.getMinimumValue());
-        assertEquals(DAYS_IN_MONTH.length, monthField.getMaximumValue());
     }
 
     /** Tests the dayOfMonth DateTimeField */
@@ -63,6 +55,12 @@ public final class NoLeapChronologyTest extends AbstractFixedYearVariableMonthCh
         DateTimeField dayOfMonthField = CHRON_NOLEAP.dayOfMonth();
         assertEquals(1, dayOfMonthField.getMinimumValue());
         assertEquals(31, dayOfMonthField.getMaximumValue());
+    }
+
+    @Test(expected=IllegalFieldValueException.class)
+    public void testFeb29_2004() {
+        // This would be a legal date in the 360day, AllLeap or Gregorian calendars
+        this.testDateTime(2004, 2, 29, 0, 0, 0, 0);
     }
 
     @Override
