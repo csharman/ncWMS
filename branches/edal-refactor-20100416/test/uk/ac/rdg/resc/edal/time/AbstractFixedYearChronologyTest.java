@@ -35,6 +35,7 @@ import org.joda.time.DateTimeZone;
 import org.joda.time.IllegalFieldValueException;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
+import org.junit.Ignore;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -42,6 +43,7 @@ import static org.junit.Assert.*;
  * Abstract superclass for testing {@link FixedYearLengthChronology}s.
  * @author Jon
  */
+@Ignore
 public abstract class AbstractFixedYearChronologyTest
 { 
     private final Chronology chron;

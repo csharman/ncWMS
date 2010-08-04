@@ -29,11 +29,13 @@
 package uk.ac.rdg.resc.edal.time;
 
 import org.joda.time.Chronology;
+import org.junit.Ignore;
 
 /**
  * Test for the {@link FixedYearVariableMonthChronology}.
  * @author Jon
  */
+@Ignore
 public abstract class AbstractFixedYearVariableMonthChronologyTest extends AbstractFixedYearChronologyTest {
     
     public AbstractFixedYearVariableMonthChronologyTest(Chronology chron) {
