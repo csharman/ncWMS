@@ -43,36 +43,70 @@ import org.joda.time.field.PreciseDurationDateTimeField;
 final class DayOfMonthOfFixedYearDateTimeField extends PreciseDurationDateTimeField {
     
     private final FixedYearVariableMonthChronology chron;
+    private final int[] daysInMonth;
+    private int maxValue;
     
     public DayOfMonthOfFixedYearDateTimeField(FixedYearVariableMonthChronology chron) {
         super(DateTimeFieldType.dayOfMonth(), chron.days());
         this.chron = chron;
+
+        this.daysInMonth = chron.getMonthLengths();
+        this.maxValue = daysInMonth[0];
+        for (int i = 1; i < daysInMonth.length; i++) {
+            this.maxValue = Math.max(this.maxValue, daysInMonth[i]);
+        }
     }
 
     @Override
     public int get(long instant) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        int dayOfYear = this.chron.dayOfYear().get(instant);
+        int monthOfYear = this.chron.monthOfYear().get(instant);
+        // Calculate the number of days in the completed months so far
+        int numCompletedMonths = monthOfYear - 1;
+        int daysInCompletedMonths = 0;
+        for (int i = 0; i < numCompletedMonths; i++) {
+            daysInCompletedMonths += this.daysInMonth[i];
+        }
+        return dayOfYear - daysInCompletedMonths;
+    }
+
+    @Override
+    public int getMinimumValue() {
+        return 1;
     }
 
     @Override
     public int getMaximumValue() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return this.maxValue;
     }
 
     @Override
     public int getMaximumValue(long instant) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        int monthOfYear = this.chron.monthOfYear().get(instant);
+        return this.daysInMonth[monthOfYear - 1];
     }
 
+    // Adapted from the package-private BasicDayOfMonthDateTimeField
     @Override
     public int getMaximumValue(ReadablePartial partial) {
-        throw new UnsupportedOperationException("Not supported yet.");
-        
+        if (partial.isSupported(DateTimeFieldType.monthOfYear())) {
+            int month = partial.get(DateTimeFieldType.monthOfYear());
+            return this.daysInMonth[month - 1]; // Months are 1-based
+        }
+        return this.getMaximumValue();
     }
 
+    // Adapted from the package-private BasicDayOfMonthDateTimeField
     @Override
     public int getMaximumValue(ReadablePartial partial, int[] values) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        int size = partial.size();
+        for (int i = 0; i < size; i++) {
+            if (partial.getFieldType(i) == DateTimeFieldType.monthOfYear()) {
+                int month = values[i];
+                return this.daysInMonth[month - 1];
+            }
+        }
+        return this.getMaximumValue();
     }
 
     @Override

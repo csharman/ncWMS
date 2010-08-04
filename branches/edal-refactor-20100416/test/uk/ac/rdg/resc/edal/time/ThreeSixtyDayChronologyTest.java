@@ -30,10 +30,7 @@ package uk.ac.rdg.resc.edal.time;
 
 import org.joda.time.Chronology;
 import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.joda.time.IllegalFieldValueException;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -41,63 +38,23 @@ import static org.junit.Assert.*;
  * Test for the {@link ThreeSixtyDayChronology}.
  * @author Jon
  */
-public final class ThreeSixtyDayChronologyTest {
+public final class ThreeSixtyDayChronologyTest extends AbstractFixedYearChronologyTest {
 
     private static Chronology CHRON_360 = ThreeSixtyDayChronology.getInstanceUTC();
 
-    private static DateTimeFormatter FORMATTER = ISODateTimeFormat.dateTime()
-            .withChronology(CHRON_360)
-            .withZone(DateTimeZone.UTC);
-
     private static final DateTime SAMPLE = new DateTime(2000, 1, 2, 3, 4, 5, 6, CHRON_360);
 
-    private static final long SECOND = 1000;
-    private static final long MINUTE = 60 * SECOND;
-    private static final long HOUR   = 60 * MINUTE;
-    private static final long DAY    = 24 * HOUR;
     private static final long MONTH  = 30 * DAY;
     private static final long YEAR   = 12 * MONTH;
 
-    /**
-     * Test of zero millisecond offset (1970-01-01)
-     */
-    @Test
-    public void test1970() {
-        System.out.println("1970");
-        testDateTime(1970, 1, 1, 0, 0, 0, 0);
-    }
-
-    /**
-     * Test of one year's worth of millisecond offset (1971-01-01)
-     */
-    @Test
-    public void test1971() {
-        System.out.println("1971");
-        testDateTime(1971, 1, 1, 0, 0, 0, 0);
-    }
-
-    @Test
-    public void test1969() {
-        System.out.println("1969");
-        testDateTime(1969, 1, 1, 0, 0, 0, 0);
-    }
-
-    @Test
-    public void test1969AndAMillisecond() {
-        System.out.println("1969 + 1ms");
-        testDateTime(1969, 1, 1, 0, 0, 0, 1);
+    public ThreeSixtyDayChronologyTest() {
+        super(CHRON_360);
     }
 
     @Test
     public void testFeb30_2000() {
         System.out.println("Feb 30, 2000");
         testDateTime(2000, 2, 30, 0, 0, 0, 0);
-    }
-
-    @Test
-    public void testZeroYear() {
-        System.out.println("1st Jan, 0000");
-        testDateTime(0, 1, 1, 0, 0, 0, 0);
     }
 
     @Test
@@ -220,61 +177,13 @@ public final class ThreeSixtyDayChronologyTest {
         System.out.println(yearOne);
 
     }
-    
-    /** Performs a round-trip test on creating DateTimes in the Chronology */
-    private static final DateTime testDateTime(int year, int monthOfYear, int dayOfMonth,
-        int hourOfDay, int minuteOfHour, int secondOfMinute, int millisOfSecond)
-    {
-        // Create a DateTime from the given fields and check that the millisecond
-        // offset is correct
-        long millis = getMillis(year, monthOfYear, dayOfMonth, hourOfDay,
-            minuteOfHour, secondOfMinute, millisOfSecond);
-        DateTime dt = new DateTime(year, monthOfYear, dayOfMonth, hourOfDay,
-            minuteOfHour, secondOfMinute, millisOfSecond, CHRON_360);
-        System.out.println("year = " + dt.getYear());
-        assertEquals(millis, dt.getMillis());
-        
-        // Now create a new DateTime from the millisecond offset and check that
-        // the fields are correct
-        dt = new DateTime(millis, CHRON_360);
-        assertEquals(year,           dt.getYear());
-        assertEquals(monthOfYear,    dt.getMonthOfYear());
-        assertEquals(dayOfMonth,     dt.getDayOfMonth());
-        assertEquals(hourOfDay,      dt.getHourOfDay());
-        assertEquals(minuteOfHour,   dt.getMinuteOfHour());
-        assertEquals(secondOfMinute, dt.getSecondOfMinute());
-        assertEquals(millisOfSecond, dt.getMillisOfSecond());
 
-        int dayOfYear = (monthOfYear - 1) * 30 + dayOfMonth;
-        int minuteOfDay = hourOfDay * 60 + minuteOfHour;
-        int secondOfDay = minuteOfDay * 60 + secondOfMinute;
-        int millisOfDay = secondOfDay * 1000 + millisOfSecond;
-        
-        assertEquals(dayOfYear,   dt.getDayOfYear());
-        assertEquals(minuteOfDay, dt.getMinuteOfDay());
-        assertEquals(secondOfDay, dt.getSecondOfDay());
-        assertEquals(millisOfDay, dt.getMillisOfDay());
+    @Override
+    protected int getNumDaysInYear() { return 360; }
 
-        // Do a round-trip format and parse
-        String isoString = FORMATTER.print(millis);
-        System.out.println(isoString);
-        long parsedMillis = FORMATTER.parseMillis(isoString);
-        assertEquals(millis, parsedMillis);
-
-        return dt;
-    }
-
-    /** Gets the millisecond offset since 1970-01-01, given a TestDateTime */
-    private static long getMillis(int year, int monthOfYear, int dayOfMonth,
-            int hourOfDay, int minuteOfHour, int secondOfMinute, int millisOfSecond)
-    {
-        return (year - 1970)     * YEAR   +
-               (monthOfYear - 1) * MONTH  +
-               (dayOfMonth - 1)  * DAY    +
-               hourOfDay         * HOUR   +
-               minuteOfHour      * MINUTE +
-               secondOfMinute    * SECOND +
-               millisOfSecond;
+    @Override
+    protected int getDayOfYear(int monthOfYear, int dayOfMonth) {
+        return (monthOfYear - 1) * 30 + dayOfMonth;
     }
 
 }

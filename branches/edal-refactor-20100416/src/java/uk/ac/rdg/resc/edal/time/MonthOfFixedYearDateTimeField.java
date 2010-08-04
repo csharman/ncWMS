@@ -40,20 +40,23 @@ import org.joda.time.field.ImpreciseDateTimeField;
 final class MonthOfFixedYearDateTimeField extends ImpreciseDateTimeField {
     
     private final FixedYearVariableMonthChronology chron;
+    private final int[] daysInMonth;
+    private final int numMonthsInYear;
 
     public MonthOfFixedYearDateTimeField(FixedYearVariableMonthChronology chron) {
         super(DateTimeFieldType.monthOfYear(), chron.getAverageMillisInMonth());
         this.chron = chron;
+        this.daysInMonth = chron.getMonthLengths();
+        this.numMonthsInYear = chron.getMonthLengths().length;
     }
 
     @Override
     public int get(long instant) {
         int dayOfYear = this.chron.dayOfYear().get(instant);
         // Now search through the months of the year
-        int[] monthLengths = this.chron.getMonthLengths();
         int totalDays = 0;
-        for (int i = 0; i < monthLengths.length; i++) {
-            totalDays += monthLengths[i];
+        for (int i = 0; i < daysInMonth.length; i++) {
+            totalDays += daysInMonth[i];
             if (dayOfYear <= totalDays) {
                 return i + 1; // Month numbers are one-based
             }
@@ -63,33 +66,85 @@ final class MonthOfFixedYearDateTimeField extends ImpreciseDateTimeField {
 
     @Override
     public long set(long instant, int value) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        // Check for illegal values: this is not a lenient field
+        if (value < 1 || value > this.numMonthsInYear) {
+            throw new IllegalArgumentException("Illegal month value " + value);
+        }
+        // What is the current month?
+        int monthOfYear = this.get(instant);
+        // How many months do we have to add to arrive at the new value
+        int monthsToAdd = value - monthOfYear;
+        // Now add the required number of months
+        return this.add(instant, monthsToAdd);
     }
 
     @Override
-    public long add(long instant, int value) {
-        throw new UnsupportedOperationException("Not supported yet.");
+    public long add(final long instant, final int numMonths) {
+        if (numMonths == 0) return instant;
+
+        // Calculate the number of years we have to add
+        int numYearsToAdd = numMonths / this.numMonthsInYear;
+        // Add the required number of years to the millisecond instant
+        long newInstant = instant + numYearsToAdd * this.chron.years().getUnitMillis();
+
+        // What is the current month?
+        int monthOfYear = this.get(instant);
+        // Calculate the number of months we have to add
+        int numMonthsToAdd = numMonths % this.numMonthsInYear;
+        // Add the required number of months TODO!!!
+        if (numMonthsToAdd > 0) {
+            // Add the months, starting with the current month
+            for (int i = 0; i < numMonthsToAdd; i++) {
+                // monthOfYear is 1-based
+                int monthToAdd = monthOfYear - 1 + i;
+                // we might wrap around the array
+                monthToAdd %= this.numMonthsInYear;
+                long millisToAdd = this.daysInMonth[monthToAdd] * this.chron.days().getUnitMillis();
+                newInstant += millisToAdd;
+            }
+        } else if (numMonthsToAdd < 0) {
+            // Subtract the month lengths, starting with the previous month
+            for (int i = 0; i < Math.abs(numMonthsToAdd); i++) {
+                // The previous month is monthOfYear - 2 because monthOfYear is 1-based
+                int monthToSubtract = monthOfYear - 2 - 1;
+                // we might wrap around the array
+                if (monthToSubtract < 0) monthToSubtract += this.numMonthsInYear;
+                long millisToSubtract = this.daysInMonth[monthToSubtract] * this.chron.days().getUnitMillis();
+                newInstant -= millisToSubtract;
+            }
+        }
+
+        return newInstant;
     }
 
     @Override
-    public long add(long instant, long value) {
-        throw new UnsupportedOperationException("Not supported yet.");
+    public long add(long instant, long numMonths) {
+        // TODO: should do a better check for overflow here
+        if (numMonths > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("Value too large");
+        }
+        return this.add(instant, (int)numMonths);
     }
 
     @Override
     public long roundFloor(long instant) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        int year = this.chron.year().get(instant);
+        int monthOfYear = this.get(instant);
+        int numCompleteMonths = monthOfYear - 1;
+
+        long millis = (year - 1970) * this.chron.years().getUnitMillis();
+        for (int i = 0; i < numCompleteMonths; i++) {
+            millis += this.daysInMonth[i] * this.chron.days().getUnitMillis();
+        }
+
+        return millis;
     }
 
     @Override
-    public int getMinimumValue() {
-        return 1;
-    }
+    public int getMinimumValue() { return 1; }
 
     @Override
-    public int getMaximumValue() {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
+    public int getMaximumValue() { return this.numMonthsInYear; }
 
     @Override
     public DurationField getRangeDurationField() {
