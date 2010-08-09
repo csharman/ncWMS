@@ -19,10 +19,6 @@
                     <path-in-war>WEB-INF/lib</path-in-war>
                 </library>
                 <library dirs="200">
-                    <file>${file.reference.jfreechart-1.0.4.jar}</file>
-                    <path-in-war>WEB-INF/lib</path-in-war>
-                </library>
-                <library dirs="200">
                     <file>${file.reference.jcommon-1.0.8.jar}</file>
                     <path-in-war>WEB-INF/lib</path-in-war>
                 </library>
@@ -83,10 +79,6 @@
                     <path-in-war>WEB-INF/lib</path-in-war>
                 </library>
                 <library dirs="200">
-                    <file>${file.reference.bufr-1.4.jar}</file>
-                    <path-in-war>WEB-INF/lib</path-in-war>
-                </library>
-                <library dirs="200">
                     <file>${file.reference.joda-time-1.6.jar}</file>
                     <path-in-war>WEB-INF/lib</path-in-war>
                 </library>
@@ -120,6 +112,14 @@
                 </library>
                 <library dirs="200">
                     <file>${file.reference.geotk-bundle-referencing-3.12.jar}</file>
+                </library>
+                <library dirs="200">
+                    <file>${file.reference.unidatacommon.jar}</file>
+                    <path-in-war>WEB-INF/lib</path-in-war>
+                </library>
+                <library dirs="200">
+                    <file>${file.reference.jfreechart-1.0.12.jar}</file>
+                    <path-in-war>WEB-INF/lib</path-in-war>
                 </library>
             </web-module-libraries>
             <web-module-additional-libraries/>
