@@ -430,7 +430,6 @@ public class WmsUtils
         }
         catch(Exception e)
         {
-            e.printStackTrace();
             throw new InvalidCrsException(crsCode);
         }
     }
