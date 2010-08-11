@@ -70,13 +70,9 @@ import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
  * are also available as JSP2.0 functions. For example:</p>
  * <code>
  * <%@taglib uri="/WEB-INF/taglib/wmsUtils" prefix="utils"%>
- * The epoch: ${utils:secondsToISO8601(0)}
  * </code>
  *
  * @author Jon Blower
- * $Revision$
- * $Date$
- * $Log$
  */
 public class WmsUtils
 {
@@ -447,5 +443,5 @@ public class WmsUtils
         BoundingBox bbox = new BoundingBoxImpl(dr.getBbox(), crs);
         return new RegularGridImpl(bbox, dr.getWidth(), dr.getHeight());
     }
-    
+
 }
