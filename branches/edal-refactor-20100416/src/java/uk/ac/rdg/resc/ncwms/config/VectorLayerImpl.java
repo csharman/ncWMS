@@ -101,6 +101,11 @@ public final class VectorLayerImpl implements VectorLayer
         return ColorPalette.get(this.getVariable().getPaletteName());
     }
 
+    @Override
+    public int getDefaultNumColorBands()
+    {
+        return this.getVariable().getNumColorBands();
+    }
 
     /////////////////////////
     //// Wrapped methods ////

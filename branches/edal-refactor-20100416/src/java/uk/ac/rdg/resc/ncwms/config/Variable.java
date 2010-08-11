@@ -28,15 +28,14 @@
 
 package uk.ac.rdg.resc.ncwms.config;
 
-import java.text.DecimalFormatSymbols;
 import org.simpleframework.xml.Attribute;
 import org.simpleframework.xml.Root;
 import org.simpleframework.xml.load.PersistenceException;
 import org.simpleframework.xml.load.Validate;
-import uk.ac.rdg.resc.ncwms.config.datareader.DataReader;
-import uk.ac.rdg.resc.ncwms.graphics.ColorPalette;
 import uk.ac.rdg.resc.edal.util.Range;
 import uk.ac.rdg.resc.edal.util.Ranges;
+import uk.ac.rdg.resc.ncwms.config.datareader.DataReader;
+import uk.ac.rdg.resc.ncwms.graphics.ColorPalette;
 
 /**
  * Contains fields that can be filled in to override values that are
@@ -46,9 +45,6 @@ import uk.ac.rdg.resc.edal.util.Ranges;
 @Root(name="variable")
 public class Variable
 {
-    // the decimal separator for the current locale
-    private static char DECIMAL_SEPARATOR = new DecimalFormatSymbols().getDecimalSeparator();
-
     @Attribute(name="id")
     private String id;
 
@@ -63,6 +59,9 @@ public class Variable
 
     @Attribute(name="scaling", required=false)
     private String scaling = "linear";  // TODO Should be an enum really
+
+    @Attribute(name="numColorBands", required=false)
+    private int numColorBands = ColorPalette.MAX_NUM_COLOURS;
 
     private Dataset dataset;
 
@@ -111,6 +110,9 @@ public class Variable
         {
             throw new PersistenceException(iae.getMessage());
         }
+
+        // Check that the default number of color bands is within range
+        if (this.numColorBands > ColorPalette.MAX_NUM_COLOURS) this.numColorBands = ColorPalette.MAX_NUM_COLOURS;
     }
 
     private static Range<Float> parseColorScaleRangeString(String colorScaleRangeStr)
@@ -122,7 +124,11 @@ public class Variable
         String[] els = colorScaleRangeStr.split(" ");
         if (els.length == 2)
         {
-            return parseColorScaleRangeStrings(els[0], els[1]);
+            // Guard against the case in which commas are used as decimal separators
+            return parseColorScaleRangeStrings(
+                els[0].replace(',', '.'),
+                els[1].replace(',', '.')
+            );
         }
         else if (els.length == 1)
         {
@@ -131,15 +137,19 @@ public class Variable
             els = colorScaleRangeStr.split(",");
             if (els.length == 2)
             {
+                // The elements probably use full stops (periods) as the decimal
+                // separator
                 return parseColorScaleRangeStrings(els[0], els[1]);
             }
             else if (els.length == 4)
             {
                 // We are probably in a locale where the comma is used as the
                 // decimal separator
+                // We must use full stops as the decimal separator in all locales
+                // because Float.parseFloat() is not localized
                 return parseColorScaleRangeStrings(
-                    els[0] + DECIMAL_SEPARATOR + els[1],
-                    els[2] + DECIMAL_SEPARATOR + els[3]
+                    els[0] + "." + els[1],
+                    els[2] + "." + els[3]
                 );
             }
         }
@@ -231,6 +241,22 @@ public class Variable
     public boolean isLogScaling()
     {
         return this.logScaling;
+    }
+
+    /**
+     * Returns the number of colour bands to use when creating images of this
+     * variable.
+     */
+    public int getNumColorBands()
+    {
+        return this.numColorBands;
+    }
+
+    public void setNumColorBands(int numColorBands)
+    {
+        if (numColorBands < 0) this.numColorBands = 5;
+        else if (numColorBands > ColorPalette.MAX_NUM_COLOURS) this.numColorBands = ColorPalette.MAX_NUM_COLOURS;
+        else this.numColorBands = numColorBands;
     }
 
     /**

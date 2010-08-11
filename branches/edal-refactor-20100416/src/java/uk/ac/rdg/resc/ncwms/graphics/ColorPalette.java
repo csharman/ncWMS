@@ -56,6 +56,13 @@ public class ColorPalette
 {
     private static final Logger logger = LoggerFactory.getLogger(ColorPalette.class);
     
+    /**
+     * The maximum number of colours a palette can support (254).
+     * (One would be hard pushed to distinguish more colours than this in a
+     * typical scenario anyway.)
+     */
+    public static final int MAX_NUM_COLOURS = 254;
+
     private static final Map<String, ColorPalette> palettes =
         new HashMap<String, ColorPalette>();
     
@@ -242,7 +249,7 @@ public class ColorPalette
         Graphics2D gfx = colourScale.createGraphics();
         
         // Create the colour bar itself
-        BufferedImage colorBar = this.createColorBar(24, 254, numColorBands);
+        BufferedImage colorBar = this.createColorBar(24, MAX_NUM_COLOURS, numColorBands);
         // Add the colour bar to the legend
         gfx.drawImage(colorBar, null, 2, 5);
         
@@ -300,7 +307,7 @@ public class ColorPalette
      * @param bgColor The color to use for background pixels if transparent=false
      * @param transparent If true, then the background will be fully-transparent.
      * @throws IllegalArgumentException if the requested number of colour bands
-     * is less than one or greater than 254.
+     * is less than one or greater than {@link #MAX_NUM_COLOURS}.
      */
     public IndexColorModel getColorModel(int numColorBands, int opacity,
         Color bgColor, boolean transparent)
@@ -352,15 +359,15 @@ public class ColorPalette
      * palette
      * @return An array of Colors, with length numColorBands
      * @throws IllegalArgumentException if the requested number of colour bands
-     * is less than one or greater than 254.
+     * is less than one or greater than {@link #MAX_NUM_COLOURS}.
      */
     private Color[] getPalette(int numColorBands)
     {
-        if (numColorBands < 1 || numColorBands > 254)
+        if (numColorBands < 1 || numColorBands > MAX_NUM_COLOURS)
         {
             // Shouldn't happen: we have constrained this to a sane value in
             // GetMapStyleRequest
-            throw new IllegalArgumentException("numColorBands must be between 1 and 254");
+            throw new IllegalArgumentException("numColorBands must be between 1 and " + MAX_NUM_COLOURS);
         }
         Color[] targetPalette;
         if (numColorBands == this.palette.length)

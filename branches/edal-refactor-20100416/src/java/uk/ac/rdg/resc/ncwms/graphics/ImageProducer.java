@@ -378,7 +378,7 @@ public final class ImageProducer
         private int picHeight = -1;
         private boolean transparent = false;
         private int opacity = 100;
-        private int numColourBands = 254;
+        private int numColourBands = ColorPalette.MAX_NUM_COLOURS;
         private Boolean logarithmic = null;
         private Color bgColor = Color.WHITE;
         private Range<Float> scaleRange = null;
@@ -444,7 +444,7 @@ public final class ImageProducer
         /** Sets the number of colour bands to use in the image, from 0 to 254
          * (default 254) */
         public Builder numColourBands(int numColourBands) {
-            if (numColourBands < 0 || numColourBands > 254) {
+            if (numColourBands < 0 || numColourBands > ColorPalette.MAX_NUM_COLOURS) {
                 throw new IllegalArgumentException();
             }
             this.numColourBands = numColourBands;
