@@ -29,7 +29,6 @@
 package uk.ac.rdg.resc.ncwms.config;
 
 import java.io.File;
-import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -44,6 +43,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import javax.servlet.ServletContext;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,15 +59,8 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import ucar.nc2.dataset.NetcdfDataset;
 import ucar.unidata.io.RandomAccessFile;
-import uk.ac.rdg.resc.edal.coverage.grid.RegularGrid;
-import uk.ac.rdg.resc.ncwms.cache.TileCache;
-import uk.ac.rdg.resc.ncwms.cache.TileCacheKey;
-import uk.ac.rdg.resc.ncwms.exceptions.InvalidDimensionValueException;
 import uk.ac.rdg.resc.ncwms.security.Users;
-import uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
-import uk.ac.rdg.resc.ncwms.controller.AbstractServerConfig;
-import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
 import uk.ac.rdg.resc.ncwms.controller.ServerConfig;
 
 /**
@@ -80,10 +73,10 @@ import uk.ac.rdg.resc.ncwms.controller.ServerConfig;
  * @author Jon Blower
  */
 @Root(name="config")
-public class Config extends AbstractServerConfig implements ApplicationContextAware
+public class Config implements ServerConfig, ApplicationContextAware
 {
     private static final Logger logger = LoggerFactory.getLogger(Config.class);
-    
+
     // We don't do "private List<Dataset> datasetList..." here because if we do,
     // the config file will contain "<datasets class="java.util.ArrayList>",
     // presumably because the definition doesn't clarify what sort of List should
@@ -92,34 +85,31 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
     // The real set of all datasets is in the datasets Map.
     @ElementList(name="datasets", type=Dataset.class)
     private ArrayList<Dataset> datasetList = new ArrayList<Dataset>();
-    
+
     // Nothing happens to this at the moment... TODO for the future
     @Element(name="threddsCatalog", required=false)
     private String threddsCatalogLocation = " ";    //location of the Thredds Catalog.xml (if there is one...)
-    
+
     @Element(name="contact", required=false)
     private Contact contact = new Contact();
-    
+
     @Element(name="server")
     private Server server = new Server();
-    
+
     @Element(name="cache", required=false)
     private Cache cache = new Cache();
-    
+
     // Time of the last update to this configuration or any of the contained
     // metadata
     private DateTime lastUpdateTime;
-    
+
     private File configFile; // Location of the file from which this information has been read
 
-    // Cache of recently-extracted data arrays: will be set by Spring
-    private TileCache tileCache;
-    
     // Will be injected by Spring: handles authenticated OPeNDAP calls
     private NcwmsCredentialsProvider credentialsProvider;
-    
+
     /**
-     * This contains the map of dataset IDs to Dataset objects.  We use a 
+     * This contains the map of dataset IDs to Dataset objects.  We use a
      * LinkedHashMap so that the order of datasets in the Map is preserved.
      */
     private Map<String, Dataset> datasets = new LinkedHashMap<String, Dataset>();
@@ -129,13 +119,13 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
     /** Contains handles to background threads that can be used to cancel reloading of datasets.
       * Maps dataset Ids to Future objects*/
     private Map<String, ScheduledFuture<?>> futures = new HashMap<String, ScheduledFuture<?>>();
-    
+
     /**
      * Private constructor.  This prevents other classes from creating
      * new Config objects directly.
      */
     private Config() {}
-    
+
     /**
      * Reads configuration information from the given working directory
      * @param workingDirectory The ncWMS working directory, which must contain
@@ -173,7 +163,7 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
         // in an NcML aggregation.  It is not possible currently to expire
         // information based on time for single NetCDF files or OPeNDAP datasets.
         // Therefore the DefaultDataReader only uses this cache for NcML aggregations.
-        // TODO: move the initialization of the cache to the DefaultDataReader?
+        // TODO: move the initialization of the cache to the NcwmsController?
         NetcdfDataset.initNetcdfFileCache(50, 500, 500, 5 * 60);
         logger.debug("NetcdfDatasetCache initialized");
         if (logger.isDebugEnabled())
@@ -192,7 +182,7 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
 
         return config;
     }
-    
+
     /**
      * Saves configuration information to the disk.  Other classes can call this
      * method when they have altered the contents of this object.
@@ -209,7 +199,7 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
         new Persister().write(this, this.configFile);
         logger.debug("Config information saved to {}", this.configFile.getPath());
     }
-    
+
     /**
      * Checks that the data we have read are valid.  Checks that there are no
      * duplicate dataset IDs or duplicate URLs for third-party layer providers.
@@ -228,7 +218,7 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
             dsIds.add(dsId);
         }
     }
-    
+
     /**
      * Called when we have checked that the configuration is valid.  Populates
      * the datasets hashmap.
@@ -243,7 +233,7 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
             this.datasets.put(ds.getId(), ds);
         }
     }
-    
+
     void setLastUpdateTime(DateTime date)
     {
         if (date.isAfter(this.lastUpdateTime))
@@ -259,6 +249,8 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
     {
         Runnable reloader = new Runnable() {
             @Override public void run() {
+                // This will check to see if the metadata need reloading, then
+                // go ahead if so.
                 ds.loadLayers();
                 // Here we're checking for leaks of open file handles
                 logger.debug("num RAFs open = {}", RandomAccessFile.getOpenFiles().size());
@@ -269,12 +261,14 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
             0,                   // Schedule the first run immediately
             1, TimeUnit.SECONDS  // Schedule each subsequent run 1 second after
                                  // the previous one finished.
+                                 // Hence the dataset will be polled once every
+                                 // second.
         );
         // We need to keep a handle to the Future object so we can cancel it
         this.futures.put(ds.getId(), future);
         logger.debug("Scheduled auto-reloading of dataset {}", ds.getId());
     }
-    
+
     /**
      * @return the time at which this configuration was last updated
      */
@@ -293,7 +287,7 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
     {
         this.server = server;
     }
-    
+
     public Cache getCache()
     {
         return this.cache;
@@ -303,7 +297,7 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
     {
         this.cache = cache;
     }
-    
+
     public Contact getContact()
     {
         return contact;
@@ -315,55 +309,9 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
     }
 
     /**
-     * {@inheritDoc}
-     * <p>This implementation uses a {@link TileCache} to store data arrays,
-     * speeding up repeat requests.</p>
-     */
-    @Override
-    public List<Float> readDataGrid(ScalarLayer layer, DateTime dateTime,
-        double elevation, RegularGrid grid, UsageLogEntry usageLogEntry)
-        throws InvalidDimensionValueException, IOException
-    {
-        // We know that this Config object only returns LayerImpl objects
-        LayerImpl layerImpl = (LayerImpl)layer;
-        // Find which file contains this time, and which index it is within the file
-        LayerImpl.FilenameAndTimeIndex fti = layerImpl.findAndCheckFilenameAndTimeIndex(dateTime);
-        // Find the z index within the file
-        int zIndex = layerImpl.findAndCheckElevationIndex(elevation);
-
-        // Create a key for searching the cache
-        TileCacheKey key = new TileCacheKey(
-            fti.filename,
-            layer,
-            grid,
-            fti.tIndexInFile,
-            zIndex
-        );
-
-        List<Float> data = null;
-        // Search the cache.  Returns null if key is not found
-        if (this.cache.isEnabled()) data = this.tileCache.get(key);
-
-        // Record whether or not we got a hit in the cache
-        usageLogEntry.setUsedCache(data != null);
-
-        if (data == null)
-        {
-            // We didn't get any data from the cache, so we have to read from
-            // the source data.
-            data = layerImpl.readHorizontalDomain(fti, zIndex, grid);
-            // Put the data in the tile cache
-            if (this.cache.isEnabled()) this.tileCache.put(key, data);
-        }
-
-        return data;
-    }
-
-    /**
      * Gets an unmodifiable Map of dataset IDs to Dataset objects for all datasets
      * on this server.
      */
-    @Override
     public Map<String, Dataset> getAllDatasets()
     {
         return Collections.unmodifiableMap(this.datasets);
@@ -373,12 +321,11 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
      * Returns the dataset with the given ID, or null if there is no available
      * dataset with the given id.
      */
-    @Override
     public Dataset getDatasetById(String datasetId)
     {
         return this.datasets.get(datasetId);
     }
-    
+
     public synchronized void addDataset(Dataset ds)
     {
         ds.setConfig(this);
@@ -386,7 +333,7 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
         this.datasets.put(ds.getId(), ds);
         this.scheduleReloading(ds);
     }
-    
+
     public synchronized void removeDataset(Dataset ds)
     {
         this.datasetList.remove(ds);
@@ -396,7 +343,7 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
         // We allow the reloading task to be interrupted
         if (future != null) future.cancel(true);
     }
-    
+
     public synchronized void changeDatasetId(Dataset ds, String newId)
     {
         String oldId = ds.getId();
@@ -407,7 +354,7 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
         this.futures.put(newId, future);
         logger.debug("Changed dataset with ID {} to {}", oldId, newId);
     }
-    
+
     /**
      * If s is whitespace-only or empty, returns a space, otherwise returns s.
      * This is to work around problems with the Simple XML software, which throws
@@ -419,7 +366,7 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
         s = s.trim();
         return s.equals("") ? " " : s;
     }
-    
+
     /**
      * If the given dataset is an OPeNDAP location, this looks for
      * a username and password and, if it finds one, updates the
@@ -468,7 +415,6 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
     {
         this.scheduler.shutdownNow(); // Tries its best to stop ongoing threads
         NetcdfDataset.shutdown();
-        this.tileCache.shutdown();
         logger.info("Cleaned up Config object");
     }
 
@@ -503,7 +449,6 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
         return keywords;
     }
 
-    @Override
     public boolean getAllowsGlobalCapabilities() {
         return this.server.isAllowGlobalCapabilities();
     }
@@ -551,12 +496,6 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
         this.credentialsProvider = credentialsProvider;
     }
 
-    /** Called by Spring to set the tile cache */
-    public void setTileCache(TileCache tileCache)
-    {
-        this.tileCache = tileCache;
-    }
-
     /**
      * Called automatically by Spring.  When we have the application context
      * we can set the admin password in the Users object that is used by Acegi.
@@ -578,5 +517,10 @@ public class Config extends AbstractServerConfig implements ApplicationContextAw
             users.setAdminPassword(this.server.getAdminPassword());
         }
     }
-    
+
+    @Override
+    public File getPaletteFilesLocation(ServletContext context) {
+        return new File(context.getRealPath("/WEB-INF/conf/palettes"));
+    }
+
 }

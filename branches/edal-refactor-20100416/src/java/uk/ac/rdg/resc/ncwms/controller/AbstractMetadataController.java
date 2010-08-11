@@ -28,10 +28,6 @@
 
 package uk.ac.rdg.resc.ncwms.controller;
 
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.URL;
-import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -47,13 +43,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.servlet.ModelAndView;
 import uk.ac.rdg.resc.edal.coverage.grid.RegularGrid;
+import uk.ac.rdg.resc.edal.util.Range;
+import uk.ac.rdg.resc.edal.util.Ranges;
+import uk.ac.rdg.resc.ncwms.controller.AbstractWmsController.LayerFactory;
+import uk.ac.rdg.resc.ncwms.exceptions.LayerNotDefinedException;
 import uk.ac.rdg.resc.ncwms.exceptions.MetadataException;
 import uk.ac.rdg.resc.ncwms.graphics.ColorPalette;
 import uk.ac.rdg.resc.ncwms.usagelog.UsageLogEntry;
-import uk.ac.rdg.resc.edal.util.Range;
-import uk.ac.rdg.resc.edal.util.Ranges;
 import uk.ac.rdg.resc.ncwms.util.WmsUtils;
-import uk.ac.rdg.resc.ncwms.wms.Dataset;
 import uk.ac.rdg.resc.ncwms.wms.Layer;
 import uk.ac.rdg.resc.ncwms.wms.ScalarLayer;
 import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
@@ -65,15 +62,15 @@ import uk.ac.rdg.resc.ncwms.wms.VectorLayer;
  *
  * @author Jon Blower
  */
-class MetadataController
+public abstract class AbstractMetadataController
 {
-    private static final Logger log = LoggerFactory.getLogger(MetadataController.class);
+    private static final Logger log = LoggerFactory.getLogger(AbstractMetadataController.class);
 
-    private ServerConfig serverConfig;
+    private final LayerFactory layerFactory;
 
-    public MetadataController(ServerConfig serverConfig)
+    protected AbstractMetadataController(LayerFactory layerFactory)
     {
-        this.serverConfig = serverConfig;
+        this.layerFactory = layerFactory;
     }
     
     public ModelAndView handleRequest(HttpServletRequest request,
@@ -82,15 +79,6 @@ class MetadataController
     {
         try
         {
-            // Check for a "url" parameter, which means that we're delegating to
-            // a third-party layer server (TODO)
-            String url = request.getParameter("url");
-            if (url != null && !url.trim().equals(""))
-            {
-                usageLogEntry.setRemoteServerUrl(url);
-                proxyRequest(url, request, response);
-                return null; // proxyRequest writes directly to the response object
-            }
             String item = request.getParameter("item");
             usageLogEntry.setWmsOperation("GetMetadata:" + item);
             if (item == null)
@@ -128,81 +116,10 @@ class MetadataController
     }
     
     /**
-     * Forwards the request to a third party.  In this case this server is acting
-     * as a proxy.
-     * @param url The URL to the third party server (e.g. "http://myhost.com/ncWMS/wms")
-     * @param request Http request object.  All query string parameters (except "&url=")
-     * will be copied from this request object to the request to the third party server.
-     * @param response Http response object
-     */
-    static void proxyRequest(String url, HttpServletRequest request,
-        HttpServletResponse response) throws Exception
-    {
-        // Download the data from the remote URL
-        // TODO: is there a proxy class we can invoke here?
-        StringBuffer fullURL = new StringBuffer(url);
-        boolean firstTime = true;
-        for (Object urlParamNameObj : request.getParameterMap().keySet())
-        {
-            fullURL.append(firstTime ? "?" : "&");
-            firstTime = false;
-            String urlParamName = (String)urlParamNameObj;
-            if (!urlParamName.equalsIgnoreCase("url"))
-            {
-                fullURL.append(urlParamName + "=" + request.getParameter(urlParamName));
-            }
-        }
-        InputStream in = null;
-        OutputStream out = null;
-        try
-        {
-            // TODO: better error handling
-            URLConnection conn = new URL(fullURL.toString()).openConnection();
-            // Set header information (TODO: do all headers)
-            response.setContentType(conn.getContentType());
-            response.setContentLength(conn.getContentLength());
-            in = conn.getInputStream();
-            out = response.getOutputStream();
-            byte[] buf = new byte[8192];
-            int len;
-            while ((len = in.read(buf)) >= 0)
-            {
-                out.write(buf, 0, len);
-            }
-        }
-        finally
-        {
-            if (in != null) in.close();
-            if (out != null) out.close();
-        }
-    }
-    
-    /**
      * Shows the hierarchy of layers available from this server, or a pre-set
-     * hierarchy.
+     * hierarchy.  May differ between implementations
      */
-    private ModelAndView showMenu(HttpServletRequest request, UsageLogEntry usageLogEntry)
-        throws Exception
-    {
-        Map<String, ? extends Dataset> allDatasets = this.serverConfig.getAllDatasets();
-        if (allDatasets == null)
-        {
-            throw new Exception("Can't get a collection of all the datasets on this server");
-        }
-        String menu = "default";
-        // Let's see if the client has requested a specific menu.  If so, we'll
-        // construct the menu based on the appropriate JSP.
-        String menuFromRequest = request.getParameter("menu");
-        if (menuFromRequest != null && !menuFromRequest.trim().equals(""))
-        {
-            menu = menuFromRequest.toLowerCase();
-        }
-        usageLogEntry.setMenu(menu);
-        Map<String, Object> models = new HashMap<String, Object>();
-        models.put("serverTitle", this.serverConfig.getTitle());
-        models.put("datasets", allDatasets);
-        return new ModelAndView(menu + "Menu", models);
-    }
+    protected abstract ModelAndView showMenu(HttpServletRequest request, UsageLogEntry usageLogEntry) throws Exception;
     
     /**
      * Shows an JSON document containing the details of the given variable (units,
@@ -282,19 +199,14 @@ class MetadataController
      * Exception if it doesn't exist or if there was a problem reading from the
      * data store.
      */
-    private Layer getLayer(HttpServletRequest request) throws Exception
+    private Layer getLayer(HttpServletRequest request) throws LayerNotDefinedException
     {
         String layerName = request.getParameter("layerName");
         if (layerName == null)
         {
-            throw new Exception("Must provide a value for the layerName parameter");
+            throw new LayerNotDefinedException("null");
         }
-        Layer layer = this.serverConfig.getLayerByUniqueName(layerName);
-        if (layer == null)
-        {
-            throw new Exception("There is no layer with the name " + layerName);
-        }
-        return layer;
+        return this.layerFactory.getLayer(layerName);
     }
     
     /**
@@ -360,17 +272,17 @@ class MetadataController
         GetMapDataRequest dr = new GetMapDataRequest(params, "1.3.0");
         
         // Get the variable we're interested in
-        Layer layer = this.serverConfig.getLayerByUniqueName(dr.getLayers()[0]);
+        Layer layer = this.layerFactory.getLayer(dr.getLayers()[0]);
         usageLogEntry.setLayer(layer);
         
         // Get the grid onto which the data is being projected
         RegularGrid grid = WmsUtils.getImageGrid(dr);
         
         // Get the value on the z axis
-        double zValue = WmsController.getElevationValue(dr.getElevationString(), layer);
+        double zValue = AbstractWmsController.getElevationValue(dr.getElevationString(), layer);
         
         // Get the requested timestep (taking the first only if an animation is requested)
-        DateTime tValue = WmsController.getTimeValues(dr.getTimeString(), layer).get(0);
+        DateTime tValue = AbstractWmsController.getTimeValues(dr.getTimeString(), layer).get(0);
         
         // Now read the data and calculate the minimum and maximum values
         List<Float> magnitudes;
@@ -413,8 +325,8 @@ class MetadataController
         }
 
         // Find the start and end indices along the time axis
-        int startIndex = WmsController.findTIndex(startStr, layer);
-        int endIndex = WmsController.findTIndex(endStr, layer);
+        int startIndex = AbstractWmsController.findTIndex(startStr, layer);
+        int endIndex = AbstractWmsController.findTIndex(endStr, layer);
         List<DateTime> tValues = layer.getTimeValues();
 
         // E.g.: {
