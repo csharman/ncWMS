@@ -111,6 +111,16 @@ public final class LayerImpl extends AbstractTimeAggregatedLayer
     }
 
     /**
+     * @return true if this variable should return the nearest time when using
+     * wms.  Delegates to Dataset.isNearestTime().
+     */
+    @Override
+    public boolean isNearestTime()
+    {
+        return this.dataset.isNearestTime();
+    }
+
+    /**
      * Return true if we are to use logarithmic colour scaling by default for
      * this layer.
      * @return true if we are to use logarithmic colour scaling by default for

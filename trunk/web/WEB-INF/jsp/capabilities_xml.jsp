@@ -107,7 +107,7 @@ response.setDateHeader ("Expires", 0); //prevents caching at the proxy server
                     </c:if>
                     <c:set var="tvalues" value="${layer.timeValues}"/>
                     <c:if test="${not empty tvalues}">
-                        <Dimension name="time" units="${utils:getTimeAxisUnits(layer.chronology)}" multipleValues="true" current="true" default="${utils:dateTimeToISO8601(layer.defaultTimeValue)}">
+                        <Dimension name="time" units="${utils:getTimeAxisUnits(layer.chronology)}" multipleValues="true" current="true" default="${utils:dateTimeToISO8601(layer.defaultTimeValue)}"<c:if test="${layer.queryable}"> nearestValue="1"</c:if>>
                         <c:forEach var="tval" items="${tvalues}" varStatus="status"><c:if test="${status.index > 0}">,</c:if>${utils:dateTimeToISO8601(tval)}</c:forEach>
                         </Dimension>
                     </c:if>

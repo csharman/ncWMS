@@ -496,7 +496,7 @@ public abstract class AbstractWmsController extends AbstractController {
 
         // Cycle through all the provided timesteps, extracting data for each step
         List<String> tValueStrings = new ArrayList<String>();
-        List<DateTime> timeValues = getTimeValues(dr.getTimeString(), layer);
+        List<DateTime> timeValues = getTimeValues(dr.getTimeString(), layer, this.serverConfig.getAllowsNearestTime());
         if (timeValues.size() > 1 && !imageFormat.supportsMultipleFrames()) {
             throw new WmsException("The image format " + mimeType +
                     " does not support multiple frames");
@@ -627,7 +627,7 @@ public abstract class AbstractWmsController extends AbstractController {
 
         // Get the requested timesteps.  If the layer doesn't have
         // a time axis then this will return a single-element List with value null.
-        List<DateTime> tValues = getTimeValues(dr.getTimeString(), layer);
+        List<DateTime> tValues = getTimeValues(dr.getTimeString(), layer, this.serverConfig.getAllowsNearestTime());
         usageLogEntry.setNumTimeSteps(tValues.size());
 
         // First we read the timeseries data.  If the layer doesn't have a time
@@ -797,7 +797,7 @@ public abstract class AbstractWmsController extends AbstractController {
         String crsCode = params.getMandatoryString("crs");
         String lineString = params.getMandatoryString("linestring");
         String outputFormat = params.getMandatoryString("format");
-        List<DateTime> tValues = getTimeValues(params.getString("time"), layer);
+        List<DateTime> tValues = getTimeValues(params.getString("time"), layer, this.serverConfig.getAllowsNearestTime());
         DateTime tValue = tValues.isEmpty() ? null : tValues.get(0);
         double zValue = getElevationValue(params.getString("elevation"), layer);
 
@@ -1043,7 +1043,7 @@ public abstract class AbstractWmsController extends AbstractController {
      * @throws InvalidDimensionValueException if the time string cannot be parsed,
      * or if any of the requested times are not valid times for the layer
      */
-    static List<DateTime> getTimeValues(String timeString, Layer layer)
+    static List<DateTime> getTimeValues(String timeString, Layer layer, boolean globalNearestTime)
             throws InvalidDimensionValueException {
 
         // If the layer does not have a time axis return an empty list
@@ -1065,10 +1065,10 @@ public abstract class AbstractWmsController extends AbstractController {
             String[] startStop = t.split("/");
             if (startStop.length == 1) {
                 // This is a single time value
-                tValues.add(findTValue(startStop[0], layer));
+                tValues.add(findTValue(startStop[0], layer, globalNearestTime));
             } else if (startStop.length == 2) {
                 // Use all time values from start to stop inclusive
-                tValues.addAll(findTValues(startStop[0], startStop[1], layer));
+                tValues.addAll(findTValues(startStop[0], startStop[1], layer, globalNearestTime));
             } else {
                 throw new InvalidDimensionValueException("time", t);
             }
@@ -1082,7 +1082,7 @@ public abstract class AbstractWmsController extends AbstractController {
      * @throws InvalidDimensionValueException if the layer does not contain
      * the given time, or if the given ISO8601 string is not valid.
      */
-    static int findTIndex(String isoDateTime, Layer layer)
+    static int findTIndex(String isoDateTime, Layer layer, boolean globalNearestTime)
         throws InvalidDimensionValueException
     {
         DateTime target = isoDateTime.equals("current")
@@ -1092,7 +1092,10 @@ public abstract class AbstractWmsController extends AbstractController {
         // Find the equivalent DateTime in the Layer.  Note that we can't simply
         // use the contains() method of the List, since this is based on equals().
         // We want to find the DateTime with the same millisecond instant.
-        int index = WmsUtils.findTimeIndex(layer.getTimeValues(), target);
+        int index = layer.isNearestTime() && globalNearestTime
+            ? WmsUtils.findNearestTimeIndex(layer.getTimeValues(), target)
+            : WmsUtils.findTimeIndex(layer.getTimeValues(), target);
+
         if (index < 0)
         {
             throw new InvalidDimensionValueException("time", isoDateTime);
@@ -1106,10 +1109,10 @@ public abstract class AbstractWmsController extends AbstractController {
      * @throws InvalidDimensionValueException if the layer does not contain
      * the given time, or if the given ISO8601 string is not valid.
      */
-    private static DateTime findTValue(String isoDateTime, Layer layer)
+    private static DateTime findTValue(String isoDateTime, Layer layer, boolean globalNearestTime)
         throws InvalidDimensionValueException
     {
-        return layer.getTimeValues().get(findTIndex(isoDateTime, layer));
+        return layer.getTimeValues().get(findTIndex(isoDateTime, layer, globalNearestTime));
     }
 
     /**
@@ -1122,10 +1125,10 @@ public abstract class AbstractWmsController extends AbstractController {
      * values were not found in the axis, or if they are not valid ISO8601 times.
      */
     private static List<DateTime> findTValues(String isoDateTimeStart,
-        String isoDateTimeEnd, Layer layer) throws InvalidDimensionValueException
+        String isoDateTimeEnd, Layer layer, boolean globalNearestTime) throws InvalidDimensionValueException
     {
-        int startIndex = findTIndex(isoDateTimeStart, layer);
-        int endIndex = findTIndex(isoDateTimeEnd, layer);
+        int startIndex = findTIndex(isoDateTimeStart, layer, globalNearestTime);
+        int endIndex = findTIndex(isoDateTimeEnd, layer, globalNearestTime);
         if (startIndex > endIndex)
         {
             throw new InvalidDimensionValueException("time",

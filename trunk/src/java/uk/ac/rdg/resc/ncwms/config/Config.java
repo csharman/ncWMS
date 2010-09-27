@@ -451,6 +451,10 @@ public class Config implements ServerConfig, ApplicationContextAware
         return this.server.isAllowGlobalCapabilities();
     }
 
+    public boolean getAllowsNearestTime() {
+        return this.server.isAllowNearestTime();
+    }
+
     @Override
     public String getServiceProviderUrl() {
         return this.server.getUrl();
