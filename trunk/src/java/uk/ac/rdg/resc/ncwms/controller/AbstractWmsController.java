@@ -337,7 +337,9 @@ public abstract class AbstractWmsController extends AbstractController {
         // TODO: make configurable in admin app
         String[] supportedCrsCodes = new String[]{
             "EPSG:4326", "CRS:84", // Plate Carree
-            "EPSG:41001", // Mercator (~ Google Maps)  TODO replace with real Google Maps code
+            "EPSG:41001", // Mercator
+            "EPSG:3857", // The official "Web" project (Bing, Google, Yahoo)
+            "EPSG:900913", // Depreceated Google projection code
             "EPSG:27700", // British National Grid
             // See http://nsidc.org/data/atlas/ogc_services.html for useful
             // stuff about polar stereographic projections
