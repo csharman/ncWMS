@@ -51,7 +51,7 @@ public class BarbFactory {
 
     }
 
-    public static Path2D getWindBarbForSpeed(double speed, double angle, int i, int j, String units) {
+    public static Path2D getWindBarbForSpeed(double speed, double angle, int i, int j, String units, float scale) {
         /* Convert to knots */
         if (units.equalsIgnoreCase("m/s")) {
             speed = speed * 1.94384449;
@@ -70,6 +70,7 @@ public class BarbFactory {
         Path2D ret = (Path2D)windBarbs.get(rank).clone();
         /* Rotate and set position */
         ret.transform(AffineTransform.getRotateInstance(angle));
+        ret.transform(AffineTransform.getScaleInstance(scale, scale));
         ret.transform(AffineTransform.getTranslateInstance(i, j));
         return ret;
     }

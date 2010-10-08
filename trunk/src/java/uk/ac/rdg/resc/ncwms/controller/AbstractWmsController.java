@@ -415,6 +415,7 @@ public abstract class AbstractWmsController extends AbstractController {
         String mimeType = getMapRequest.getStyleRequest().getImageFormat();
         // This throws an InvalidFormatException if the MIME type is not supported
         ImageFormat imageFormat = ImageFormat.get(mimeType);
+        float vectorScale = styleRequest.getVectorScale();
 
         GetMapDataRequest dr = getMapRequest.getDataRequest();
 
@@ -482,6 +483,7 @@ public abstract class AbstractWmsController extends AbstractController {
             .logarithmic(logScale)
             .opacity(styleRequest.getOpacity())
             .numColourBands(styleRequest.getNumColourBands())
+            .vectorScale(vectorScale)
             .build();
         // Need to make sure that the images will be compatible with the
         // requested image format

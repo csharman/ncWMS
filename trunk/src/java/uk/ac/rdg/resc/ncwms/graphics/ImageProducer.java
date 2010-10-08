@@ -79,12 +79,13 @@ public final class ImageProducer
      * means that the picture will be auto-scaled.
      */
     private Range<Float> scaleRange;
-    
+
     /**
-     * The length of arrows in pixels, only for vector and barb plots
+     * The scale factor between vectors
      */
-    private float arrowLength = 16.0f;
-    private float barbLength = 30.0f;
+    private float vectorScale;
+    private float arrowLength = 14.0f;
+    private float barbLength = 28.0f;
     
     // set of rendered images, ready to be turned into a picture
     private List<BufferedImage> renderedFrames = new ArrayList<BufferedImage>();
@@ -201,18 +202,17 @@ public final class ImageProducer
         //List<Float> east = data.get(0);
         //List<Float> north = data.get(1);
 
-        double stepScale = 1.2;
+        float stepScale = 1.1f;
         float imageLength = this.arrowLength;
 
         if (this.style == Style.BARB) {
-            imageLength = this.barbLength;
-            stepScale = 1.2;
+            imageLength = this.barbLength * this.vectorScale;
+            stepScale = 1.2f * this.vectorScale;
          } else {
-            imageLength = this.arrowLength;
-            stepScale = 1.1;
+            imageLength = this.arrowLength * this.vectorScale;
+            stepScale = 1.1f * this.vectorScale;
          }
 
-        double scale;
         int index;
         int dataIndex;
         double angle;
@@ -221,9 +221,9 @@ public final class ImageProducer
         Float northVal;
         Path2D drawing;
 
-        for (int i = 0; i < this.picWidth; i += Math.ceil(imageLength * stepScale))
+        for (int i = 0; i < this.picWidth; i += Math.ceil(imageLength + stepScale))
         {
-            for (int j = 0; j < this.picHeight; j += Math.ceil(imageLength * stepScale))
+            for (int j = 0; j < this.picHeight; j += Math.ceil(imageLength + stepScale))
             {
                 dataIndex = this.getDataIndex(i, j);
                 eastVal = comps.x.get(dataIndex);
@@ -236,16 +236,15 @@ public final class ImageProducer
                     // Color arrow
                     index = this.getColourIndex(mag.floatValue());
                     g.setColor(new Color(colorModel.getRGB(index)));
-                    scale = ((index + this.numColourBands) / this.numColourBands);
                     if (this.style == Style.BARB) {
                       // I used to reference this.layer.getUnits(), but this.layer is
                       // no longer available.  How to get units here?
-                      drawing = BarbFactory.getWindBarbForSpeed(mag, angle, i, j, "m/s");
+                      drawing = BarbFactory.getWindBarbForSpeed(mag, angle, i, j, "m/s", this.vectorScale);
                       g.setStroke(new BasicStroke(2));
                       g.draw(drawing);
                     } else {
                       // Arrows.  We need to pick the style arrow now
-                      drawing = VectorFactory.getVector(this.style.name(), mag, angle, i, j, scale);
+                      drawing = VectorFactory.getVector(this.style.name(), mag, angle, i, j, this.vectorScale);
                       if (this.style != Style.LINEVEC) {
                         g.fill(drawing);
                       }
@@ -474,6 +473,7 @@ public final class ImageProducer
         private int picHeight = -1;
         private boolean transparent = false;
         private int opacity = 100;
+        private float vectorScale = 1;
         private int numColourBands = ColorPalette.MAX_NUM_COLOURS;
         private Boolean logarithmic = null;
         private Color bgColor = Color.WHITE;
@@ -566,6 +566,13 @@ public final class ImageProducer
             return this;
         }
 
+        /** Sets the width of the picture (must be set: there is no default) */
+        public Builder vectorScale(float scale) {
+            if (scale <= 0) throw new IllegalArgumentException();
+            this.vectorScale = scale;
+            return this;
+        }
+
         /**
          * Checks the fields for internal consistency, then creates and returns
          * a new ImageProducer object.
@@ -599,7 +606,7 @@ public final class ImageProducer
             ip.scaleRange = this.scaleRange == null
                 ? emptyRange
                 : this.scaleRange;
-
+            ip.vectorScale = this.vectorScale;
             return ip;
         }
     }
